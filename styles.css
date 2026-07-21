@@ -21,3 +21,5 @@ dialog{border:0;padding:0;color:var(--ink);background:var(--paper);box-shadow:0 
 .weather.rain{background:none}
 .weather.snow{background:none}
 .ending-achievement{margin:1.3rem 0;padding:1rem;border-left:4px solid var(--rust);background:rgba(255,255,255,.4)}.ending-achievement span{display:block;font-size:.7rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--rust)}.ending-achievement strong{display:block;margin-top:.35rem;font-family:Rockwell,"Roboto Slab","Courier New",serif;font-size:clamp(1.3rem,3vw,2rem);line-height:1.1}.ending-panel .score{font-size:1.15rem;margin-bottom:1.3rem}
+#canvas-chasse{touch-action:none}
+@media(max-width:560px){.game-layout{display:flex;flex-direction:column;gap:.8rem}.game-layout .travel-card,.game-layout .sidebar{display:contents}.game-layout .scene{order:1}.game-layout .journal-panel{order:2}.game-layout .stats-panel{order:3}.game-layout .party-panel{order:4}.game-layout .travel-controls{order:5}.game-layout .secondary-actions{order:6;margin-top:0}.game-layout .sidebar .panel{margin-bottom:0}.secondary-actions .btn:last-child{grid-column:auto}}

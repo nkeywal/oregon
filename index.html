@@ -148,6 +148,7 @@
         <p id="texte-fin"></p>
         <div class="ending-achievement"><span>Votre réussite</span><strong id="rang-fin">Pionnier ordinaire</strong></div>
         <div id="score-fin" class="score"></div>
+        <section class="ending-journal" aria-labelledby="titre-journal-fin"><h3 id="titre-journal-fin">Journal de bord</h3><ol id="journal-fin" class="journal-list"></ol></section>
         <button id="rejouer" class="btn primary">Reprendre la piste</button>
       </div>
     </section>
@@ -181,6 +182,22 @@
         <div><span>Balles restantes</span><strong id="bilan-balles-restantes">0</strong></div>
         <div><span>Viande chargée</span><strong><span id="bilan-viande">0</span> kg</strong></div>
       </div>
+      <button class="btn primary" value="close">Reprendre la piste</button>
+    </form>
+  </dialog>
+
+  <dialog id="dialogue-bilan-riviere" class="game-dialog river-result-dialog" aria-labelledby="titre-bilan-riviere">
+    <form method="dialog">
+      <div id="bilan-riviere-art" class="river-result-art" role="img" aria-label="Le convoi termine la traversée du fleuve"></div>
+      <p class="eyebrow">L’autre rive</p>
+      <h2 id="titre-bilan-riviere">Bilan de la traversée</h2>
+      <p id="bilan-riviere-texte"></p>
+      <div class="hunt-result-grid river-result-grid">
+        <div><span>Méthode</span><strong id="bilan-riviere-methode">Bac</strong></div>
+        <div><span>Durée</span><strong id="bilan-riviere-duree">1 jour</strong></div>
+        <div><span>Vivres consommés</span><strong id="bilan-riviere-vivres">0 kg</strong></div>
+      </div>
+      <div id="bilan-riviere-resultat" class="event-details"></div>
       <button class="btn primary" value="close">Reprendre la piste</button>
     </form>
   </dialog>

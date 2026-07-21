@@ -312,7 +312,7 @@ function randomEvent(){
 
 function injuryEvent(){
   const p=pick(alive()),damage=rand(14,24);p.health=clamp(p.health-damage,1,100);p.state="Blessé";p.sickDays=8;
-  eventModal("Blessure sur la piste",`${p.name} a fait une mauvaise chute près du chariot.`,`Sa blessure lui a fait perdre ${damage} points de santé. Un remède et des bandages accéléreraient sa guérison.`,[
+  eventModal("Blessure sur la piste",`${p.name} a fait une mauvaise chute près du chariot.`,`Sa blessure l’a fortement affaibli. Un remède et des bandages accéléreraient sa guérison.`,[
     {label:"Utiliser un remède",disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+16,1,100);p.sickDays=3;p.state="Convalescent";addJournal(`${p.name} a été soigné après sa chute.`)}},
     {label:"Poser une attelle",action:()=>{advanceDate(1);consumeFood(1);p.sickDays=6;addJournal(`${p.name} voyage avec une attelle improvisée.`)}}
   ],"incident-injury.png");
@@ -320,7 +320,7 @@ function injuryEvent(){
 
 function dysenteryEvent(){
   const p=pick(alive()),damage=rand(18,28);p.health=clamp(p.health-damage,1,100);p.state="Dysenterie";p.sickDays=12;
-  eventModal("Dysenterie",`${p.name} est pris de violentes douleurs et se déshydrate rapidement.`,`La dysenterie lui a fait perdre ${damage} points de santé. Du repos, de l’eau bouillie et un remède peuvent éviter le pire.`,[
+  eventModal("Dysenterie",`${p.name} est pris de violentes douleurs et se déshydrate rapidement.`,`Son état s’est sérieusement dégradé. Du repos, de l’eau bouillie et un remède peuvent éviter le pire.`,[
     {label:"Donner un remède",disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+18,1,100);p.sickDays=5;p.state="Convalescent";addJournal(`${p.name} a reçu un remède contre la dysenterie.`)}},
     {label:"Faire halte 2 jours",action:()=>{advanceDate(2);consumeFood(2);p.health=clamp(p.health+6,1,100);p.sickDays=8;addJournal(`Le convoi s’est arrêté pour soigner la dysenterie de ${p.name}.`)}},
     {label:"Continuer",action:()=>{p.health=clamp(p.health-8,1,100);addJournal(`${p.name} reste gravement atteint de dysenterie.`)}}
@@ -333,7 +333,7 @@ function climateInjuryEvent(){
   const title=cold?"Engelures":"Piqûres d’insectes";
   const text=cold?`${p.name} souffre d’engelures après une longue exposition au froid.`:`${p.name} est couvert de piqûres douloureuses après une halte sous une chaleur étouffante.`;
   const details=cold?"Il faut réchauffer progressivement les zones atteintes.":"Les piqûres se sont infectées et doivent être nettoyées.";
-  eventModal(title,text,`${details} ${damage} points de santé ont été perdus.`,[
+  eventModal(title,text,`${details} ${p.name} en ressort affaibli.`,[
     {label:"Utiliser un remède",disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+(cold?17:12),1,100);p.sickDays=3;p.state="Convalescent";addJournal(`${p.name} a été soigné pour ${cold?"des engelures":"des piqûres d’insectes"}.`)}},
     {label:cold?"Réchauffer et attendre":"Nettoyer et repartir",action:()=>{if(cold){advanceDate(1);consumeFood(1)}p.sickDays=cold?6:4;addJournal(`${p.name} récupère lentement après ${cold?"ses engelures":"ses piqûres"}.`)}}
   ],cold?"incident-frostbite.png":"incident-bites.png");

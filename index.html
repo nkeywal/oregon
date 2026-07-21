@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#191812">
+  <meta name="description" content="Une aventure de survie sur la piste de l'Oregon, jouable entièrement dans le navigateur.">
+  <title>La Piste de l'Oregon</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#jeu">Aller au jeu</a>
+  <main id="jeu" tabindex="-1">
+    <section id="ecran-accueil" class="screen hero-screen active" aria-labelledby="titre-jeu">
+      <div class="hero-art" role="img" aria-label="Un chariot traverse les grandes plaines vers les montagnes"></div>
+      <div class="hero-content panel">
+        <p class="eyebrow">Independence, Missouri · 1848</p>
+        <h1 id="titre-jeu">La Piste<br>de l’Oregon</h1>
+        <p>Deux mille miles de poussière, de rivières et de choix difficiles. Conduirez-vous votre famille jusqu’à la vallée de Willamette&nbsp;?</p>
+        <div class="button-stack">
+          <button id="nouvelle-partie" class="btn primary">Prendre la piste</button>
+          <button id="continuer" class="btn secondary" hidden>Continuer la partie</button>
+        </div>
+        <p class="fine-print">Aucune donnée n’est envoyée. La progression est sauvegardée sur cet appareil.</p>
+      </div>
+    </section>
+
+    <section id="ecran-groupe" class="screen setup-screen" aria-labelledby="titre-groupe">
+      <header class="section-heading">
+        <p class="eyebrow">Avant le grand départ</p>
+        <h2 id="titre-groupe">Qui prend la piste&nbsp;?</h2>
+        <p>Votre métier détermine votre bourse et votre expérience.</p>
+      </header>
+      <form id="form-groupe" class="setup-grid">
+        <fieldset class="panel profession-picker">
+          <legend>Votre métier</legend>
+          <label class="choice-card"><input type="radio" name="profession" value="fermier" checked><span><b>Fermier</b><small>800 $ · Bonus de score</small></span></label>
+          <label class="choice-card"><input type="radio" name="profession" value="charpentier"><span><b>Charpentier</b><small>1 000 $ · Répare mieux</small></span></label>
+          <label class="choice-card"><input type="radio" name="profession" value="banquier"><span><b>Banquier</b><small>1 600 $ · Voyage plus facile</small></span></label>
+        </fieldset>
+        <fieldset class="panel names-picker">
+          <legend>Les cinq voyageurs</legend>
+          <label>Chef de convoi<input name="nom0" maxlength="16" value="Camille" required></label>
+          <label>Compagnon<input name="nom1" maxlength="16" value="Lou" required></label>
+          <label>Voyageur<input name="nom2" maxlength="16" value="Charlie" required></label>
+          <label>Voyageur<input name="nom3" maxlength="16" value="Alix" required></label>
+          <label>Voyageur<input name="nom4" maxlength="16" value="Sacha" required></label>
+        </fieldset>
+        <fieldset class="panel departure-picker">
+          <legend>Mois de départ</legend>
+          <label class="choice-card compact"><input type="radio" name="mois" value="2"><span><b>Mars</b><small>Plus de temps, froid mordant</small></span></label>
+          <label class="choice-card compact"><input type="radio" name="mois" value="3" checked><span><b>Avril</b><small>Le choix équilibré</small></span></label>
+          <label class="choice-card compact"><input type="radio" name="mois" value="4"><span><b>Mai</b><small>Temps doux, hiver proche</small></span></label>
+        </fieldset>
+        <button class="btn primary setup-submit" type="submit">Préparer le chariot</button>
+      </form>
+    </section>
+
+    <section id="ecran-boutique" class="screen shop-screen" aria-labelledby="titre-boutique">
+      <header class="section-heading">
+        <p class="eyebrow">Chez Matt, marchand général</p>
+        <h2 id="titre-boutique">Chargez soigneusement</h2>
+        <p>Une fois parti, les prix augmenteront à chaque fort.</p>
+      </header>
+      <div class="shop-layout">
+        <div id="liste-boutique" class="shop-list" aria-live="polite"></div>
+        <aside class="panel receipt">
+          <p class="eyebrow">Votre bourse</p>
+          <strong id="argent-boutique" class="big-number">0 $</strong>
+          <div id="conseils-boutique" class="shop-advice"></div>
+          <button id="partir" class="btn primary">Quitter Independence</button>
+          <button id="retour-groupe" class="btn ghost">Modifier le groupe</button>
+        </aside>
+      </div>
+    </section>
+
+    <section id="ecran-voyage" class="screen game-screen" aria-labelledby="titre-etape">
+      <header class="game-header">
+        <div>
+          <p id="date" class="eyebrow">1 avril 1848</p>
+          <h2 id="titre-etape">Sur la piste</h2>
+        </div>
+        <div class="header-actions">
+          <button id="aide" class="icon-btn" aria-label="Afficher l’aide">?</button>
+          <button id="sauvegarder" class="btn small secondary">Sauvegarder</button>
+        </div>
+      </header>
+
+      <div class="progress-wrap" aria-label="Progression vers l’Oregon">
+        <div class="progress-labels"><span>Missouri</span><span id="distance-label">0 / 3 200 km</span><span>Oregon</span></div>
+        <div class="trail-progress"><div id="barre-progression"><span class="wagon-marker" aria-hidden="true">◆</span></div></div>
+      </div>
+
+      <div class="game-layout">
+        <section class="travel-card">
+          <div id="scene" class="scene trail-scene" role="img" aria-label="Le chariot avance sur la piste">
+            <div class="weather" id="meteo-scene"></div>
+            <div class="scene-caption"><span id="lieu">Prairies du Kansas</span><b id="meteo">Doux · 18 °C</b></div>
+          </div>
+          <div class="travel-controls panel">
+            <div class="control-group">
+              <label for="rythme">Rythme</label>
+              <select id="rythme"><option value="prudent">Prudent</option><option value="soutenu" selected>Soutenu</option><option value="epuisant">Épuisant</option></select>
+            </div>
+            <div class="control-group">
+              <label for="rations">Rations</label>
+              <select id="rations"><option value="copieuses">Copieuses</option><option value="normales" selected>Normales</option><option value="maigres">Maigres</option></select>
+            </div>
+            <button id="avancer" class="btn primary action-main">Voyager 5 jours</button>
+          </div>
+          <div class="secondary-actions">
+            <button id="chasser" class="btn secondary">Chasser</button>
+            <button id="repos" class="btn secondary">Se reposer</button>
+            <button id="inventaire-btn" class="btn secondary">Inventaire</button>
+          </div>
+        </section>
+
+        <aside class="sidebar">
+          <section class="panel stats-panel" aria-labelledby="titre-ressources">
+            <h3 id="titre-ressources">Chariot</h3>
+            <dl class="stats-grid">
+              <div><dt>Vivres</dt><dd id="stat-vivres">0 kg</dd></div>
+              <div><dt>Argent</dt><dd id="stat-argent">0 $</dd></div>
+              <div><dt>Munitions</dt><dd id="stat-munitions">0</dd></div>
+              <div><dt>Pièces</dt><dd id="stat-pieces">0</dd></div>
+              <div><dt>Bœufs</dt><dd id="stat-boeufs">0</dd></div>
+              <div><dt>Couvertures</dt><dd id="stat-vetements">0</dd></div>
+            </dl>
+          </section>
+          <section class="panel party-panel" aria-labelledby="titre-sante">
+            <div class="panel-heading"><h3 id="titre-sante">Le groupe</h3><span id="sante-globale" class="status good">Bonne santé</span></div>
+            <ul id="liste-groupe" class="party-list"></ul>
+          </section>
+          <section class="panel journal-panel" aria-labelledby="titre-journal">
+            <div class="panel-heading"><h3 id="titre-journal">Journal de bord</h3><button id="journal-plus" class="text-btn">Tout voir</button></div>
+            <ol id="journal" class="journal-list" aria-live="polite"></ol>
+          </section>
+        </aside>
+      </div>
+    </section>
+
+    <section id="ecran-fin" class="screen ending-screen" aria-labelledby="titre-fin">
+      <div id="fin-art" class="ending-art"></div>
+      <div class="panel ending-panel">
+        <p id="fin-kicker" class="eyebrow">Vallée de Willamette</p>
+        <h2 id="titre-fin">Vous avez atteint l’Oregon</h2>
+        <p id="texte-fin"></p>
+        <div id="score-fin" class="score"></div>
+        <button id="rejouer" class="btn primary">Reprendre la piste</button>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="dialogue-evenement" class="game-dialog" aria-labelledby="event-title">
+    <form method="dialog">
+      <div id="event-art" class="dialog-art"></div>
+      <p id="event-kicker" class="eyebrow">Sur la piste</p>
+      <h2 id="event-title">Un événement</h2>
+      <p id="event-text"></p>
+      <div id="event-details" class="event-details"></div>
+      <div id="event-actions" class="dialog-actions"></div>
+    </form>
+  </dialog>
+
+  <dialog id="dialogue-chasse" class="hunt-dialog" aria-labelledby="titre-chasse">
+    <div class="hunt-heading"><div><p class="eyebrow">Les grandes plaines</p><h2 id="titre-chasse">Chasse</h2></div><button id="fermer-chasse" class="icon-btn" aria-label="Fermer">×</button></div>
+    <p>Déplacez la mire avec la souris ou les flèches, puis tirez avec clic ou Espace. Chaque tir coûte une balle.</p>
+    <canvas id="canvas-chasse" width="760" height="420" tabindex="0" aria-label="Mini-jeu de chasse"></canvas>
+    <div class="hunt-footer"><span>Temps <b id="chasse-temps">20</b>s</span><span>Butin <b id="chasse-butin">0</b> kg</span><span>Balles <b id="chasse-balles">0</b></span></div>
+  </dialog>
+
+  <dialog id="dialogue-bilan-chasse" class="game-dialog hunt-result-dialog" aria-labelledby="titre-bilan-chasse">
+    <form method="dialog">
+      <div class="hunt-result-art" role="img" aria-label="Un troupeau de bisons dans les grandes plaines"></div>
+      <p class="eyebrow">Retour au camp</p>
+      <h2 id="titre-bilan-chasse">Bilan de la chasse</h2>
+      <div class="hunt-result-grid">
+        <div><span>Balles tirées</span><strong id="bilan-balles-tirees">0</strong></div>
+        <div><span>Balles restantes</span><strong id="bilan-balles-restantes">0</strong></div>
+        <div><span>Viande chargée</span><strong><span id="bilan-viande">0</span> kg</strong></div>
+      </div>
+      <button class="btn primary" value="close">Reprendre la piste</button>
+    </form>
+  </dialog>
+
+  <dialog id="dialogue-attaque" class="attack-dialog" aria-labelledby="titre-attaque">
+    <div class="hunt-heading"><div><p class="eyebrow">Alerte sur la piste</p><h2 id="titre-attaque">Protégez le convoi</h2></div></div>
+    <p>Déplacez le chariot avec les flèches gauche et droite. Évitez les projectiles jusqu’à la fin de l’attaque.</p>
+    <canvas id="canvas-attaque" width="760" height="420" tabindex="0" aria-label="Mini-jeu d’attaque : déplacer le chariot pour éviter les projectiles"></canvas>
+    <div class="hunt-footer"><span>Temps <b id="attaque-temps">15</b>s</span><span>Impacts <b id="attaque-impacts">0</b></span></div>
+    <div class="attack-buttons"><button id="attaque-gauche" class="btn secondary" type="button">← Gauche</button><button id="attaque-droite" class="btn secondary" type="button">Droite →</button></div>
+  </dialog>
+
+  <dialog id="dialogue-bilan-attaque" class="game-dialog attack-result-dialog" aria-labelledby="titre-bilan-attaque">
+    <div class="attack-result-art" role="img" aria-label="Le convoi pris dans un affrontement sur la piste"></div>
+    <div class="attack-result-content">
+      <p class="eyebrow">Le calme revient</p>
+      <h2 id="titre-bilan-attaque">Bilan de l’attaque</h2>
+      <div class="hunt-result-grid">
+        <div><span>Impacts</span><strong id="bilan-attaque-impacts">0</strong></div>
+        <div><span>Blessés</span><strong id="bilan-attaque-blesses">0</strong></div>
+        <div><span>Décès</span><strong id="bilan-attaque-deces">0</strong></div>
+      </div>
+      <ul id="bilan-attaque-liste" class="attack-casualties"></ul>
+      <div class="dialog-actions"><button id="soigner-attaque" class="btn secondary" type="button">Utiliser des remèdes</button><button id="continuer-attaque" class="btn primary" type="button">Reprendre la piste</button></div>
+    </div>
+  </dialog>
+
+  <dialog id="dialogue-info" class="info-dialog" aria-labelledby="info-title">
+    <form method="dialog"><button class="dialog-close icon-btn" aria-label="Fermer">×</button><h2 id="info-title">Inventaire</h2><div id="info-content"></div><button class="btn primary" value="close">Fermer</button></form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="game.js"></script>
+</body>
+</html>

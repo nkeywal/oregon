@@ -5,6 +5,28 @@ const $$ = (selector) => [...document.querySelectorAll(selector)];
 const SAVE_KEY = "oregon-trail-fr-v1";
 const KM_TOTAL = 3200;
 const MONTHS = ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
+const ENDING_RANKS = [
+  "Disparu sans laisser de trace",
+  "Nourriture pour coyotes",
+  "Victime de la dysenterie",
+  "Conducteur de chariot égaré",
+  "Pionnier mal préparé",
+  "Chercheur d’or bredouille",
+  "Voyageur du dimanche",
+  "Convoyeur de bétail",
+  "Éclaireur hésitant",
+  "Pionnier ordinaire",
+  "Chef de famille prudent",
+  "Guide de convoi",
+  "Vétéran de la piste",
+  "Bâtisseur de ferme",
+  "Fondateur de comptoir",
+  "Capitaine de la Frontière",
+  "Maître de la piste de l’Oregon",
+  "Conquérant de l’Ouest",
+  "Légende de la Frontière",
+  "Père ou Mère de l’Oregon"
+];
 
 const SHOP = {
   boeufs: { label:"Bœufs", desc:"Une paire coûte 40 $. Il en faut au moins quatre.", unit:"bête", plural:"bêtes", step:2, price:40, max:12, start:6 },
@@ -63,6 +85,7 @@ function money(n) { return `${Math.max(0,Math.round(n))} $`; }
 // Dans l'interface du jeu, zéro conserve le singulier : « 0 pièce ».
 function unitLabel(item,quantity) { return quantity<=1?item.unit:item.plural; }
 function itemQuantity(key,quantity) { return `${quantity} ${unitLabel(SHOP[key],quantity)}`; }
+function endingRank(score) { return ENDING_RANKS[Math.min(ENDING_RANKS.length-1,Math.floor(Math.max(0,score)/250))]; }
 
 function toast(text) {
   const el=$("#toast"); el.textContent=text; el.classList.add("show");
@@ -447,10 +470,12 @@ function load(){try{const data=JSON.parse(localStorage.getItem(SAVE_KEY));if(!da
 function finish(win,message=""){
   game.finished=true;localStorage.removeItem(SAVE_KEY);const avg=alive().length?alive().reduce((n,p)=>n+p.health,0)/alive().length:0;
   const score=Math.max(0,Math.round(game.money+game.cart.vivres*2+alive().length*250+avg*10+(game.profession==="fermier"?1200:game.profession==="charpentier"?600:0)));
+  game.score=score;
   $("#ecran-fin").classList.toggle("defeat",!win);$("#fin-kicker").textContent=win?"Vallée de Willamette · Oregon":"La piste s’arrête ici";
   $("#titre-fin").textContent=win?"Vous avez atteint l’Oregon":"Le convoi n’ira pas plus loin";
   $("#texte-fin").textContent=message||(win?`${alive().length} voyageur${alive().length>1?"s":""} contemple${alive().length>1?"nt":""} enfin la vallée. Après ${game.days} jours sur la piste, une nouvelle vie commence.`:"La faim, la maladie et la route ont eu raison de votre expédition.");
-  $("#score-fin").textContent=win?`Score · ${score.toLocaleString("fr-FR")}`:`Distance · ${Math.round(game.km).toLocaleString("fr-FR")} km`;
+  $("#rang-fin").textContent=endingRank(score);
+  $("#score-fin").textContent=`Score · ${score.toLocaleString("fr-FR")}${win?"":` · Distance · ${Math.round(game.km).toLocaleString("fr-FR")} km`}`;
   showScreen("ecran-fin");
 }
 

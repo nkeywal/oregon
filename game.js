@@ -397,7 +397,7 @@ function tradeEvent(){
 }
 
 function attackEvent(){
-  eventModal("Attaque du convoi","Des cavaliers autochtones approchent rapidement et des projectiles frappent autour des chariots.","Mettez le groupe à couvert et tenez jusqu’à leur retrait.",[
+  eventModal("Attaque du convoi","Les indiens approchent rapidement à cheval et des projectiles frappent autour des chariots.","Mettez le groupe à couvert et tenez jusqu’à leur retrait.",[
     {label:"Protéger le convoi",action:()=>setTimeout(startAttack,0)}
   ],"incident-attack.png");
 }

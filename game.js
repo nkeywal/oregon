@@ -257,8 +257,15 @@ function resolveStarvation(){
 }
 
 function updateDeaths(){
-  for(const p of game.party){
-    if(p.alive&&p.health<=0){p.alive=false;p.state="Décédé";addJournal(`${p.name} est mort sur la piste.`);}
+  const dying=alive().filter(p=>p.health<=0).sort(()=>Math.random()-.5);
+  const deaths=dying.slice(0,1);
+  for(const p of deaths){
+    p.alive=false;p.state="Décédé";addJournal(`${p.name} est mort sur la piste.`);
+  }
+  // Une même étape peut affaiblir tout le groupe, mais ne doit pas tuer
+  // plusieurs voyageurs simultanément. Les autres restent en état critique.
+  for(const p of dying.slice(1)){
+    p.health=1;p.state="Très faible";
   }
   if(alive().length===0)finish(false,"La piste a eu raison de tout le convoi.");
 }
@@ -535,7 +542,7 @@ function finish(win,message=""){
   $("#texte-fin").textContent=message||(win?`${alive().length} voyageur${alive().length>1?"s":""} contemple${alive().length>1?"nt":""} enfin la vallée. Après ${game.days} jours sur la piste, une nouvelle vie commence.`:"La faim, la maladie et la route ont eu raison de votre expédition.");
   $("#rang-fin").textContent=endingRank(score);
   $("#score-fin").textContent=`Score · ${score.toLocaleString("fr-FR")}${win?"":` · Distance · ${Math.round(game.km).toLocaleString("fr-FR")} km`}`;
-  $("#journal-fin").innerHTML=[...game.journal].reverse().map(j=>`<li><time>${escapeHtml(j.date)}</time>${escapeHtml(j.text)}</li>`).join("")||"<li>Aucune entrée dans le journal.</li>";
+  $("#journal-fin").innerHTML=game.journal.map(j=>`<li><time>${escapeHtml(j.date)}</time>${escapeHtml(j.text)}</li>`).join("")||"<li>Aucune entrée dans le journal.</li>";
   showScreen("ecran-fin");
 }
 
@@ -644,7 +651,7 @@ function endAttack(){
   const candidates=[...alive()].sort(()=>Math.random()-.5),affected=Math.min(candidates.length,Math.ceil(hits/2)),wounded=[],dead=[];
   for(const p of candidates.slice(0,affected)){
     const lethalChance=Math.max(0,(hits-4)*.07);
-    if(Math.random()<lethalChance){p.health=0;p.alive=false;p.state="Décédé";dead.push(p);}
+    if(dead.length===0&&Math.random()<lethalChance){p.health=0;p.alive=false;p.state="Décédé";dead.push(p);}
     else{p.health=clamp(p.health-rand(18,32)-Math.floor(hits/3),1,100);p.state="Blessé";p.needsRemedy=true;wounded.push(p);}
   }
   attackOutcome={hits,wounded,dead};showAttackOutcome();

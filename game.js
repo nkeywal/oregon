@@ -118,6 +118,12 @@ function healthLabel(value) {
   return ["Décédé","dead"];
 }
 
+function injuryCondition(value) {
+  if(value>64)return "Blessure légère";
+  if(value>34)return "Sérieusement affaibli";
+  return "État critique";
+}
+
 function weatherVisual() {
   if(game.weather.name==="Pluvieux")return {key:"rain",label:"temps pluvieux"};
   if(game.weather.temp<=5)return {key:"cold",label:"temps froid et enneigé"};
@@ -646,7 +652,7 @@ function endAttack(){
 
 function showAttackOutcome(){
   const {hits,wounded,dead}=attackOutcome;$("#bilan-attaque-impacts").textContent=hits;$("#bilan-attaque-blesses").textContent=wounded.length;$("#bilan-attaque-deces").textContent=dead.length;
-  const entries=[...wounded.map(p=>`<li><b>${escapeHtml(p.name)}</b><span>${escapeHtml(p.state)} · ${Math.round(p.health)} % de santé</span></li>`),...dead.map(p=>`<li><b>${escapeHtml(p.name)}</b><span>Décédé</span></li>`)];
+  const entries=[...wounded.map(p=>`<li><b>${escapeHtml(p.name)}</b><span>${injuryCondition(p.health)}</span></li>`),...dead.map(p=>`<li><b>${escapeHtml(p.name)}</b><span>Décédé</span></li>`)];
   $("#bilan-attaque-liste").innerHTML=entries.length?entries.join(""):"<li><b>Aucune victime</b><span>Le convoi a tenu bon.</span></li>";
   const untreated=wounded.filter(p=>p.needsRemedy).length,usable=Math.min(untreated,game.cart.medicaments);
   $("#soigner-attaque").disabled=usable===0;

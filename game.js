@@ -37,15 +37,15 @@ const SHOP = {
 };
 
 const LANDMARKS = [
-  {km:165,name:"Rivière Kansas",kind:"river",depth:0.8,visual:"kansas"},
+  {km:165,name:"Rivière Kansas",kind:"river",baseDepth:0.8,seasonalFlow:.75,weatherResponse:1.15,visual:"kansas"},
   {km:490,name:"Fort Kearny",kind:"fort",visual:"fort-kearny"},
   {km:980,name:"Chimney Rock",kind:"landmark",visual:"chimney-rock"},
   {km:1240,name:"Fort Laramie",kind:"fort",visual:"fort-laramie"},
   {km:1510,name:"Independence Rock",kind:"landmark",visual:"independence-rock"},
   {km:1810,name:"South Pass",kind:"landmark",visual:"south-pass"},
-  {km:2320,name:"Rivière Snake",kind:"river",depth:1.6,visual:"snake"},
+  {km:2320,name:"Rivière Snake",kind:"river",baseDepth:1.6,seasonalFlow:1.1,weatherResponse:.9,visual:"snake"},
   {km:2580,name:"Fort Boise",kind:"fort",visual:"fort-boise"},
-  {km:2920,name:"The Dalles",kind:"river",depth:2.1,visual:"dalles"}
+  {km:2920,name:"The Dalles",kind:"river",baseDepth:2.1,seasonalFlow:1.25,weatherResponse:1,visual:"dalles"}
 ];
 const FINAL_STAGE = {km:KM_TOTAL,name:"Vallée de Willamette",visual:"willamette"};
 
@@ -72,6 +72,9 @@ const MONTHLY_WEATHER = [
   [3,3,4,2],     // novembre
   [3,4,4,2]      // décembre
 ];
+// Fonte printanière, étiage estival et réaction aux conditions des derniers jours.
+const RIVER_SEASON_LEVEL = [-.15,-.1,.05,.25,.4,.3,.05,-.2,-.25,-.1,-.05,-.1];
+const RIVER_WEATHER_LEVEL = {Doux:0,Chaud:-.18,Pluvieux:.35,Froid:-.1,Neige:-.15};
 
 let game = null;
 let cart = Object.fromEntries(Object.entries(SHOP).map(([k,v]) => [k,v.start]));
@@ -127,6 +130,16 @@ function consumeFood(days,perPerson=dailyFoodPerPerson()) {
   game.cart.vivres-=consumed;return {needed,consumed};
 }
 function travelWeatherFactor(weather) { return {Doux:1,Chaud:.85,Pluvieux:.8,Froid:.9,Neige:.65}[weather.name]??1; }
+function formatDepth(depth) { return depth.toFixed(1).replace(".",","); }
+function riverDepth(mark,previous=null) {
+  const seasonal=RIVER_SEASON_LEVEL[game.month]*(mark.seasonalFlow??1);
+  const weather=(RIVER_WEATHER_LEVEL[game.weather.name]??0)*(mark.weatherResponse??1);
+  const localVariation=rand(-22,22)/100;
+  const expected=mark.baseDepth+seasonal+weather+localVariation;
+  // Après une attente, le niveau conserve une part d'inertie tout en restant imprévisible.
+  const measured=previous===null?expected:previous*.55+expected*.45+rand(-16,16)/100;
+  return clamp(measured,.3,3.4);
+}
 
 function checkJourneyFailure() {
   if(game.finished)return true;
@@ -504,12 +517,22 @@ function landmark(mark){
   else eventModal(mark.name,`Le convoi atteint ${mark.name}.`,"Un repère bienvenu sur l’immensité de la piste.",[{label:"Graver nos noms et repartir",action:()=>{addJournal(`Nous avons atteint ${mark.name}.`);setTrailScene();}}],art);
 }
 
-function riverEvent(mark,art=stageAsset(mark)){
-  const cost=35+Math.round(mark.depth*15);
-  eventModal(mark.name,`Le courant est rapide et l’eau atteint environ ${mark.depth.toFixed(1).replace(".",",")} mètre${mark.depth>=2?"s":""}.`,"Comment ferez-vous traverser le chariot ?",[
-    {label:`Prendre le bac (${cost} $)`,disabled:game.money<cost,action:()=>{game.money-=cost;advanceDate(1);const food=consumeFood(1);addJournal(`Traversée de ${mark.name} en bac, sans incident.`);queueRiverOutcome(mark,"ferry",{method:"Bac",days:1,food:food.consumed,text:"Le bac a transporté le chariot et tout le groupe jusqu’à l’autre rive.",result:`Traversée sans perte · Coût : ${cost} $`})}},
-    {label:"Calfater et flotter",action:()=>riverRisk(mark)},
-    {label:"Attendre que l’eau baisse",action:()=>{advanceDate(3);const food=consumeFood(3);game.oxStrain=clamp(game.oxStrain-2,0,10);addJournal(`Après trois jours d’attente, nous avons traversé ${mark.name} dans une eau plus basse.`);queueRiverOutcome(mark,"wait",{method:"Attente et passage à gué",days:3,food:food.consumed,text:"Le niveau a suffisamment baissé pour permettre un passage prudent.",result:"Traversée réussie sans perte de chargement"})}}
+function riverEvent(mark,art=stageAsset(mark),depth=null,observation=""){
+  const measured=depth??riverDepth(mark),shown=formatDepth(measured);
+  const cost=35+Math.round(measured*15);
+  const details=observation?`${observation} Comment ferez-vous traverser le chariot ?`:"Comment ferez-vous traverser le chariot ?";
+  eventModal(mark.name,`Le courant est rapide et la profondeur mesurée atteint environ ${shown} mètre${measured>=2?"s":""}.`,details,[
+    {label:`Prendre le bac (${cost} $)`,disabled:game.money<cost,action:()=>{game.money-=cost;advanceDate(1);const food=consumeFood(1);addJournal(`Traversée de ${mark.name} en bac, sans incident, avec une profondeur de ${shown} m.`);queueRiverOutcome(mark,"ferry",{method:"Bac",days:1,food:food.consumed,text:"Le bac a transporté le chariot et tout le groupe jusqu’à l’autre rive.",result:`Traversée sans perte · Profondeur : ${shown} m · Coût : ${cost} $`})}},
+    {label:"Calfater et flotter",action:()=>riverRisk(mark,measured)},
+    {label:"Attendre 3 jours et remesurer",action:()=>{
+      advanceDate(3);consumeFood(3);game.oxStrain=clamp(game.oxStrain-2,0,10);
+      game.weather=weatherForSeason();
+      const next=riverDepth(mark,measured),nextShown=formatDepth(next);
+      const displayedChange=Math.round(next*10)-Math.round(measured*10);
+      const change=displayedChange>0?"a monté":displayedChange<0?"a baissé":"est resté stable";
+      addJournal(`Après trois jours d’attente à ${mark.name}, le niveau ${change} : de ${shown} m à ${nextShown} m.`);
+      setTimeout(()=>{if(!game.finished)riverEvent(mark,stageAsset(mark),next,`Après l’attente, le niveau ${change}.`)},0);
+    }}
   ],art);
 }
 
@@ -522,10 +545,10 @@ function showRiverOutcome(mark,outcome,{method,days,food,text,result}){
   $("#dialogue-bilan-riviere").showModal();
 }
 
-function riverRisk(mark){
+function riverRisk(mark,depth){
   advanceDate(1);const travelFood=consumeFood(1);
   game.oxStrain=clamp(game.oxStrain+1,0,10);
-  const risk=clamp(mark.depth*.14+(game.cart.boeufs<4?.1:0)+(game.cart.pieces===0?.05:0),.05,.5);
+  const risk=clamp(depth*.14+(game.cart.boeufs<4?.1:0)+(game.cart.pieces===0?.05:0),.05,.5);
   if(Math.random()<risk){
     const cargoLosses=[
       {key:"vivres",amount:Math.min(game.cart.vivres,rand(25,70))},
@@ -540,12 +563,12 @@ function riverRisk(mark){
       game.cart[loss.key]-=loss.amount;losses.push(itemQuantity(loss.key,loss.amount));
     }
     const maxOxLoss=Math.max(0,game.cart.boeufs-1);
-    const oxLoss=maxOxLoss&&Math.random()<clamp(.18+mark.depth*.12,.2,.45)?Math.min(maxOxLoss,mark.depth>=1.5?rand(1,2):1):0;
+    const oxLoss=maxOxLoss&&Math.random()<clamp(.18+depth*.12,.2,.45)?Math.min(maxOxLoss,depth>=1.5?rand(1,2):1):0;
     if(oxLoss){game.cart.boeufs-=oxLoss;losses.push(`${oxLoss} bœuf${oxLoss>1?"s":""}`);}
     alive().forEach(p=>p.health=clamp(p.health-rand(2,9),0,100));
-    addJournal(losses.length?`Le chariot a pris l’eau à ${mark.name}. Le courant emporte ${losses.join(" et ")}.`:`Le chariot a pris l’eau à ${mark.name}, sans perte de chargement.`);toast("Le courant a secoué le convoi.");
-    queueRiverOutcome(mark,"float-accident",{method:"Chariot calfaté",days:1,food:travelFood.consumed,text:"Le chariot a pris l’eau dans le courant avant d’atteindre difficilement l’autre rive.",result:losses.length?`Pertes : ${losses.join(" et ")}`:"Aucune provision perdue, mais le groupe a été éprouvé"});
-  } else {addJournal(`Le chariot a traversé ${mark.name} à flot sans incident.`);queueRiverOutcome(mark,"float-success",{method:"Chariot calfaté",days:1,food:travelFood.consumed,text:"Le chariot a flotté jusqu’à l’autre rive sous le contrôle des cordes et des bœufs.",result:"Traversée réussie sans perte de chargement"})}
+    addJournal(losses.length?`À ${mark.name}, le chariot a pris l’eau par ${formatDepth(depth)} m de profondeur. Le courant emporte ${losses.join(" et ")}.`:`Le chariot a pris l’eau à ${mark.name}, sans perte de chargement.`);toast("Le courant a secoué le convoi.");
+    queueRiverOutcome(mark,"float-accident",{method:"Chariot calfaté",days:1,food:travelFood.consumed,text:"Le chariot a pris l’eau dans le courant avant d’atteindre difficilement l’autre rive.",result:losses.length?`Profondeur : ${formatDepth(depth)} m · Pertes : ${losses.join(" et ")}`:`Profondeur : ${formatDepth(depth)} m · Aucune provision perdue, mais le groupe a été éprouvé`});
+  } else {addJournal(`Le chariot a traversé ${mark.name} à flot sans incident, par ${formatDepth(depth)} m de profondeur.`);queueRiverOutcome(mark,"float-success",{method:"Chariot calfaté",days:1,food:travelFood.consumed,text:"Le chariot a flotté jusqu’à l’autre rive sous le contrôle des cordes et des bœufs.",result:`Traversée réussie sans perte · Profondeur : ${formatDepth(depth)} m`})}
   setTrailScene();updateDeaths();
 }
 

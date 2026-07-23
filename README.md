@@ -19,9 +19,11 @@ Ouvrez ensuite `http://localhost:8000`. Le dossier peut aussi être déployé te
 ## Commandes
 
 - Choisissez le groupe, le métier, le mois de départ et les provisions.
+- Consultez le « Guide du pionnier » avant les achats ou depuis la piste.
 - Ajustez le rythme et les rations avant chaque tranche de cinq jours.
 - À la chasse, utilisez la souris ou les flèches pour viser, puis le clic ou `Espace` pour tirer.
 - Pour tester l’attaque du convoi, appuyez sur `&` pendant le voyage.
-- La progression est sauvegardée localement dans le navigateur après chaque étape.
+
+Une partie se joue d’une traite : le jeu n’enregistre aucune progression dans le navigateur.
 
 Les illustrations originales se trouvent dans `assets/`. Elles suivent une direction artistique commune inspirée des affiches WPA et de la gouache sérigraphiée des années 1930.

@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#191812">
   <meta name="description" content="Une aventure de survie sur la piste de l'Oregon, jouable entièrement dans le navigateur.">
   <title>La Piste de l'Oregon</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=20260723-1">
 </head>
 <body>
   <a class="skip-link" href="#jeu">Aller au jeu</a>
@@ -19,9 +19,63 @@
         <p>Deux mille miles de poussière, de rivières et de choix difficiles. Conduirez-vous votre famille jusqu’à la vallée de Willamette&nbsp;?</p>
         <div class="button-stack">
           <button id="nouvelle-partie" class="btn primary">Prendre la piste</button>
-          <button id="continuer" class="btn secondary" hidden>Continuer la partie</button>
+          <button id="guide-accueil" class="btn secondary">Lire le guide du pionnier</button>
         </div>
-        <p class="fine-print">Aucune donnée n’est envoyée. La progression est sauvegardée sur cet appareil.</p>
+        <p class="fine-print">La piste ne vous attendra pas&nbsp;: préparez-vous avant de partir.</p>
+      </div>
+    </section>
+
+    <section id="ecran-aide" class="screen guide-screen" aria-labelledby="titre-aide">
+      <header class="guide-hero">
+        <p class="eyebrow">Independence, Missouri · Printemps 1848</p>
+        <h2 id="titre-aide">Pionnier, ce que tu sais avant le départ</h2>
+        <p>Les récits venus de l’Oregon se contredisent, mais tous s’accordent sur un point&nbsp;: la piste récompense les convois prévoyants.</p>
+      </header>
+      <div class="guide-content">
+        <section class="guide-intro panel">
+          <h3>Deux mille miles vers l’ouest</h3>
+          <p>Tu traverseras des plaines sans fin, des forts isolés, des montagnes et plusieurs grands fleuves. Le temps, la fatigue et les détours consommeront plus que prévu. Aucun chargement ne protège de tout&nbsp;: il faut choisir ce que tu es prêt à risquer.</p>
+        </section>
+
+        <section class="guide-section" aria-labelledby="guide-chargement">
+          <p class="eyebrow">Dans le chariot</p>
+          <h3 id="guide-chargement">Ce que chaque provision peut sauver</h3>
+          <div class="guide-grid">
+            <article class="guide-card"><h4>Bœufs</h4><p>Ils déterminent l’allure du convoi. Une équipe nombreuse tire mieux dans la boue et les pentes. Un animal peut se blesser, se perdre dans un fleuve ou devoir être abattu pour sa viande. Sans bœuf, le voyage s’arrête.</p></article>
+            <article class="guide-card"><h4>Vivres</h4><p>Chaque bouche mange chaque jour, même lorsque le chariot attend une réparation ou la baisse des eaux. La chasse peut refaire les réserves, mais elle n’est ni facile ni garantie.</p></article>
+            <article class="guide-card"><h4>Munitions</h4><p>Les balles servent surtout à la chasse. Les petits animaux sont rapides et le gros gibier rare&nbsp;: une caisse pleine ne promet pas un garde-manger plein.</p></article>
+            <article class="guide-card"><h4>Couvertures</h4><p>Elles protègent les voyageurs du froid et de l’humidité. Elles s’usent, se détrempent et peuvent être volées ou emportées par l’eau. Quand elles manquent, les nuits froides laissent des traces.</p></article>
+            <article class="guide-card"><h4>Pièces de rechange</h4><p>Une roue, un essieu ou un timon peut céder loin de toute forge. Une pièce épargne des jours d’improvisation et évite de sacrifier une partie du chargement.</p></article>
+            <article class="guide-card"><h4>Remèdes</h4><p>Bandages, alcool, sels et fortifiants donnent une chance aux fièvres, aux blessures et aux maladies contagieuses. Ils peuvent aussi aider à remettre un bœuf sur pied.</p></article>
+            <article class="guide-card"><h4>Argent</h4><p>Les forts vendent parfois ce qui te manque, mais plus tu avances, plus les prix montent. Les bacs, réparations urgentes et rencontres sur la piste exigent souvent des espèces.</p></article>
+          </div>
+        </section>
+
+        <section class="guide-section guide-columns" aria-label="Conseils de voyage">
+          <article class="panel">
+            <p class="eyebrow">Sur la piste</p>
+            <h3>Allure et rations</h3>
+            <p>Presser les bœufs fait gagner du terrain, mais fatigue le groupe et malmène le chariot. Des rations maigres prolongent les sacs au prix de voyageurs plus fragiles. Se reposer coûte du temps et des vivres, mais peut éviter une catastrophe.</p>
+          </article>
+          <article class="panel">
+            <p class="eyebrow">Le calendrier</p>
+            <h3>Partir au bon moment</h3>
+            <p>Mars offre du temps mais expose au froid. Mai promet des débuts plus doux, avec moins de marge avant l’hiver. La pluie ralentit les roues, la chaleur épuise et le gel rend chaque manque plus dangereux.</p>
+          </article>
+          <article class="panel">
+            <p class="eyebrow">Aux fleuves</p>
+            <h3>Ne sous-estime jamais l’eau</h3>
+            <p>Le bac coûte cher mais protège généralement le chargement. Attendre consomme des jours et des vivres. Faire flotter le chariot économise l’argent, au risque de perdre provisions, équipement ou bœufs dans le courant.</p>
+          </article>
+          <article class="panel">
+            <p class="eyebrow">Ce que les récits taisent</p>
+            <h3>L’imprévu voyage avec toi</h3>
+            <p>Vols, essieux brisés, animaux blessés, dysenterie, fièvre et rencontres commerciales peuvent changer les priorités en une journée. Les forts ne possèdent pas toujours l’article recherché. Garde une réserve et adapte-toi.</p>
+          </article>
+        </section>
+
+        <blockquote>«&nbsp;Charge ce dont tu auras besoin, puis garde encore un peu de place pour ce que tu n’as pas prévu.&nbsp;»<cite>Conseil entendu chez Matt, marchand général</cite></blockquote>
+        <button id="retour-aide" class="btn primary">Retour</button>
       </div>
     </section>
 
@@ -69,6 +123,7 @@
           <strong id="argent-boutique" class="big-number">0 $</strong>
           <div id="conseils-boutique" class="shop-advice"></div>
           <button id="partir" class="btn primary">Quitter Independence</button>
+          <button id="guide-boutique" class="btn secondary">Guide du pionnier</button>
           <button id="retour-groupe" class="btn ghost">Modifier le groupe</button>
         </aside>
       </div>
@@ -82,7 +137,6 @@
         </div>
         <div class="header-actions">
           <button id="aide" class="icon-btn" aria-label="Afficher l’aide">?</button>
-          <button id="sauvegarder" class="btn small secondary">Sauvegarder</button>
         </div>
       </header>
 
@@ -230,6 +284,6 @@
   </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="game.js?v=20260721-5"></script>
+  <script src="game.js?v=20260723-1"></script>
 </body>
 </html>

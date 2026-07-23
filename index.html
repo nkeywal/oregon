@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#191812">
   <meta name="description" content="Une aventure de survie sur la piste de l'Oregon, jouable entièrement dans le navigateur.">
   <title>La Piste de l'Oregon</title>
-  <link rel="stylesheet" href="styles.css?v=20260723-1">
+  <link rel="stylesheet" href="styles.css?v=20260723-2">
 </head>
 <body>
   <a class="skip-link" href="#jeu">Aller au jeu</a>
@@ -55,7 +55,7 @@
           <article class="panel">
             <p class="eyebrow">Sur la piste</p>
             <h3>Allure et rations</h3>
-            <p>Presser les bœufs fait gagner du terrain, mais fatigue le groupe et malmène le chariot. Des rations maigres prolongent les sacs au prix de voyageurs plus fragiles. Se reposer coûte du temps et des vivres, mais peut éviter une catastrophe.</p>
+            <p>Presser les bœufs fait gagner du terrain, mais le rythme épuisant augmente nettement la consommation, les blessures, les avaries et le risque de voir un bœuf céder. Même une étape sans accident laisse alors des traces. Des rations maigres prolongent les sacs au prix de voyageurs plus fragiles. Se reposer coûte du temps et des vivres, mais soulage aussi l’attelage.</p>
           </article>
           <article class="panel">
             <p class="eyebrow">Le calendrier</p>
@@ -154,7 +154,8 @@
           <div class="travel-controls panel">
             <div class="control-group">
               <label for="rythme">Rythme</label>
-              <select id="rythme"><option value="prudent">Prudent</option><option value="soutenu" selected>Soutenu</option><option value="epuisant">Épuisant</option></select>
+              <select id="rythme"><option value="prudent">Prudent — ménage le convoi</option><option value="soutenu" selected>Soutenu — équilibré</option><option value="epuisant">Épuisant — risques élevés</option></select>
+              <small id="rythme-effet" class="control-hint">Bon progrès, avec une fatigue et des risques réguliers</small>
             </div>
             <div class="control-group">
               <label for="rations">Rations</label>
@@ -284,6 +285,6 @@
   </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="game.js?v=20260723-1"></script>
+  <script src="game.js?v=20260723-2"></script>
 </body>
 </html>

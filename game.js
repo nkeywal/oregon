@@ -38,20 +38,26 @@ const SHOP = {
 
 const LANDMARKS = [
   {km:165,name:"Rivière Kansas",kind:"river",depth:0.8,visual:"kansas"},
-  {km:490,name:"Fort Kearny",kind:"fort"},
-  {km:980,name:"Chimney Rock",kind:"landmark"},
-  {km:1240,name:"Fort Laramie",kind:"fort"},
-  {km:1510,name:"Independence Rock",kind:"landmark"},
-  {km:1810,name:"South Pass",kind:"landmark"},
+  {km:490,name:"Fort Kearny",kind:"fort",visual:"fort-kearny"},
+  {km:980,name:"Chimney Rock",kind:"landmark",visual:"chimney-rock"},
+  {km:1240,name:"Fort Laramie",kind:"fort",visual:"fort-laramie"},
+  {km:1510,name:"Independence Rock",kind:"landmark",visual:"independence-rock"},
+  {km:1810,name:"South Pass",kind:"landmark",visual:"south-pass"},
   {km:2320,name:"Rivière Snake",kind:"river",depth:1.6,visual:"snake"},
-  {km:2580,name:"Fort Boise",kind:"fort"},
+  {km:2580,name:"Fort Boise",kind:"fort",visual:"fort-boise"},
   {km:2920,name:"The Dalles",kind:"river",depth:2.1,visual:"dalles"}
 ];
+const FINAL_STAGE = {km:KM_TOTAL,name:"Vallée de Willamette",visual:"willamette"};
 
 const WEATHER = [
   {name:"Doux",temp:18,cls:""},{name:"Chaud",temp:31,cls:""},{name:"Pluvieux",temp:13,cls:"rain"},
   {name:"Froid",temp:4,cls:""},{name:"Neige",temp:-4,cls:"snow"}
 ];
+const PACES = {
+  prudent:{km:65,health:1,food:.9,incident:.32,strain:-1,hint:"Ménage le groupe et l’attelage · incidents moins fréquents"},
+  soutenu:{km:90,health:-1,food:1,incident:.52,strain:1,hint:"Bon progrès, avec une fatigue et des risques réguliers"},
+  epuisant:{km:115,health:-7,food:1.2,incident:.88,strain:3,hint:"Forte fatigue · davantage de pannes, blessures et bœufs épuisés"}
+};
 
 let game = null;
 let cart = Object.fromEntries(Object.entries(SHOP).map(([k,v]) => [k,v.start]));
@@ -66,7 +72,7 @@ function baseGame(names, profession, month) {
     version:1, profession, money, initialMoney:money, cart:{...cart},
     party:names.map(name => ({name,health:100,state:"En forme",alive:true,sickDays:0})),
     day:1, month:Number(month), year:1848, km:0, days:0, pace:"soutenu", rations:"normales",
-    weather:WEATHER[0], landmarkIndex:0, journal:[], finished:false, score:0
+    weather:WEATHER[0], landmarkIndex:0, oxStrain:0, journal:[], finished:false, score:0
   };
 }
 
@@ -162,10 +168,19 @@ function regionVisual() {
   return {key:"oregon",title:"Le pays de l’Oregon",label:"le pays de l’Oregon"};
 }
 
+function currentStage() {
+  return LANDMARKS[game.landmarkIndex]||FINAL_STAGE;
+}
+
+function stageAsset(stage=currentStage(),weather=weatherVisual()) {
+  return `stage-${stage.visual}-${weather.key}.webp`;
+}
+
 function setTrailScene() {
-  const weather=weatherVisual(),region=regionVisual(),scene=$("#scene");
-  scene.className=`scene trail-scene region-${region.key} weather-${weather.key}`;
-  scene.setAttribute("aria-label",`Le chariot avance dans ${region.label}, par ${weather.label}`);
+  const weather=weatherVisual(),stage=currentStage(),scene=$("#scene");
+  scene.className=`scene trail-scene stage-scene weather-${weather.key}`;
+  scene.style.backgroundImage=`url('assets/${stageAsset(stage,weather)}')`;
+  scene.setAttribute("aria-label",`Le chariot avance vers ${stage.name}, par ${weather.label}`);
 }
 
 function updateUI() {
@@ -180,6 +195,7 @@ function updateUI() {
   $("#stat-boeufs").textContent=game.cart.boeufs;
   $("#stat-vetements").textContent=game.cart.vetements;
   $("#rythme").value=game.pace; $("#rations").value=game.rations;
+  $("#rythme-effet").textContent=PACES[game.pace].hint;
   const avg=alive().length ? alive().reduce((n,p)=>n+p.health,0)/alive().length : 0;
   const [global,cls]=healthLabel(avg); $("#sante-globale").textContent=global; $("#sante-globale").className=`status ${cls}`;
   $("#liste-groupe").innerHTML=game.party.map(p=>{const [label,c]=healthLabel(p.health),state=p.state!=="En forme"?p.state:label;return `<li><span class="health-dot ${c}" aria-hidden="true"></span><b>${escapeHtml(p.name)}</b><span class="party-state">${p.alive?escapeHtml(state):label}</span></li>`}).join("");
@@ -188,8 +204,8 @@ function updateUI() {
   $("#lieu").textContent=next?`${next.name} · ${Math.max(0,Math.round(next.km-game.km))} km`:"Vallée de Willamette";
   $("#meteo").textContent=`${game.weather.name} · ${game.weather.temp} °C`;
   $("#meteo-scene").className=`weather ${game.weather.cls}`;
-  if(!$("#scene").matches(".river-scene, .fort-scene"))setTrailScene();
-  $("#titre-etape").textContent=regionVisual().title;
+  if(!$("#scene").matches(".landmark-scene"))setTrailScene();
+  $("#titre-etape").textContent=`En route vers ${currentStage().name}`;
 }
 
 function escapeHtml(str){const d=document.createElement("div");d.textContent=String(str);return d.innerHTML;}
@@ -226,7 +242,7 @@ function travel(){
   if(checkJourneyFailure())return;
   if(game.cart.vivres<=0){ resolveStarvation(); return; }
   const from=game.km;
-  const pace={prudent:{km:65,health:1},soutenu:{km:90,health:-1},epuisant:{km:115,health:-5}}[game.pace];
+  const pace=PACES[game.pace];
   const oxFactor=clamp(game.cart.boeufs/6,.25,1.15);
   const travelWeather=game.weather;
   const plannedDistance=Math.max(1,Math.round(pace.km*oxFactor*travelWeatherFactor(travelWeather)));
@@ -234,7 +250,8 @@ function travel(){
   const next=LANDMARKS[game.landmarkIndex];if(next&&from<next.km&&from+distance>=next.km)distance=next.km-from;
   const travelDays=distance<plannedDistance?Math.max(1,Math.ceil(5*distance/plannedDistance)):5,timeRatio=travelDays/5;
   game.km+=distance;advanceDate(travelDays);
-  const food=consumeFood(travelDays),foodConsumed=Math.round(food.consumed),foodShortage=food.consumed<food.needed;
+  const food=consumeFood(travelDays,dailyFoodPerPerson()*pace.food),foodConsumed=Math.round(food.consumed),foodShortage=food.consumed<food.needed;
+  game.oxStrain=clamp((game.oxStrain||0)+pace.strain*timeRatio,0,10);
   for(const p of alive()){
     const rationHealth={copieuses:2,normales:0,maigres:-4}[game.rations];
     const coldPenalty=travelWeather.temp<=5&&game.cart.vetements<alive().length?(travelWeather.temp<0?-6:-3):0;
@@ -243,27 +260,25 @@ function travel(){
     if(p.sickDays>0){p.sickDays-=travelDays;p.health=clamp(p.health-travelDays,0,100);if(p.sickDays<=0)p.state="En forme";}
   }
   game.weather=weatherForSeason();
-  addJournal(`${distance} km parcourus en ${travelDays} jour${travelDays>1?"s":""}. ${game.weather.name.toLowerCase()} à l’horizon.`);
+  const paceJournal=game.pace==="epuisant"?" Le rythme épuisant a durement éprouvé le convoi.":"";
+  addJournal(`${distance} km parcourus en ${travelDays} jour${travelDays>1?"s":""}.${paceJournal} ${game.weather.name.toLowerCase()} à l’horizon.`);
   updateDeaths();
   if(game.finished)return;
   if(game.km>=KM_TOTAL){finish(true);return;}
   if(next && game.km>=next.km){game.landmarkIndex++;landmark(next);}
-  else if(Math.random()<.48)randomEvent();
-  else quietTravelEvent(distance,foodConsumed,travelDays);
+  else {
+    const weatherRisk={Doux:0,Chaud:.04,Pluvieux:.08,Froid:.04,Neige:.1}[travelWeather.name]||0;
+    const incidentChance=clamp(pace.incident+weatherRisk+game.oxStrain*.01,.2,.96);
+    if(Math.random()<incidentChance)randomEvent();else quietTravelEvent(distance,foodConsumed,travelDays);
+  }
   updateUI();
 }
 
 function quietTravelEvent(distance,foodConsumed,travelDays=5){
-  const region=regionVisual(),weather=weatherVisual();
-  const backgrounds={
-    plains:{mild:"trail.webp",cold:"weather-cold.png",hot:"weather-hot.png",rain:"region-plains-rain.png"},
-    platte:{mild:"region-platte-mild.png",cold:"region-platte-cold.png",hot:"region-platte-hot.png",rain:"region-platte-rain.png"},
-    rockies:{mild:"region-rockies-mild.png",cold:"region-rockies-cold.png",hot:"region-rockies-hot.png",rain:"region-rockies-rain.png"},
-    oregon:{mild:"region-oregon-mild.png",cold:"region-oregon-cold.png",hot:"region-oregon-hot.png",rain:"region-oregon-rain.png"}
-  };
-  eventModal("Une étape sans incident",`Le convoi a avancé de ${distance} km en ${travelDays} jour${travelDays>1?"s":""}.`,`${foodConsumed} kg de vivres ${foodConsumed<=1?"a été consommé":"ont été consommés"}. Le voyage s’est déroulé sans incident.`,[
+  const paceText={prudent:"L’allure prudente a ménagé le groupe et l’attelage.",soutenu:"L’allure soutenue a laissé une fatigue ordinaire.",epuisant:"Même sans accident, l’allure épuisante a durement éprouvé le groupe et les bœufs."}[game.pace];
+  eventModal("Une étape sans incident",`Le convoi a avancé de ${distance} km en ${travelDays} jour${travelDays>1?"s":""}.`,`${foodConsumed} kg de vivres ${foodConsumed<=1?"a été consommé":"ont été consommés"}. ${paceText}`,[
     {label:"Poursuivre la route",action:()=>addJournal("Une étape calme et sans incident.")}
-  ],backgrounds[region.key][weather.key]);
+  ],stageAsset());
 }
 
 function weatherForSeason(){
@@ -353,6 +368,12 @@ function randomEvent(){
   if(game.cart.vetements>0&&game.weather.temp<=5)events.push(()=>blanketLossEvent());
   if(game.weather.temp<=5||game.weather.temp>=27)events.push(()=>climateInjuryEvent());
   if(game.cart.boeufs>0)events.push(()=>oxInjuryEvent());
+  if(game.pace==="soutenu")events.push(events[0],()=>injuryEvent());
+  if(game.pace==="epuisant"){
+    events.push(events[0],events[0],events[2],events[2],()=>injuryEvent(),()=>injuryEvent());
+    if(game.cart.boeufs>0)events.push(()=>oxInjuryEvent(),()=>oxInjuryEvent(),()=>oxInjuryEvent());
+  }
+  if(game.cart.boeufs>0&&game.oxStrain>=6)events.push(()=>oxInjuryEvent(),()=>oxInjuryEvent(),()=>oxInjuryEvent());
   pick(events)();
 }
 
@@ -360,10 +381,10 @@ function oxInjuryEvent(){
   const meat=rand(35,55),lastOx=game.cart.boeufs===1;
   eventModal("Un bœuf blessé","Une pierre a fait chuter l’un des bœufs. Sa patte enflée ne supporte plus le joug.",lastOx?"C’est votre dernier bœuf. L’abattre laisserait le chariot sans attelage.":"Vous pouvez tenter de le soigner ou transformer l’animal en provisions.",[
     {label:"Le soigner et attendre 2 jours",disabled:game.cart.medicaments<1,action:()=>{
-      game.cart.medicaments--;advanceDate(2);consumeFood(2);addJournal("Un remède et deux jours de repos ont remis un bœuf sur pied.");
+      game.cart.medicaments--;advanceDate(2);consumeFood(2);game.oxStrain=clamp(game.oxStrain-4,0,10);addJournal("Un remède et deux jours de repos ont remis un bœuf sur pied.");
     }},
     {label:`L’abattre et charger ${meat} kg`,action:()=>{
-      game.cart.boeufs--;game.cart.vivres+=meat;addJournal(`Un bœuf blessé a été abattu. Sa viande ajoute ${meat} kg aux réserves.`);
+      game.cart.boeufs--;game.cart.vivres+=meat;game.oxStrain=clamp(game.oxStrain-2,0,10);addJournal(`Un bœuf blessé a été abattu. Sa viande ajoute ${meat} kg aux réserves.`);
     }}
   ],"incident-ox-injury.png");
 }
@@ -466,19 +487,21 @@ function attackEvent(){
 }
 
 function landmark(mark){
-  $("#scene").className=`scene ${mark.kind==="river"?"river-scene":mark.kind==="fort"?"fort-scene":"trail-scene"}`;
-  if(mark.kind==="river") riverEvent(mark);
-  else if(mark.kind==="fort") fortEvent(mark);
-  else eventModal(mark.name,`Le convoi atteint ${mark.name}.`,"Un repère bienvenu sur l’immensité de la piste.",[{label:"Graver nos noms et repartir",action:()=>{addJournal(`Nous avons atteint ${mark.name}.`);setTrailScene();}}]);
+  const art=stageAsset(mark),scene=$("#scene");
+  scene.className="scene landmark-scene";scene.style.backgroundImage=`url('assets/${art}')`;
+  scene.setAttribute("aria-label",`${mark.name}, par ${weatherVisual().label}`);
+  if(mark.kind==="river") riverEvent(mark,art);
+  else if(mark.kind==="fort") fortEvent(mark,art);
+  else eventModal(mark.name,`Le convoi atteint ${mark.name}.`,"Un repère bienvenu sur l’immensité de la piste.",[{label:"Graver nos noms et repartir",action:()=>{addJournal(`Nous avons atteint ${mark.name}.`);setTrailScene();}}],art);
 }
 
-function riverEvent(mark){
+function riverEvent(mark,art=stageAsset(mark)){
   const cost=35+Math.round(mark.depth*15);
   eventModal(mark.name,`Le courant est rapide et l’eau atteint environ ${mark.depth.toFixed(1).replace(".",",")} mètre${mark.depth>=2?"s":""}.`,"Comment ferez-vous traverser le chariot ?",[
     {label:`Prendre le bac (${cost} $)`,disabled:game.money<cost,action:()=>{game.money-=cost;advanceDate(1);const food=consumeFood(1);addJournal(`Traversée de ${mark.name} en bac, sans incident.`);queueRiverOutcome(mark,"ferry",{method:"Bac",days:1,food:food.consumed,text:"Le bac a transporté le chariot et tout le groupe jusqu’à l’autre rive.",result:`Traversée sans perte · Coût : ${cost} $`})}},
     {label:"Calfater et flotter",action:()=>riverRisk(mark)},
-    {label:"Attendre que l’eau baisse",action:()=>{advanceDate(3);const food=consumeFood(3);addJournal(`Après trois jours d’attente, nous avons traversé ${mark.name} dans une eau plus basse.`);queueRiverOutcome(mark,"wait",{method:"Attente et passage à gué",days:3,food:food.consumed,text:"Le niveau a suffisamment baissé pour permettre un passage prudent.",result:"Traversée réussie sans perte de chargement"})}}
-  ],"river");
+    {label:"Attendre que l’eau baisse",action:()=>{advanceDate(3);const food=consumeFood(3);game.oxStrain=clamp(game.oxStrain-2,0,10);addJournal(`Après trois jours d’attente, nous avons traversé ${mark.name} dans une eau plus basse.`);queueRiverOutcome(mark,"wait",{method:"Attente et passage à gué",days:3,food:food.consumed,text:"Le niveau a suffisamment baissé pour permettre un passage prudent.",result:"Traversée réussie sans perte de chargement"})}}
+  ],art);
 }
 
 function queueRiverOutcome(mark,outcome,data){setTimeout(()=>{if(!game.finished)showRiverOutcome(mark,outcome,data)},0)}
@@ -492,6 +515,7 @@ function showRiverOutcome(mark,outcome,{method,days,food,text,result}){
 
 function riverRisk(mark){
   advanceDate(1);const travelFood=consumeFood(1);
+  game.oxStrain=clamp(game.oxStrain+1,0,10);
   const risk=clamp(mark.depth*.14+(game.cart.boeufs<4?.1:0)+(game.cart.pieces===0?.05:0),.05,.5);
   if(Math.random()<risk){
     const cargoLosses=[
@@ -516,7 +540,7 @@ function riverRisk(mark){
   setTrailScene();updateDeaths();
 }
 
-function fortEvent(mark){
+function fortEvent(mark,art=stageAsset(mark)){
   const price=Math.round(1.3+game.km/KM_TOTAL*.7);
   const foodCost=20*price, ammoCost=6*price, restFood=alive().length*4;
   const equipment=[
@@ -529,10 +553,10 @@ function fortEvent(mark){
     {label:`Acheter 50 kg de vivres (${foodCost} $)`,keepOpen:true,disabled:()=>game.money<foodCost,action:()=>{game.money-=foodCost;game.cart.vivres+=50;addJournal(`Ravitaillement à ${mark.name}.`)}},
     {label:`Acheter 40 balles (${ammoCost} $)`,keepOpen:true,disabled:()=>game.money<ammoCost,action:()=>{game.money-=ammoCost;game.cart.munitions+=40;addJournal(`Achat de munitions à ${mark.name}.`)}},
     ...equipment.map(item=>({label:`Acheter ${item.label} (${item.cost} $)`,keepOpen:true,disabled:()=>game.money<item.cost||game.cart[item.key]+item.qty>SHOP[item.key].max,action:()=>{game.money-=item.cost;game.cart[item.key]+=item.qty;addJournal(`Achat de ${item.label} à ${mark.name}.`)}})),
-    {label:"Se reposer 2 jours",keepOpen:true,disabled:()=>game.cart.vivres<restFood,action:()=>{advanceDate(2);consumeFood(2,2);alive().forEach(p=>p.health=clamp(p.health+8,0,100));addJournal(`Halte réparatrice à ${mark.name}.`)}},
+    {label:"Se reposer 2 jours",keepOpen:true,disabled:()=>game.cart.vivres<restFood,action:()=>{advanceDate(2);consumeFood(2,2);game.oxStrain=clamp(game.oxStrain-3,0,10);alive().forEach(p=>p.health=clamp(p.health+8,0,100));addJournal(`Halte réparatrice à ${mark.name}.`)}},
     {label:"Repartir",primary:true,action:()=>addJournal(`Passage à ${mark.name}.`)}
   ];
-  eventModal(mark.name,"Palissades, forge et odeur de pain frais : une halte bienvenue.","Le stock d’équipement varie à chaque fort. Vous pouvez effectuer plusieurs achats avant de repartir.",actions,"fort");
+  eventModal(mark.name,"Palissades, forge et odeur de pain frais : une halte bienvenue.","Le stock d’équipement varie à chaque fort. Vous pouvez effectuer plusieurs achats avant de repartir.",actions,art);
 }
 
 function eventModal(title,text,details,actions,art="trail"){
@@ -564,7 +588,7 @@ function eventModal(title,text,details,actions,art="trail"){
 function rest(){
   if(checkJourneyFailure())return;
   if(game.cart.vivres<alive().length*4){toast("Pas assez de vivres pour camper deux jours.");return;}
-  advanceDate(2);consumeFood(2,2);alive().forEach(p=>{p.health=clamp(p.health+9,0,100);if(p.health>60)p.state="En forme"});addJournal("Deux jours de repos ont remonté le moral du groupe.");updateUI();returnToTrailTop();
+  advanceDate(2);consumeFood(2,2);game.oxStrain=clamp(game.oxStrain-3,0,10);alive().forEach(p=>{p.health=clamp(p.health+9,0,100);if(p.health>60)p.state="En forme"});addJournal("Deux jours de repos ont remonté le moral du groupe et soulagé l’attelage.");updateUI();returnToTrailTop();
 }
 
 function renderTrailMap(){
@@ -748,7 +772,7 @@ function bindEvents(){
   $("#form-groupe").addEventListener("submit",e=>{e.preventDefault();const fd=new FormData(e.currentTarget);const names=[0,1,2,3,4].map(i=>String(fd.get(`nom${i}`)).trim());if(names.some(name=>!name)){toast("Donnez un nom à chaque voyageur.");return;}game=baseGame(names,fd.get("profession"),fd.get("mois"));cart=Object.fromEntries(Object.entries(SHOP).map(([k,v])=>[k,v.start]));renderShop();showScreen("ecran-boutique")});
   $("#liste-boutique").addEventListener("click",e=>{const b=e.target.closest("[data-shop]");if(b)changeCart(b.dataset.shop,Number(b.dataset.dir))});
   $("#retour-groupe").addEventListener("click",()=>showScreen("ecran-groupe"));$("#partir").addEventListener("click",leaveTown);
-  $("#rythme").addEventListener("change",e=>game.pace=e.target.value);$("#rations").addEventListener("change",e=>game.rations=e.target.value);
+  $("#rythme").addEventListener("change",e=>{game.pace=e.target.value;$("#rythme-effet").textContent=PACES[game.pace].hint});$("#rations").addEventListener("change",e=>game.rations=e.target.value);
   $("#avancer").addEventListener("click",travel);$("#repos").addEventListener("click",rest);$("#chasser").addEventListener("click",startHunt);$("#carte-btn").addEventListener("click",showMap);$("#inventaire-btn").addEventListener("click",showInventory);$("#journal-plus").addEventListener("click",showJournal);$("#aide").addEventListener("click",showHelp);
   $("#rejouer").addEventListener("click",()=>{game=null;showScreen("ecran-groupe")});$("#fermer-chasse").addEventListener("click",endHunt);
   $("#dialogue-evenement").addEventListener("cancel",e=>e.preventDefault());

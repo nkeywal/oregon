@@ -58,6 +58,20 @@ const PACES = {
   soutenu:{km:90,health:-1,food:1,incident:.52,strain:1,hint:"Bon progrès, avec une fatigue et des risques réguliers"},
   epuisant:{km:115,health:-7,food:1.2,incident:.88,strain:3,hint:"Forte fatigue · davantage de pannes, blessures et bœufs épuisés"}
 };
+const MONTHLY_WEATHER = [
+  [3,4,4],       // janvier
+  [3,3,4,2],     // février
+  [3,3,4,2,0],   // mars
+  [0,0,2,3],     // avril
+  [0,0,0,2,1],   // mai
+  [0,0,1,1,2],   // juin
+  [1,1,1,0,2],   // juillet
+  [1,1,0,0,2],   // août
+  [0,0,0,1,2],   // septembre
+  [0,0,2,3,3],   // octobre
+  [3,3,4,2],     // novembre
+  [3,4,4,2]      // décembre
+];
 
 let game = null;
 let cart = Object.fromEntries(Object.entries(SHOP).map(([k,v]) => [k,v.start]));
@@ -130,7 +144,6 @@ function toast(text) {
 
 function addJournal(text) {
   game.journal.unshift({date:formatDate(),text});
-  game.journal=game.journal.slice(0,40);
 }
 
 function advanceDate(days) {
@@ -282,11 +295,7 @@ function quietTravelEvent(distance,foodConsumed,travelDays=5){
 }
 
 function weatherForSeason(){
-  const m=game.month;
-  if(m>=10||m<=1)return pick([WEATHER[3],WEATHER[4],WEATHER[4]]);
-  if(m>=7)return pick([WEATHER[0],WEATHER[2],WEATHER[3]]);
-  if(m>=5)return pick([WEATHER[0],WEATHER[1],WEATHER[2]]);
-  return pick([WEATHER[0],WEATHER[0],WEATHER[2],WEATHER[3]]);
+  return WEATHER[pick(MONTHLY_WEATHER[game.month])];
 }
 
 function resolveStarvation(){
@@ -330,13 +339,13 @@ function randomEvent(){
       if(game.cart.pieces>0){
         const days=game.profession==="charpentier"?1:2;game.cart.pieces--;
         eventModal("Essieu brisé","Un choc sec — l’essieu du chariot vient de céder.",`Vous utilisez une pièce de rechange et perdez ${days===1?"une journée":"deux jours"}.`,[
-          {label:"Effectuer la réparation",action:()=>{advanceDate(days);consumeFood(days)}}
+          {label:"Effectuer la réparation",action:()=>{advanceDate(days);consumeFood(days);addJournal(`L’essieu a été remplacé avec une pièce de rechange en ${days} jour${days>1?"s":""}.`)}}
         ],"incident-axle.png");
       }else{
         const discardedFood=Math.min(game.cart.vivres,rand(20,45));
         const discardedBlankets=Math.min(game.cart.vetements,1);
         eventModal("Essieu brisé","Votre essieu est rompu et vous n’avez aucune pièce.","Une famille de passage propose une pièce pour 45 $.",[
-          {label:"Acheter la pièce (45 $)",disabled:game.money<45,action:()=>{game.money-=45;advanceDate(2);consumeFood(2)}},
+          {label:"Acheter la pièce (45 $)",disabled:game.money<45,action:()=>{game.money-=45;advanceDate(2);consumeFood(2);addJournal("Une pièce achetée en urgence a permis de remplacer l’essieu en deux jours.")}},
           {label:"Alléger et improviser",action:()=>{
             advanceDate(4);consumeFood(4);const actualFood=Math.min(game.cart.vivres,discardedFood);game.cart.vivres-=actualFood;game.cart.vetements-=discardedBlankets;
             alive().forEach(p=>p.health=clamp(p.health-7,0,100));
@@ -562,6 +571,7 @@ function fortEvent(mark,art=stageAsset(mark)){
 function eventModal(title,text,details,actions,art="trail"){
   const d=$("#dialogue-evenement");$("#event-title").textContent=title;$("#event-text").textContent=text;$("#event-details").textContent=details;
   const artFile=art.includes(".")?art:`${art}.webp`;
+  if(artFile.startsWith("incident-"))addJournal(`${title} — ${text}`);
   $("#event-art").style.backgroundImage=`url('assets/${artFile}')`;
   const box=$("#event-actions");box.innerHTML="";
   const isDisabled=a=>typeof a.disabled==="function"?a.disabled():!!a.disabled;

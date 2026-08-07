@@ -4,6 +4,7 @@ const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const KM_TOTAL = 3200;
 const MONTHS = ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
+const MONTHS_EN = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const ENDING_RANKS = [
   "Disparu sans laisser de trace",
   "Nourriture pour coyotes",
@@ -28,12 +29,12 @@ const ENDING_RANKS = [
 ];
 
 const SHOP = {
-  boeufs: { label:"Bœufs", desc:"Une paire coûte 40 $. Il en faut au moins quatre.", unit:"bête", plural:"bêtes", step:2, price:40, max:12, start:6 },
-  vivres: { label:"Vivres", desc:"Farine, lard, café et haricots. Prix pour 10 kg.", unit:"kg", plural:"kg", step:10, price:4, max:800, start:300 },
-  munitions: { label:"Munitions", desc:"Boîtes de 20 balles pour la chasse.", unit:"balle", plural:"balles", step:20, price:3, max:600, start:100 },
-  vetements: { label:"Couvertures", desc:"Gardent les voyageurs au chaud et au sec.", unit:"pièce", plural:"pièces", step:1, price:10, max:15, start:5 },
-  pieces: { label:"Pièces de rechange", desc:"Roues, essieux et timons pour les avaries.", unit:"pièce", plural:"pièces", step:1, price:18, max:12, start:3 },
-  medicaments: { label:"Remèdes", desc:"Bandages et fortifiants pour soigner le groupe.", unit:"dose", plural:"doses", step:1, price:12, max:15, start:4 }
+  boeufs: { label:"Bœufs", desc:"Une paire coûte 40 $. Il en faut au moins quatre.", unit:"bête", plural:"bêtes", unitEn:"ox", pluralEn:"oxen", step:2, price:40, max:12, start:6 },
+  vivres: { label:"Vivres", desc:"Farine, lard, café et haricots. Prix pour 10 kg.", unit:"kg", plural:"kg", unitEn:"kg", pluralEn:"kg", step:10, price:4, max:800, start:300 },
+  munitions: { label:"Munitions", desc:"Boîtes de 20 balles pour la chasse.", unit:"balle", plural:"balles", unitEn:"bullet", pluralEn:"bullets", step:20, price:3, max:600, start:100 },
+  vetements: { label:"Couvertures", desc:"Gardent les voyageurs au chaud et au sec.", unit:"pièce", plural:"pièces", unitEn:"blanket", pluralEn:"blankets", step:1, price:10, max:15, start:5 },
+  pieces: { label:"Pièces de rechange", desc:"Roues, essieux et timons pour les avaries.", unit:"pièce", plural:"pièces", unitEn:"spare part", pluralEn:"spare parts", step:1, price:18, max:12, start:3 },
+  medicaments: { label:"Remèdes", desc:"Bandages et fortifiants pour soigner le groupe.", unit:"dose", plural:"doses", unitEn:"dose", pluralEn:"doses", step:1, price:12, max:15, start:4 }
 };
 
 const LANDMARKS = [
@@ -114,23 +115,26 @@ function openGuide(returnScreen) {
   showScreen("ecran-aide");
 }
 
-function formatDate() { return `${game.day} ${MONTHS[game.month]} ${game.year}`; }
+function formatDate(day=game.day,month=game.month,year=game.year) { return currentLanguage==="en"?`${MONTHS_EN[month]} ${day}, ${year}`:`${day} ${MONTHS[month]} ${year}`; }
+function landmarkName(mark){return languageText(mark.name)}
 function alive() { return game.party.filter(p => p.alive); }
 function rand(min,max) { return Math.floor(Math.random()*(max-min+1))+min; }
 function pick(arr) { return arr[Math.floor(Math.random()*arr.length)]; }
 function clamp(v,min,max) { return Math.max(min,Math.min(max,v)); }
-function money(n) { return `${Math.max(0,Math.round(n))} $`; }
+function money(n) { const amount=Math.max(0,Math.round(n)).toLocaleString(currentLocale());return currentLanguage==="en"?`$${amount}`:`${amount} $`; }
 // Dans l'interface du jeu, zéro conserve le singulier : « 0 pièce ».
-function unitLabel(item,quantity) { return quantity<=1?item.unit:item.plural; }
-function itemQuantity(key,quantity) { return `${quantity} ${unitLabel(SHOP[key],quantity)}`; }
-function endingRank(score) { return ENDING_RANKS[Math.min(ENDING_RANKS.length-1,Math.floor(Math.max(0,score)/250))]; }
+function unitLabelFor(item,quantity,language=currentLanguage) { return language==="en"?(quantity<=1?item.unitEn:item.pluralEn):quantity<=1?item.unit:item.plural; }
+function unitLabel(item,quantity) { return unitLabelFor(item,quantity); }
+function itemQuantityFor(key,quantity,language=currentLanguage) { const quantityText=`${quantity} ${unitLabelFor(SHOP[key],quantity,language)}`;return language==="en"&&key==="vivres"?`${quantityText} of food`:language==="en"&&key==="medicaments"?`${quantityText} of medicine`:quantityText; }
+function itemQuantity(key,quantity) { return itemQuantityFor(key,quantity); }
+function endingRank(score) { return languageText(ENDING_RANKS[Math.min(ENDING_RANKS.length-1,Math.floor(Math.max(0,score)/250))]); }
 function dailyFoodPerPerson() { return {copieuses:3,normales:2,maigres:1}[game.rations]; }
 function consumeFood(days,perPerson=dailyFoodPerPerson()) {
   const needed=perPerson*alive().length*days,consumed=Math.min(game.cart.vivres,needed);
   game.cart.vivres-=consumed;return {needed,consumed};
 }
 function travelWeatherFactor(weather) { return {Doux:1,Chaud:.85,Pluvieux:.8,Froid:.9,Neige:.65}[weather.name]??1; }
-function formatDepth(depth) { return depth.toFixed(1).replace(".",","); }
+function formatDepth(depth) { return depth.toFixed(1).replace(".",currentLanguage==="en"?".":","); }
 function riverDepth(mark,previous=null) {
   const seasonal=RIVER_SEASON_LEVEL[game.month]*(mark.seasonalFlow??1);
   const weather=(RIVER_WEATHER_LEVEL[game.weather.name]??0)*(mark.weatherResponse??1);
@@ -151,13 +155,16 @@ function checkJourneyFailure() {
 }
 
 function toast(text) {
-  const el=$("#toast"); el.textContent=text; el.classList.add("show");
+  const el=$("#toast"); el.textContent=languageText(text); el.classList.add("show");
   clearTimeout(toast.timer); toast.timer=setTimeout(()=>el.classList.remove("show"),2600);
 }
 
 function addJournal(text) {
-  game.journal.unshift({date:formatDate(),text});
+  game.journal.unshift({day:game.day,month:game.month,year:game.year,text});
 }
+
+function journalDate(entry){return formatDate(entry.day,entry.month,entry.year)}
+function journalItems(entries){return entries.map(j=>`<li><time>${escapeHtml(journalDate(j))}</time>${escapeHtml(languageText(j.text))}</li>`).join("")}
 
 function advanceDate(days) {
   for(let i=0;i<days;i++){
@@ -206,13 +213,13 @@ function setTrailScene() {
   const weather=weatherVisual(),stage=currentStage(),scene=$("#scene");
   scene.className=`scene trail-scene stage-scene weather-${weather.key}`;
   scene.style.backgroundImage=`url('assets/${stageAsset(stage,weather)}')`;
-  scene.setAttribute("aria-label",`Le chariot avance vers ${stage.name}, par ${weather.label}`);
+  scene.setAttribute("aria-label",currentLanguage==="en"?`The wagon travels toward ${landmarkName(stage)} in ${languageText(weather.label)}`:`Le chariot avance vers ${stage.name}, par ${weather.label}`);
 }
 
 function updateUI() {
   if(!game)return;
   $("#date").textContent=formatDate();
-  $("#distance-label").textContent=`${Math.round(game.km).toLocaleString("fr-FR")} / ${KM_TOTAL.toLocaleString("fr-FR")} km`;
+  $("#distance-label").textContent=`${Math.round(game.km).toLocaleString(currentLocale())} / ${KM_TOTAL.toLocaleString(currentLocale())} km`;
   $("#barre-progression").style.width=`${clamp(game.km/KM_TOTAL*100,0,100)}%`;
   $("#stat-vivres").textContent=`${Math.round(game.cart.vivres)} kg`;
   $("#stat-argent").textContent=money(game.money);
@@ -222,15 +229,15 @@ function updateUI() {
   $("#stat-vetements").textContent=game.cart.vetements;
   $("#rythme").value=game.pace; $("#rations").value=game.rations;
   const avg=alive().length ? alive().reduce((n,p)=>n+p.health,0)/alive().length : 0;
-  const [global,cls]=healthLabel(avg); $("#sante-globale").textContent=global; $("#sante-globale").className=`status ${cls}`;
-  $("#liste-groupe").innerHTML=game.party.map(p=>{const [label,c]=healthLabel(p.health),state=p.state!=="En forme"?p.state:label;return `<li><span class="health-dot ${c}" aria-hidden="true"></span><b>${escapeHtml(p.name)}</b><span class="party-state">${p.alive?escapeHtml(state):label}</span></li>`}).join("");
-  $("#journal").innerHTML=game.journal.slice(0,4).map(j=>`<li><time>${escapeHtml(j.date)}</time>${escapeHtml(j.text)}</li>`).join("");
+  const [global,cls]=healthLabel(avg); $("#sante-globale").textContent=languageText(global); $("#sante-globale").className=`status ${cls}`;
+  $("#liste-groupe").innerHTML=game.party.map(p=>{const [label,c]=healthLabel(p.health),state=p.state!=="En forme"?p.state:label;return `<li><span class="health-dot ${c}" aria-hidden="true"></span><b>${escapeHtml(p.name)}</b><span class="party-state">${escapeHtml(languageText(p.alive?state:label))}</span></li>`}).join("");
+  $("#journal").innerHTML=journalItems(game.journal.slice(0,4));
   const next=LANDMARKS.find(l=>l.km>game.km);
-  $("#lieu").textContent=next?`${next.name} · ${Math.max(0,Math.round(next.km-game.km))} km`:"Vallée de Willamette";
-  $("#meteo").textContent=`${game.weather.name} · ${game.weather.temp} °C`;
+  $("#lieu").textContent=next?`${landmarkName(next)} · ${Math.max(0,Math.round(next.km-game.km))} km`:languageText("Vallée de Willamette");
+  $("#meteo").textContent=`${languageText(game.weather.name)} · ${game.weather.temp} °C`;
   $("#meteo-scene").className=`weather ${game.weather.cls}`;
   if(!$("#scene").matches(".landmark-scene"))setTrailScene();
-  $("#titre-etape").textContent=`En route vers ${currentStage().name}`;
+  $("#titre-etape").textContent=currentLanguage==="en"?`Heading toward ${landmarkName(currentStage())}`:`En route vers ${currentStage().name}`;
 }
 
 function escapeHtml(str){const d=document.createElement("div");d.textContent=String(str);return d.innerHTML;}
@@ -239,10 +246,10 @@ function renderShop() {
   const spent=Object.entries(cart).reduce((sum,[k,q])=>sum+q/SHOP[k].step*SHOP[k].price,0);
   $("#argent-boutique").textContent=money(game.initialMoney-spent);
   $("#liste-boutique").innerHTML=Object.entries(SHOP).map(([key,item])=>`
-    <article class="shop-item panel"><h3>${item.label}</h3><b>${item.price} $ / ${item.step} ${unitLabel(item,item.step)}</b><p>${item.desc}</p>
-    <div class="stepper"><button type="button" data-shop="${key}" data-dir="-1" aria-label="Retirer ${item.label}">−</button><output>${cart[key]} ${unitLabel(item,cart[key])}</output><button type="button" data-shop="${key}" data-dir="1" aria-label="Ajouter ${item.label}">+</button></div></article>`).join("");
+    <article class="shop-item panel"><h3>${languageText(item.label)}</h3><b>${money(item.price)} / ${item.step} ${unitLabel(item,item.step)}</b><p>${languageText(item.desc)}</p>
+    <div class="stepper"><button type="button" data-shop="${key}" data-dir="-1" aria-label="${currentLanguage==="en"?"Remove":"Retirer"} ${languageText(item.label)}">−</button><output>${cart[key]} ${unitLabel(item,cart[key])}</output><button type="button" data-shop="${key}" data-dir="1" aria-label="${currentLanguage==="en"?"Add":"Ajouter"} ${languageText(item.label)}">+</button></div></article>`).join("");
   const notes=[];if(cart.boeufs<4)notes.push("Il faut au moins 4 bœufs.");if(cart.vivres<200)notes.push("Prévoyez environ 200 kg de vivres.");if(cart.munitions<40)notes.push("La chasse exigera des munitions.");
-  $("#conseils-boutique").innerHTML=notes.length?notes.map(n=>`<div>⚠ ${n}</div>`).join(""):"Votre chargement semble prêt pour la piste.";
+  $("#conseils-boutique").innerHTML=notes.length?notes.map(n=>`<div>⚠ ${languageText(n)}</div>`).join(""):languageText("Votre chargement semble prêt pour la piste.");
 }
 
 function changeCart(key,dir){
@@ -286,7 +293,8 @@ function travel(){
   }
   game.weather=weatherForSeason();
   const paceJournal=game.pace==="epuisant"?" Le rythme épuisant a durement éprouvé le convoi.":"";
-  addJournal(`${distance} km parcourus en ${travelDays} jour${travelDays>1?"s":""}.${paceJournal} ${game.weather.name.toLowerCase()} à l’horizon.`);
+  const paceJournalEn=game.pace==="epuisant"?" The grueling pace severely tested the wagon party.":"";
+  addJournal(bilingual(`${distance} km parcourus en ${travelDays} jour${travelDays>1?"s":""}.${paceJournal} ${game.weather.name.toLowerCase()} à l’horizon.`,`${distance} km traveled in ${travelDays} day${travelDays===1?"":"s"}.${paceJournalEn} ${languageText(game.weather.name,"en")} weather ahead.`));
   updateDeaths();
   if(game.finished)return;
   if(game.km>=KM_TOTAL){finish(true);return;}
@@ -301,7 +309,8 @@ function travel(){
 
 function quietTravelEvent(distance,foodConsumed,travelDays=5){
   const paceText={prudent:"L’allure prudente a ménagé le groupe et l’attelage.",soutenu:"L’allure soutenue a laissé une fatigue ordinaire.",epuisant:"Même sans accident, l’allure épuisante a durement éprouvé le groupe et les bœufs."}[game.pace];
-  eventModal("Une étape sans incident",`Le convoi a avancé de ${distance} km en ${travelDays} jour${travelDays>1?"s":""}.`,`${foodConsumed} kg de vivres ${foodConsumed<=1?"a été consommé":"ont été consommés"}. ${paceText}`,[
+  const paceTextEn={prudent:"The steady pace spared the party and the oxen.",soutenu:"The strenuous pace caused ordinary fatigue.",epuisant:"Even without an accident, the grueling pace severely tested the party and the oxen."}[game.pace];
+  eventModal("Une étape sans incident",bilingual(`Le convoi a avancé de ${distance} km en ${travelDays} jour${travelDays>1?"s":""}.`,`The wagon party traveled ${distance} km in ${travelDays} day${travelDays===1?"":"s"}.`),bilingual(`${foodConsumed} kg de vivres ${foodConsumed<=1?"a été consommé":"ont été consommés"}. ${paceText}`,`${foodConsumed} kg of food ${foodConsumed===1?"was":"were"} consumed. ${paceTextEn}`),[
     {label:"Poursuivre la route",action:()=>addJournal("Une étape calme et sans incident.")}
   ],stageAsset());
 }
@@ -321,7 +330,7 @@ function updateDeaths(){
   const dying=alive().filter(p=>p.health<=0).sort(()=>Math.random()-.5);
   const deaths=dying.slice(0,1);
   for(const p of deaths){
-    p.alive=false;p.state="Décédé";addJournal(`${p.name} est mort sur la piste.`);
+    p.alive=false;p.state="Décédé";addJournal(bilingual(`${p.name} est mort sur la piste.`,`${p.name} died on the trail.`));
   }
   // Une même étape peut affaiblir tout le groupe, mais ne doit pas tuer
   // plusieurs voyageurs simultanément. Les autres restent en état critique.
@@ -336,40 +345,41 @@ function randomEvent(){
     ()=>{
       const loss=Math.min(game.cart.vivres,rand(12,35));game.cart.vivres-=loss;
       const lossText=loss>0?`${loss} kg de vivres ${loss===1?"est perdu":"sont perdus"}.`:"Les réserves de vivres étaient déjà vides : rien n’a pu être perdu.";
-      eventModal("Mauvaise piste",`Le chariot s’est renversé dans une ornière. ${lossText}`,"Une journée sera nécessaire pour tout remettre en ordre.",[
-        {label:"Réparer et repartir",action:()=>{advanceDate(1);consumeFood(1);addJournal(loss>0?`Une chute de chariot nous a coûté ${loss} kg de vivres.`:"Le chariot s’est renversé, sans perte de vivres.")}}
+      const lossTextEn=loss>0?`${loss} kg of food ${loss===1?"is":"are"} lost.`:"The food stores were already empty: nothing could be lost.";
+      eventModal(bilingual("Mauvaise piste","Rough trail"),bilingual(`Le chariot s’est renversé dans une ornière. ${lossText}`,`The wagon overturned in a rut. ${lossTextEn}`),bilingual("Une journée sera nécessaire pour tout remettre en ordre.","One day will be needed to put everything back in order."),[
+        {label:"Réparer et repartir",action:()=>{advanceDate(1);consumeFood(1);addJournal(loss>0?bilingual(`Une chute de chariot nous a coûté ${loss} kg de vivres.`,`A wagon fall cost us ${loss} kg of food.`):bilingual("Le chariot s’est renversé, sans perte de vivres.","The wagon overturned without losing any food."))}}
       ],"incident-wagon.png");
     },
     ()=>{
       const p=pick(alive());p.health=clamp(p.health-rand(12,22),1,100);p.state="Fièvre";p.sickDays=10;
-      eventModal("La fièvre",`${p.name} souffre d’une forte fièvre.`,"Un remède améliore nettement ses chances.",[
-        {label:"Utiliser un remède",disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+18,1,100);p.sickDays=4;addJournal(`${p.name} a reçu un remède.`)}},
-        {label:"Continuer prudemment",action:()=>{p.health=clamp(p.health-5,0,100);addJournal(`${p.name} reste fiévreux.`)}}
+      eventModal("La fièvre",bilingual(`${p.name} souffre d’une forte fièvre.`,`${p.name} is suffering from a high fever.`),"Un remède améliore nettement ses chances.",[
+        {label:"Utiliser un remède",disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+18,1,100);p.sickDays=4;addJournal(bilingual(`${p.name} a reçu un remède.`,`${p.name} received medicine.`))}},
+        {label:"Continuer prudemment",action:()=>{p.health=clamp(p.health-5,0,100);addJournal(bilingual(`${p.name} reste fiévreux.`,`${p.name} remains feverish.`))}}
       ],"incident-fever.png");
     },
     ()=>{
       if(game.cart.pieces>0){
         const days=game.profession==="charpentier"?1:2;game.cart.pieces--;
-        eventModal("Essieu brisé","Un choc sec — l’essieu du chariot vient de céder.",`Vous utilisez une pièce de rechange et perdez ${days===1?"une journée":"deux jours"}.`,[
-          {label:"Effectuer la réparation",action:()=>{advanceDate(days);consumeFood(days);addJournal(`L’essieu a été remplacé avec une pièce de rechange en ${days} jour${days>1?"s":""}.`)}}
+        eventModal("Essieu brisé","Un choc sec — l’essieu du chariot vient de céder.",bilingual(`Vous utilisez une pièce de rechange et perdez ${days===1?"une journée":"deux jours"}.`,`You use a spare part and lose ${days===1?"one day":"two days"}.`),[
+          {label:"Effectuer la réparation",action:()=>{advanceDate(days);consumeFood(days);addJournal(bilingual(`L’essieu a été remplacé avec une pièce de rechange en ${days} jour${days>1?"s":""}.`,`The axle was replaced with a spare part in ${days} day${days===1?"":"s"}.`))}}
         ],"incident-axle.png");
       }else{
         const discardedFood=Math.min(game.cart.vivres,rand(20,45));
         const discardedBlankets=Math.min(game.cart.vetements,1);
         eventModal("Essieu brisé","Votre essieu est rompu et vous n’avez aucune pièce.","Une famille de passage propose une pièce pour 45 $.",[
-          {label:"Acheter la pièce (45 $)",disabled:game.money<45,action:()=>{game.money-=45;advanceDate(2);consumeFood(2);addJournal("Une pièce achetée en urgence a permis de remplacer l’essieu en deux jours.")}},
+          {label:"Acheter la pièce (45 $)",disabled:game.money<45,action:()=>{game.money-=45;advanceDate(2);consumeFood(2);addJournal(bilingual("Une pièce achetée en urgence a permis de remplacer l’essieu en deux jours.","An emergency spare part purchase allowed us to replace the axle in two days."))}},
           {label:"Alléger et improviser",action:()=>{
             advanceDate(4);consumeFood(4);const actualFood=Math.min(game.cart.vivres,discardedFood);game.cart.vivres-=actualFood;game.cart.vetements-=discardedBlankets;
             alive().forEach(p=>p.health=clamp(p.health-7,0,100));
             const losses=[];if(actualFood)losses.push(`${actualFood} kg de vivres`);if(discardedBlankets)losses.push("une couverture");
-            addJournal(`Faute de pièce, le chariot a été allégé${losses.length?` de ${losses.join(" et ")}`:""} pour reprendre la piste.`);
+            addJournal(bilingual(`Faute de pièce, le chariot a été allégé${losses.length?` de ${losses.join(" et ")}`:""} pour reprendre la piste.`,`Without a spare part, the wagon was lightened${losses.length?` by discarding ${losses.map(loss=>languageText(loss,"en")).join(" and ")}`:""} to return to the trail.`));
           }}
         ],"incident-axle.png");
       }
     },
     ()=>{
       const found=rand(10,25);game.cart.vivres+=found;
-      eventModal("Une bonne rencontre","Des voyageurs revenant de l’Oregon partagent leurs provisions.",`Vous recevez ${found} kg de vivres et quelques conseils.`,[
+      eventModal("Une bonne rencontre","Des voyageurs revenant de l’Oregon partagent leurs provisions.",bilingual(`Vous recevez ${found} kg de vivres et quelques conseils.`,`You receive ${found} kg of food and some advice.`),[
         {label:"Les remercier",action:()=>addJournal("Une famille généreuse nous a ravitaillés.")}
       ],"incident-encounter.png");
     },
@@ -382,8 +392,8 @@ function randomEvent(){
   ];
   if(game.weather.name==="Pluvieux")events.push(()=>{
     const days=rand(2,4);
-    eventModal("Pluies diluviennes","La boue avale les roues. Impossible d’avancer.",`${days} jours de retard, mais le convoi reste à l’abri.`,[
-      {label:"Attendre l’éclaircie",action:()=>{advanceDate(days);consumeFood(days);addJournal(`${days} jours perdus dans les pluies diluviennes.`)}}
+    eventModal("Pluies diluviennes","La boue avale les roues. Impossible d’avancer.",bilingual(`${days} jours de retard, mais le convoi reste à l’abri.`,`${days} days lost, but the wagon party remains sheltered.`),[
+      {label:"Attendre l’éclaircie",action:()=>{advanceDate(days);consumeFood(days);addJournal(bilingual(`${days} jours perdus dans les pluies diluviennes.`,`${days} days lost in torrential rain.`))}}
     ],"incident-rain.png");
   });
   if(game.cart.vetements>0&&game.weather.temp<=5)events.push(()=>blanketLossEvent());
@@ -402,28 +412,28 @@ function oxInjuryEvent(){
   const meat=rand(35,55),lastOx=game.cart.boeufs===1;
   eventModal("Un bœuf blessé","Une pierre a fait chuter l’un des bœufs. Sa patte enflée ne supporte plus le joug.",lastOx?"C’est votre dernier bœuf. L’abattre laisserait le chariot sans attelage.":"Vous pouvez tenter de le soigner ou transformer l’animal en provisions.",[
     {label:"Le soigner et attendre 2 jours",disabled:game.cart.medicaments<1,action:()=>{
-      game.cart.medicaments--;advanceDate(2);consumeFood(2);game.oxStrain=clamp(game.oxStrain-4,0,10);addJournal("Un remède et deux jours de repos ont remis un bœuf sur pied.");
+      game.cart.medicaments--;advanceDate(2);consumeFood(2);game.oxStrain=clamp(game.oxStrain-4,0,10);addJournal(bilingual("Un remède et deux jours de repos ont remis un bœuf sur pied.","Medicine and two days of rest got an ox back on its feet."));
     }},
-    {label:`L’abattre et charger ${meat} kg`,action:()=>{
-      game.cart.boeufs--;game.cart.vivres+=meat;game.oxStrain=clamp(game.oxStrain-2,0,10);addJournal(`Un bœuf blessé a été abattu. Sa viande ajoute ${meat} kg aux réserves.`);
+    {label:bilingual(`L’abattre et charger ${meat} kg`,`Slaughter it and load ${meat} kg`),action:()=>{
+      game.cart.boeufs--;game.cart.vivres+=meat;game.oxStrain=clamp(game.oxStrain-2,0,10);addJournal(bilingual(`Un bœuf blessé a été abattu. Sa viande ajoute ${meat} kg aux réserves.`,`An injured ox was slaughtered. Its meat adds ${meat} kg to the food stores.`));
     }}
   ],"incident-ox-injury.png");
 }
 
 function injuryEvent(){
   const p=pick(alive()),damage=rand(14,24);p.health=clamp(p.health-damage,1,100);p.state="Blessé";p.sickDays=8;
-  eventModal("Blessure sur la piste",`${p.name} a fait une mauvaise chute près du chariot.`,`Sa blessure l’a fortement affaibli. Un remède et des bandages accéléreraient sa guérison.`,[
-    {label:"Utiliser un remède",disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+16,1,100);p.sickDays=3;p.state="Convalescent";addJournal(`${p.name} a été soigné après sa chute.`)}},
-    {label:"Poser une attelle",action:()=>{advanceDate(1);consumeFood(1);p.sickDays=6;addJournal(`${p.name} voyage avec une attelle improvisée.`)}}
+  eventModal("Blessure sur la piste",bilingual(`${p.name} a fait une mauvaise chute près du chariot.`,`${p.name} took a bad fall near the wagon.`),bilingual(`Sa blessure l’a fortement affaibli. Un remède et des bandages accéléreraient sa guérison.`,`The injury has left ${p.name} badly weakened. Medicine and bandages would speed recovery.`),[
+    {label:"Utiliser un remède",disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+16,1,100);p.sickDays=3;p.state="Convalescent";addJournal(bilingual(`${p.name} a été soigné après sa chute.`,`${p.name} was treated after the fall.`))}},
+    {label:"Poser une attelle",action:()=>{advanceDate(1);consumeFood(1);p.sickDays=6;addJournal(bilingual(`${p.name} voyage avec une attelle improvisée.`,`${p.name} travels with an improvised splint.`))}}
   ],"incident-injury.png");
 }
 
 function dysenteryEvent(){
   const p=pick(alive()),damage=rand(18,28);p.health=clamp(p.health-damage,1,100);p.state="Dysenterie";p.sickDays=12;
-  eventModal("Dysenterie",`${p.name} est pris de violentes douleurs et se déshydrate rapidement.`,`Son état s’est sérieusement dégradé. Du repos, de l’eau bouillie et un remède peuvent éviter le pire.`,[
-    {label:"Donner un remède",disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+18,1,100);p.sickDays=5;p.state="Convalescent";addJournal(`${p.name} a reçu un remède contre la dysenterie.`)}},
-    {label:"Faire halte 2 jours",action:()=>{advanceDate(2);consumeFood(2);p.health=clamp(p.health+6,1,100);p.sickDays=8;addJournal(`Le convoi s’est arrêté pour soigner la dysenterie de ${p.name}.`)}},
-    {label:"Continuer",action:()=>{p.health=clamp(p.health-8,1,100);addJournal(`${p.name} reste gravement atteint de dysenterie.`)}}
+  eventModal("Dysenterie",bilingual(`${p.name} est pris de violentes douleurs et se déshydrate rapidement.`,`${p.name} suffers violent pain and is rapidly becoming dehydrated.`),bilingual(`Son état s’est sérieusement dégradé. Du repos, de l’eau bouillie et un remède peuvent éviter le pire.`,`${p.name}’s condition has seriously deteriorated. Rest, boiled water, and medicine may prevent the worst.`),[
+    {label:"Donner un remède",disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+18,1,100);p.sickDays=5;p.state="Convalescent";addJournal(bilingual(`${p.name} a reçu un remède contre la dysenterie.`,`${p.name} received medicine for dysentery.`))}},
+    {label:"Faire halte 2 jours",action:()=>{advanceDate(2);consumeFood(2);p.health=clamp(p.health+6,1,100);p.sickDays=8;addJournal(bilingual(`Le convoi s’est arrêté pour soigner la dysenterie de ${p.name}.`,`The wagon party stopped to treat ${p.name}’s dysentery.`))}},
+    {label:"Continuer",action:()=>{p.health=clamp(p.health-8,1,100);addJournal(bilingual(`${p.name} reste gravement atteint de dysenterie.`,`${p.name} remains seriously ill with dysentery.`))}}
   ],"incident-dysentery.png");
 }
 
@@ -431,11 +441,11 @@ function climateInjuryEvent(){
   const p=pick(alive()),cold=game.weather.temp<=5,damage=cold?rand(14,23):rand(8,16);
   p.health=clamp(p.health-damage,1,100);p.state=cold?"Engelures":"Piqûres";p.sickDays=cold?9:6;
   const title=cold?"Engelures":"Piqûres d’insectes";
-  const text=cold?`${p.name} souffre d’engelures après une longue exposition au froid.`:`${p.name} est couvert de piqûres douloureuses après une halte sous une chaleur étouffante.`;
+  const text=bilingual(cold?`${p.name} souffre d’engelures après une longue exposition au froid.`:`${p.name} est couvert de piqûres douloureuses après une halte sous une chaleur étouffante.`,cold?`${p.name} suffers from frostbite after prolonged exposure to the cold.`:`${p.name} is covered in painful insect bites after a stop in oppressive heat.`);
   const details=cold?"Il faut réchauffer progressivement les zones atteintes.":"Les piqûres se sont infectées et doivent être nettoyées.";
-  eventModal(title,text,`${details} ${p.name} en ressort affaibli.`,[
-    {label:"Utiliser un remède",disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+(cold?17:12),1,100);p.sickDays=3;p.state="Convalescent";addJournal(`${p.name} a été soigné pour ${cold?"des engelures":"des piqûres d’insectes"}.`)}},
-    {label:cold?"Réchauffer et attendre":"Nettoyer et repartir",action:()=>{if(cold){advanceDate(1);consumeFood(1)}p.sickDays=cold?6:4;addJournal(`${p.name} récupère lentement après ${cold?"ses engelures":"ses piqûres"}.`)}}
+  eventModal(title,text,bilingual(`${details} ${p.name} en ressort affaibli.`,`${languageText(details,"en")} ${p.name} is left weakened.`),[
+    {label:"Utiliser un remède",disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+(cold?17:12),1,100);p.sickDays=3;p.state="Convalescent";addJournal(bilingual(`${p.name} a été soigné pour ${cold?"des engelures":"des piqûres d’insectes"}.`,`${p.name} was treated for ${cold?"frostbite":"insect bites"}.`))}},
+    {label:cold?"Réchauffer et attendre":"Nettoyer et repartir",action:()=>{if(cold){advanceDate(1);consumeFood(1)}p.sickDays=cold?6:4;addJournal(bilingual(`${p.name} récupère lentement après ${cold?"ses engelures":"ses piqûres"}.`,`${p.name} is recovering slowly from ${cold?"frostbite":"the bites"}.`))}}
   ],cold?"incident-frostbite.png":"incident-bites.png");
 }
 
@@ -443,8 +453,8 @@ function contagiousDiseaseEvent(){
   const patients=[...alive()].sort(()=>Math.random()-.5).slice(0,Math.min(alive().length,rand(2,3)));
   patients.forEach(p=>{p.health=clamp(p.health-rand(9,16),1,100);p.state="Malade";p.sickDays=Math.max(p.sickDays,10)});
   const count=patients.length;
-  eventModal("Maladie contagieuse",`${count} voyageur${count>1?"s":""} présente${count>1?"nt":""} les mêmes symptômes.`,`La maladie risque d’épuiser rapidement le groupe. Vous avez ${itemQuantity("medicaments",game.cart.medicaments)}.`,[
-    {label:`Distribuer ${count} remède${count>1?"s":""}`,disabled:game.cart.medicaments<count,action:()=>{game.cart.medicaments-=count;patients.forEach(p=>{p.health=clamp(p.health+14,1,100);p.sickDays=4;p.state="Convalescent"});addJournal(`${count} malade${count>1?"s ont":" a"} reçu un remède.`)}},
+  eventModal("Maladie contagieuse",bilingual(`${count} voyageur${count>1?"s":""} présente${count>1?"nt":""} les mêmes symptômes.`,`${count} traveler${count===1?"":"s"} ${count===1?"shows":"show"} the same symptoms.`),bilingual(`La maladie risque d’épuiser rapidement le groupe. Vous avez ${itemQuantityFor("medicaments",game.cart.medicaments,"fr")}.`,`The disease may quickly exhaust the party. You have ${itemQuantityFor("medicaments",game.cart.medicaments,"en")}.`),[
+    {label:bilingual(`Distribuer ${count} remède${count>1?"s":""}`,`Give ${count} dose${count===1?"":"s"}`),disabled:game.cart.medicaments<count,action:()=>{game.cart.medicaments-=count;patients.forEach(p=>{p.health=clamp(p.health+14,1,100);p.sickDays=4;p.state="Convalescent"});addJournal(bilingual(`${count} malade${count>1?"s ont":" a"} reçu un remède.`,`${count} sick traveler${count===1?"":"s"} received medicine.`))}},
     {label:"Isoler les malades 2 jours",action:()=>{advanceDate(2);consumeFood(2);patients.forEach(p=>p.sickDays=7);addJournal("Le convoi s’est arrêté pour isoler les malades.")}},
     {label:"Continuer la route",action:()=>{patients.forEach(p=>p.health=clamp(p.health-5,1,100));addJournal("La maladie contagieuse affaiblit le groupe.")}}
   ],"incident-contagious.png");
@@ -453,8 +463,8 @@ function contagiousDiseaseEvent(){
 function blanketLossEvent(){
   const loss=Math.min(game.cart.vetements,rand(1,2));game.cart.vetements-=loss;
   const blankets=`${loss} couverture${loss>1?"s":""}`;
-  eventModal("Couvertures hors d’usage","Une nuit glaciale et humide détrempe les couvertures les plus exposées.",`${blankets} ${loss===1?"est devenue":"sont devenues"} inutilisable${loss>1?"s":""}.`,[
-    {label:"Réorganiser le chargement",action:()=>addJournal(`${blankets} perdue${loss>1?"s":""} pendant une nuit de grand froid.`)}
+  eventModal("Couvertures hors d’usage","Une nuit glaciale et humide détrempe les couvertures les plus exposées.",bilingual(`${blankets} ${loss===1?"est devenue":"sont devenues"} inutilisable${loss>1?"s":""}.`,`${loss} blanket${loss===1?" has":"s have"} become unusable.`),[
+    {label:"Réorganiser le chargement",action:()=>addJournal(bilingual(`${blankets} perdue${loss>1?"s":""} pendant une nuit de grand froid.`,`${loss} blanket${loss===1?" was":"s were"} lost during a bitterly cold night.`))}
   ],"incident-blankets.png");
 }
 
@@ -471,10 +481,11 @@ function theftEvent(){
   const stolen=pick(possible);
   if(!stolen){eventModal("Tentative de vol","Des traces entourent le camp, mais le chargement est intact.","Les coffres étaient heureusement vides ou bien verrouillés.",[{label:"Redoubler de vigilance",action:()=>addJournal("Une tentative de vol a échoué.")}],"incident-theft.png");return;}
   if(stolen.key==="money")game.money-=stolen.amount;else game.cart[stolen.key]-=stolen.amount;
-  const stolenLabel=stolen.key==="money"?`${stolen.amount} $`:itemQuantity(stolen.key,stolen.amount);
+  const stolenLabel=stolen.key==="money"?`${stolen.amount} $`:itemQuantityFor(stolen.key,stolen.amount,"fr");
+  const stolenLabelEn=stolen.key==="money"?`$${stolen.amount}`:itemQuantityFor(stolen.key,stolen.amount,"en");
   const description=`${stolenLabel} ${stolen.amount===1?"a":"ont"} disparu.`;
-  eventModal("Vol au camp","Au lever du jour, un coffre est ouvert et des traces s’éloignent du camp.",description,[
-    {label:"Sécuriser le chargement",action:()=>addJournal(`Un vol nous a coûté ${stolenLabel}.`)}
+  eventModal("Vol au camp","Au lever du jour, un coffre est ouvert et des traces s’éloignent du camp.",bilingual(description,`${stolenLabelEn} ${stolen.amount===1?"is":"are"} missing.`),[
+    {label:"Sécuriser le chargement",action:()=>addJournal(bilingual(`Un vol nous a coûté ${stolenLabel}.`,`A theft cost us ${stolenLabelEn}.`))}
   ],"incident-theft.png");
 }
 
@@ -492,11 +503,11 @@ function tradeEvent(){
     {mode:"sell",key:"pieces",qty:1,price:20,label:"1 pièce de rechange"},
     {mode:"sell",key:"medicaments",qty:1,price:18,label:"1 remède"}
   ];
-  const offer=pick(offers),buying=offer.mode==="buy";
+  const offer=pick(offers),buying=offer.mode==="buy",offerLabelEn=itemQuantityFor(offer.key,offer.qty,"en");
   const canAccept=buying?game.money>=offer.price&&game.cart[offer.key]+offer.qty<=SHOP[offer.key].max:game.cart[offer.key]>=offer.qty;
-  const text=buying?`Un marchand vous propose ${offer.label} pour ${offer.price} $.`:`Un voyageur vous offre ${offer.price} $ pour ${offer.label}.`;
+  const text=bilingual(buying?`Un marchand vous propose ${offer.label} pour ${offer.price} $.`:`Un voyageur vous offre ${offer.price} $ pour ${offer.label}.`,buying?`A merchant offers you ${offerLabelEn} for $${offer.price}.`:`A traveler offers you $${offer.price} for ${offerLabelEn}.`);
   eventModal("Une proposition sur la piste",text,"La quantité et le prix sont fixes. Acceptez-vous l’offre ?",[
-    {label:"Accepter",disabled:!canAccept,action:()=>{if(buying){game.money-=offer.price;game.cart[offer.key]+=offer.qty;}else{game.money+=offer.price;game.cart[offer.key]-=offer.qty;}addJournal(`Marché conclu : ${offer.label} pour ${offer.price} $.`)}},
+    {label:"Accepter",disabled:!canAccept,action:()=>{if(buying){game.money-=offer.price;game.cart[offer.key]+=offer.qty;}else{game.money+=offer.price;game.cart[offer.key]-=offer.qty;}addJournal(bilingual(`Marché conclu : ${offer.label} pour ${offer.price} $.`,`Trade completed: ${offerLabelEn} for $${offer.price}.`))}},
     {label:"Refuser",action:()=>addJournal("Nous avons refusé une proposition commerciale.")}
   ],"incident-trade.png");
 }
@@ -510,27 +521,28 @@ function attackEvent(){
 function landmark(mark){
   const art=stageAsset(mark),scene=$("#scene");
   scene.className="scene landmark-scene";scene.style.backgroundImage=`url('assets/${art}')`;
-  scene.setAttribute("aria-label",`${mark.name}, par ${weatherVisual().label}`);
+  scene.setAttribute("aria-label",currentLanguage==="en"?`${landmarkName(mark)}, in ${languageText(weatherVisual().label)}`:`${mark.name}, par ${weatherVisual().label}`);
   if(mark.kind==="river") riverEvent(mark,art);
   else if(mark.kind==="fort") fortEvent(mark,art);
-  else eventModal(mark.name,`Le convoi atteint ${mark.name}.`,"Un repère bienvenu sur l’immensité de la piste.",[{label:"Graver nos noms et repartir",action:()=>{addJournal(`Nous avons atteint ${mark.name}.`);setTrailScene();}}],art);
+  else eventModal(bilingual(mark.name,landmarkName(mark)),bilingual(`Le convoi atteint ${mark.name}.`,`The wagon party reaches ${landmarkName(mark)}.`),"Un repère bienvenu sur l’immensité de la piste.",[{label:"Graver nos noms et repartir",action:()=>{addJournal(bilingual(`Nous avons atteint ${mark.name}.`,`We reached ${landmarkName(mark)}.`));setTrailScene();}}],art);
 }
 
 function riverEvent(mark,art=stageAsset(mark),depth=null,observation=""){
   const measured=depth??riverDepth(mark),shown=formatDepth(measured);
   const cost=35+Math.round(measured*15);
-  const details=observation?`${observation} Comment ferez-vous traverser le chariot ?`:"Comment ferez-vous traverser le chariot ?";
-  eventModal(mark.name,`Le courant est rapide et la profondeur mesurée atteint environ ${shown} mètre${measured>=2?"s":""}.`,details,[
-    {label:`Prendre le bac (${cost} $)`,disabled:game.money<cost,action:()=>{game.money-=cost;advanceDate(1);const food=consumeFood(1);addJournal(`Traversée de ${mark.name} en bac, sans incident, avec une profondeur de ${shown} m.`);queueRiverOutcome(mark,"ferry",{method:"Bac",days:1,food:food.consumed,text:"Le bac a transporté le chariot et tout le groupe jusqu’à l’autre rive.",result:`Traversée sans perte · Profondeur : ${shown} m · Coût : ${cost} $`})}},
+  const shownEn=measured.toFixed(1);
+  const details=observation?bilingual(`${languageText(observation,"fr")} Comment ferez-vous traverser le chariot ?`,`${languageText(observation,"en")} How will you get the wagon across?`):"Comment ferez-vous traverser le chariot ?";
+  eventModal(bilingual(mark.name,landmarkName(mark)),bilingual(`Le courant est rapide et la profondeur mesurée atteint environ ${shown} mètre${measured>=2?"s":""}.`,`The current is swift and the measured depth is about ${shownEn} meter${measured===1?"":"s"}.`),details,[
+    {label:bilingual(`Prendre le bac (${cost} $)`,`Take the ferry ($${cost})`),disabled:game.money<cost,action:()=>{game.money-=cost;advanceDate(1);const food=consumeFood(1);addJournal(bilingual(`Traversée de ${mark.name} en bac, sans incident, avec une profondeur de ${shown} m.`,`We crossed ${landmarkName(mark)} by ferry without incident at a depth of ${shownEn} m.`));queueRiverOutcome(mark,"ferry",{method:bilingual("Bac","Ferry"),days:1,food:food.consumed,text:"Le bac a transporté le chariot et tout le groupe jusqu’à l’autre rive.",result:bilingual(`Traversée sans perte · Profondeur : ${shown} m · Coût : ${cost} $`,`Crossing without loss · Depth: ${shownEn} m · Cost: $${cost}`)})}},
     {label:"Calfater et flotter",action:()=>riverRisk(mark,measured)},
     {label:"Attendre 3 jours et remesurer",action:()=>{
       advanceDate(3);consumeFood(3);game.oxStrain=clamp(game.oxStrain-2,0,10);
       game.weather=weatherForSeason();
       const next=riverDepth(mark,measured),nextShown=formatDepth(next);
       const displayedChange=Math.round(next*10)-Math.round(measured*10);
-      const change=displayedChange>0?"a monté":displayedChange<0?"a baissé":"est resté stable";
-      addJournal(`Après trois jours d’attente à ${mark.name}, le niveau ${change} : de ${shown} m à ${nextShown} m.`);
-      setTimeout(()=>{if(!game.finished)riverEvent(mark,stageAsset(mark),next,`Après l’attente, le niveau ${change}.`)},0);
+      const change=displayedChange>0?"a monté":displayedChange<0?"a baissé":"est resté stable",changeEn=displayedChange>0?"rose":displayedChange<0?"fell":"remained stable";
+      addJournal(bilingual(`Après trois jours d’attente à ${mark.name}, le niveau ${change} : de ${shown} m à ${nextShown} m.`,`After waiting three days at ${landmarkName(mark)}, the water level ${changeEn}: from ${measured.toFixed(1)} m to ${next.toFixed(1)} m.`));
+      setTimeout(()=>{if(!game.finished)riverEvent(mark,stageAsset(mark),next,bilingual(`Après l’attente, le niveau ${change}.`,`After waiting, the water level ${changeEn}.`))},0);
     }}
   ],art);
 }
@@ -538,9 +550,9 @@ function riverEvent(mark,art=stageAsset(mark),depth=null,observation=""){
 function queueRiverOutcome(mark,outcome,data){setTimeout(()=>{if(!game.finished)showRiverOutcome(mark,outcome,data)},0)}
 
 function showRiverOutcome(mark,outcome,{method,days,food,text,result}){
-  const art=$("#bilan-riviere-art");art.style.backgroundImage=`url('assets/river-${mark.visual}-${outcome}.png')`;art.setAttribute("aria-label",`${method} à ${mark.name}`);
-  $("#titre-bilan-riviere").textContent=`Bilan — ${mark.name}`;$("#bilan-riviere-texte").textContent=text;$("#bilan-riviere-methode").textContent=method;
-  $("#bilan-riviere-duree").textContent=`${days} jour${days>1?"s":""}`;$("#bilan-riviere-vivres").textContent=`${Math.round(food)} kg`;$("#bilan-riviere-resultat").textContent=result;
+  const art=$("#bilan-riviere-art");art.style.backgroundImage=`url('assets/river-${mark.visual}-${outcome}.png')`;art.setAttribute("aria-label",currentLanguage==="en"?`${languageText(method)} at ${landmarkName(mark)}`:`${languageText(method)} à ${mark.name}`);
+  $("#titre-bilan-riviere").textContent=currentLanguage==="en"?`Report — ${landmarkName(mark)}`:`Bilan — ${mark.name}`;$("#bilan-riviere-texte").textContent=languageText(text);$("#bilan-riviere-methode").textContent=languageText(method);
+  $("#bilan-riviere-duree").textContent=currentLanguage==="en"?`${days} day${days===1?"":"s"}`:`${days} jour${days>1?"s":""}`;$("#bilan-riviere-vivres").textContent=`${Math.round(food)} kg`;$("#bilan-riviere-resultat").textContent=languageText(result);
   $("#dialogue-bilan-riviere").showModal();
 }
 
@@ -556,18 +568,18 @@ function riverRisk(mark,depth){
       {key:"pieces",amount:Math.random()<.35?Math.min(game.cart.pieces,1):0},
       {key:"medicaments",amount:Math.random()<.3?Math.min(game.cart.medicaments,rand(1,2)):0}
     ];
-    const losses=[];
+    const losses=[],lossesEn=[];
     for(const loss of cargoLosses){
       if(!loss.amount)continue;
-      game.cart[loss.key]-=loss.amount;losses.push(itemQuantity(loss.key,loss.amount));
+      game.cart[loss.key]-=loss.amount;losses.push(itemQuantityFor(loss.key,loss.amount,"fr"));lossesEn.push(itemQuantityFor(loss.key,loss.amount,"en"));
     }
     const maxOxLoss=Math.max(0,game.cart.boeufs-1);
     const oxLoss=maxOxLoss&&Math.random()<clamp(.18+depth*.12,.2,.45)?Math.min(maxOxLoss,depth>=1.5?rand(1,2):1):0;
-    if(oxLoss){game.cart.boeufs-=oxLoss;losses.push(`${oxLoss} bœuf${oxLoss>1?"s":""}`);}
+    if(oxLoss){game.cart.boeufs-=oxLoss;losses.push(`${oxLoss} bœuf${oxLoss>1?"s":""}`);lossesEn.push(`${oxLoss} ${oxLoss===1?"ox":"oxen"}`);}
     alive().forEach(p=>p.health=clamp(p.health-rand(2,9),0,100));
-    addJournal(losses.length?`À ${mark.name}, le chariot a pris l’eau par ${formatDepth(depth)} m de profondeur. Le courant emporte ${losses.join(" et ")}.`:`Le chariot a pris l’eau à ${mark.name}, sans perte de chargement.`);toast("Le courant a secoué le convoi.");
-    queueRiverOutcome(mark,"float-accident",{method:"Chariot calfaté",days:1,food:travelFood.consumed,text:"Le chariot a pris l’eau dans le courant avant d’atteindre difficilement l’autre rive.",result:losses.length?`Profondeur : ${formatDepth(depth)} m · Pertes : ${losses.join(" et ")}`:`Profondeur : ${formatDepth(depth)} m · Aucune provision perdue, mais le groupe a été éprouvé`});
-  } else {addJournal(`Le chariot a traversé ${mark.name} à flot sans incident, par ${formatDepth(depth)} m de profondeur.`);queueRiverOutcome(mark,"float-success",{method:"Chariot calfaté",days:1,food:travelFood.consumed,text:"Le chariot a flotté jusqu’à l’autre rive sous le contrôle des cordes et des bœufs.",result:`Traversée réussie sans perte · Profondeur : ${formatDepth(depth)} m`})}
+    addJournal(losses.length?bilingual(`À ${mark.name}, le chariot a pris l’eau par ${depth.toFixed(1).replace(".",",")} m de profondeur. Le courant emporte ${losses.join(" et ")}.`,`At ${landmarkName(mark)}, the wagon took on water at a depth of ${depth.toFixed(1)} m. The current swept away ${lossesEn.join(" and ")}.`):bilingual(`Le chariot a pris l’eau à ${mark.name}, sans perte de chargement.`,`The wagon took on water at ${landmarkName(mark)}, without losing any cargo.`));toast("Le courant a secoué le convoi.");
+    queueRiverOutcome(mark,"float-accident",{method:"Chariot calfaté",days:1,food:travelFood.consumed,text:"Le chariot a pris l’eau dans le courant avant d’atteindre difficilement l’autre rive.",result:losses.length?bilingual(`Profondeur : ${depth.toFixed(1).replace(".",",")} m · Pertes : ${losses.join(" et ")}`,`Depth: ${depth.toFixed(1)} m · Losses: ${lossesEn.join(" and ")}`):bilingual(`Profondeur : ${depth.toFixed(1).replace(".",",")} m · Aucune provision perdue, mais le groupe a été éprouvé`,`Depth: ${depth.toFixed(1)} m · No supplies lost, but the party was shaken`)});
+  } else {addJournal(bilingual(`Le chariot a traversé ${mark.name} à flot sans incident, par ${depth.toFixed(1).replace(".",",")} m de profondeur.`,`The wagon floated across ${landmarkName(mark)} without incident at a depth of ${depth.toFixed(1)} m.`));queueRiverOutcome(mark,"float-success",{method:"Chariot calfaté",days:1,food:travelFood.consumed,text:"Le chariot a flotté jusqu’à l’autre rive sous le contrôle des cordes et des bœufs.",result:bilingual(`Traversée réussie sans perte · Profondeur : ${depth.toFixed(1).replace(".",",")} m`,`Successful crossing without loss · Depth: ${depth.toFixed(1)} m`)})}
   setTrailScene();updateDeaths();
 }
 
@@ -575,38 +587,38 @@ function fortEvent(mark,art=stageAsset(mark)){
   const price=Math.round(1.3+game.km/KM_TOTAL*.7);
   const foodCost=20*price, ammoCost=6*price, restFood=alive().length*4;
   const equipment=[
-    {key:"boeufs",qty:2,cost:60*price,label:"2 bœufs"},
-    {key:"vetements",qty:2,cost:22*price,label:"2 couvertures"},
-    {key:"pieces",qty:1,cost:28*price,label:"1 pièce de rechange"},
-    {key:"medicaments",qty:2,cost:28*price,label:"2 remèdes"}
+    {key:"boeufs",qty:2,cost:60*price,label:"2 bœufs",labelEn:"2 oxen"},
+    {key:"vetements",qty:2,cost:22*price,label:"2 couvertures",labelEn:"2 blankets"},
+    {key:"pieces",qty:1,cost:28*price,label:"1 pièce de rechange",labelEn:"1 spare part"},
+    {key:"medicaments",qty:2,cost:28*price,label:"2 remèdes",labelEn:"2 doses of medicine"}
   ].sort(()=>Math.random()-.5).slice(0,2);
   const actions=[
-    {label:`Acheter 50 kg de vivres (${foodCost} $)`,keepOpen:true,disabled:()=>game.money<foodCost,action:()=>{game.money-=foodCost;game.cart.vivres+=50;addJournal(`Ravitaillement à ${mark.name}.`)}},
-    {label:`Acheter 40 balles (${ammoCost} $)`,keepOpen:true,disabled:()=>game.money<ammoCost,action:()=>{game.money-=ammoCost;game.cart.munitions+=40;addJournal(`Achat de munitions à ${mark.name}.`)}},
-    ...equipment.map(item=>({label:`Acheter ${item.label} (${item.cost} $)`,keepOpen:true,disabled:()=>game.money<item.cost||game.cart[item.key]+item.qty>SHOP[item.key].max,action:()=>{game.money-=item.cost;game.cart[item.key]+=item.qty;addJournal(`Achat de ${item.label} à ${mark.name}.`)}})),
-    {label:"Se reposer 2 jours",keepOpen:true,disabled:()=>game.cart.vivres<restFood,action:()=>{advanceDate(2);consumeFood(2,2);game.oxStrain=clamp(game.oxStrain-3,0,10);alive().forEach(p=>p.health=clamp(p.health+8,0,100));addJournal(`Halte réparatrice à ${mark.name}.`)}},
-    {label:"Repartir",primary:true,action:()=>addJournal(`Passage à ${mark.name}.`)}
+    {label:bilingual(`Acheter 50 kg de vivres (${foodCost} $)`,`Buy 50 kg of food ($${foodCost})`),keepOpen:true,disabled:()=>game.money<foodCost,action:()=>{game.money-=foodCost;game.cart.vivres+=50;addJournal(bilingual(`Ravitaillement à ${mark.name}.`,`Resupplied at ${landmarkName(mark)}.`))}},
+    {label:bilingual(`Acheter 40 balles (${ammoCost} $)`,`Buy 40 bullets ($${ammoCost})`),keepOpen:true,disabled:()=>game.money<ammoCost,action:()=>{game.money-=ammoCost;game.cart.munitions+=40;addJournal(bilingual(`Achat de munitions à ${mark.name}.`,`Bought ammunition at ${landmarkName(mark)}.`))}},
+    ...equipment.map(item=>({label:bilingual(`Acheter ${item.label} (${item.cost} $)`,`Buy ${item.labelEn} ($${item.cost})`),keepOpen:true,disabled:()=>game.money<item.cost||game.cart[item.key]+item.qty>SHOP[item.key].max,action:()=>{game.money-=item.cost;game.cart[item.key]+=item.qty;addJournal(bilingual(`Achat de ${item.label} à ${mark.name}.`,`Bought ${item.labelEn} at ${landmarkName(mark)}.`))}})),
+    {label:"Se reposer 2 jours",keepOpen:true,disabled:()=>game.cart.vivres<restFood,action:()=>{advanceDate(2);consumeFood(2,2);game.oxStrain=clamp(game.oxStrain-3,0,10);alive().forEach(p=>p.health=clamp(p.health+8,0,100));addJournal(bilingual(`Halte réparatrice à ${mark.name}.`,`A restorative stop at ${landmarkName(mark)}.`))}},
+    {label:"Repartir",primary:true,action:()=>addJournal(bilingual(`Passage à ${mark.name}.`,`Passed through ${landmarkName(mark)}.`))}
   ];
-  eventModal(mark.name,"Palissades, forge et odeur de pain frais : une halte bienvenue.","Le stock d’équipement varie à chaque fort. Vous pouvez effectuer plusieurs achats avant de repartir.",actions,art);
+  eventModal(bilingual(mark.name,landmarkName(mark)),"Palissades, forge et odeur de pain frais : une halte bienvenue.","Le stock d’équipement varie à chaque fort. Vous pouvez effectuer plusieurs achats avant de repartir.",actions,art);
 }
 
 function eventModal(title,text,details,actions,art="trail"){
-  const d=$("#dialogue-evenement");$("#event-title").textContent=title;$("#event-text").textContent=text;$("#event-details").textContent=details;
+  const d=$("#dialogue-evenement");$("#event-title").textContent=languageText(title);$("#event-text").textContent=languageText(text);$("#event-details").textContent=languageText(details);
   const artFile=art.includes(".")?art:`${art}.webp`;
-  if(artFile.startsWith("incident-"))addJournal(`${title} — ${text}`);
+  if(artFile.startsWith("incident-"))addJournal(bilingualJoin(title," — ",text));
   $("#event-art").style.backgroundImage=`url('assets/${artFile}')`;
   const box=$("#event-actions");box.innerHTML="";
   const isDisabled=a=>typeof a.disabled==="function"?a.disabled():!!a.disabled;
   const buttons=[];
   actions.forEach((a,i)=>{
-    const b=document.createElement("button");b.type="button";b.className=`btn ${a.primary||(!actions.some(item=>item.primary)&&i===0)?"primary":"secondary"}`;b.textContent=a.label;b.disabled=isDisabled(a);
+    const b=document.createElement("button");b.type="button";b.className=`btn ${a.primary||(!actions.some(item=>item.primary)&&i===0)?"primary":"secondary"}`;b.textContent=languageText(a.label);b.disabled=isDisabled(a);
     b.addEventListener("click",()=>{
       if(isDisabled(a))return;
       a.action();updateDeaths();
       if(game.finished||checkJourneyFailure()){d.close();return;}
       updateUI();
       if(a.keepOpen){
-        $("#event-details").textContent=`${details} Il vous reste ${money(game.money)}, ${itemQuantity("vivres",Math.round(game.cart.vivres))} et ${itemQuantity("munitions",game.cart.munitions)}.`;
+        $("#event-details").textContent=currentLanguage==="en"?`${languageText(details)} You have ${money(game.money)}, ${itemQuantity("vivres",Math.round(game.cart.vivres))}, and ${itemQuantity("munitions",game.cart.munitions)} left.`:`${languageText(details)} Il vous reste ${money(game.money)}, ${itemQuantity("vivres",Math.round(game.cart.vivres))} et ${itemQuantity("munitions",game.cart.munitions)}.`;
         buttons.forEach(({action,button})=>button.disabled=isDisabled(action));
         return;
       }
@@ -626,24 +638,24 @@ function rest(){
 function renderTrailMap(){
   const stops=[{km:0,name:"Independence"},...LANDMARKS,{km:KM_TOTAL,name:"Oregon"}],left=45,width=830;
   const x=km=>left+km/KM_TOTAL*width,current=x(game.km);
-  return `<section class="map-card" aria-labelledby="titre-carte"><h3 id="titre-carte">Carte de la piste</h3><div class="trail-map-scroll"><svg class="trail-map" viewBox="0 0 920 210" role="img" aria-label="Progression de Independence jusqu’à la vallée de Willamette"><path class="map-route" d="M ${left} 105 H ${left+width}"/><path class="map-progress" d="M ${left} 105 H ${current}"/>${stops.map((stop,i)=>{const px=x(stop.km),top=i%2===0;return `<g><circle class="map-stop" cx="${px}" cy="105" r="5"/><path class="map-tick" d="M ${px} 96 V ${top?70:140}"/><text x="${px}" y="${top?61:157}" text-anchor="middle">${escapeHtml(stop.name)}</text></g>`}).join("")}<g class="map-current"><path d="M ${current} 78 l 10 18 h -20 z"/><text x="${current}" y="72" text-anchor="middle">Vous êtes ici</text></g></svg></div><p>${Math.round(game.km).toLocaleString("fr-FR")} km parcourus · ${Math.max(0,KM_TOTAL-Math.round(game.km)).toLocaleString("fr-FR")} km restants</p></section>`;
+  return `<section class="map-card" aria-labelledby="titre-carte"><h3 id="titre-carte">${languageText("Carte de la piste")}</h3><div class="trail-map-scroll"><svg class="trail-map" viewBox="0 0 920 210" role="img" aria-label="${currentLanguage==="en"?"Progress from Independence to the Willamette Valley":"Progression de Independence jusqu’à la vallée de Willamette"}"><path class="map-route" d="M ${left} 105 H ${left+width}"/><path class="map-progress" d="M ${left} 105 H ${current}"/>${stops.map((stop,i)=>{const px=x(stop.km),top=i%2===0;return `<g><circle class="map-stop" cx="${px}" cy="105" r="5"/><path class="map-tick" d="M ${px} 96 V ${top?70:140}"/><text x="${px}" y="${top?61:157}" text-anchor="middle">${escapeHtml(landmarkName(stop))}</text></g>`}).join("")}<g class="map-current"><path d="M ${current} 78 l 10 18 h -20 z"/><text x="${current}" y="72" text-anchor="middle">${languageText("Vous êtes ici")}</text></g></svg></div><p>${currentLanguage==="en"?`${Math.round(game.km).toLocaleString(currentLocale())} km traveled · ${Math.max(0,KM_TOTAL-Math.round(game.km)).toLocaleString(currentLocale())} km remaining`:`${Math.round(game.km).toLocaleString(currentLocale())} km parcourus · ${Math.max(0,KM_TOTAL-Math.round(game.km)).toLocaleString(currentLocale())} km restants`}</p></section>`;
 }
 
 function showInventory(){
-  $("#info-title").textContent="Inventaire du chariot";
-  $("#info-content").innerHTML=`<table class="inventory-table"><tbody>${Object.entries(SHOP).map(([k,v])=>`<tr><td>${v.label}</td><td>${game.cart[k]} ${unitLabel(v,game.cart[k])}</td></tr>`).join("")}<tr><td>Argent restant</td><td>${money(game.money)}</td></tr></tbody></table><p>Le chariot transporte aussi vos outils, de la vaisselle et les souvenirs du voyage.</p>`;
+  $("#info-title").textContent=languageText("Inventaire du chariot");
+  $("#info-content").innerHTML=`<table class="inventory-table"><tbody>${Object.entries(SHOP).map(([k,v])=>`<tr><td>${languageText(v.label)}</td><td>${game.cart[k]} ${unitLabel(v,game.cart[k])}</td></tr>`).join("")}<tr><td>${languageText("Argent restant")}</td><td>${money(game.money)}</td></tr></tbody></table><p>${languageText("Le chariot transporte aussi vos outils, de la vaisselle et les souvenirs du voyage.")}</p>`;
   $("#dialogue-info").showModal();
 }
 
 function showMap(){
-  $("#info-title").textContent="Carte de la piste";
+  $("#info-title").textContent=languageText("Carte de la piste");
   $("#info-content").innerHTML=renderTrailMap();
   $("#dialogue-info").showModal();
 }
 
 function showJournal(){
-  $("#info-title").textContent="Journal de bord";
-  $("#info-content").innerHTML=`<ol class="journal-list">${game.journal.map(j=>`<li><time>${escapeHtml(j.date)}</time>${escapeHtml(j.text)}</li>`).join("")}</ol>`;$("#dialogue-info").showModal();
+  $("#info-title").textContent=languageText("Journal de bord");
+  $("#info-content").innerHTML=`<ol class="journal-list">${journalItems(game.journal)}</ol>`;$("#dialogue-info").showModal();
 }
 
 function showHelp(){
@@ -653,13 +665,18 @@ function showHelp(){
 function finish(win,message=""){
   game.finished=true;const avg=alive().length?alive().reduce((n,p)=>n+p.health,0)/alive().length:0;
   const score=Math.max(0,Math.round(game.money+game.cart.vivres*2+alive().length*250+avg*10+(game.profession==="fermier"?1200:game.profession==="charpentier"?600:0)));
-  game.score=score;
-  $("#ecran-fin").classList.toggle("defeat",!win);$("#fin-kicker").textContent=win?"Vallée de Willamette · Oregon":"La piste s’arrête ici";
-  $("#titre-fin").textContent=win?"Vous avez atteint l’Oregon":"Le convoi n’ira pas plus loin";
-  $("#texte-fin").textContent=message||(win?`${alive().length} voyageur${alive().length>1?"s":""} contemple${alive().length>1?"nt":""} enfin la vallée. Après ${game.days} jours sur la piste, une nouvelle vie commence.`:"La faim, la maladie et la route ont eu raison de votre expédition.");
+  game.score=score;game.finishState={win,message};renderFinish();
+}
+
+function renderFinish(){
+  const {win,message}=game.finishState,score=game.score;
+  $("#ecran-fin").classList.toggle("defeat",!win);
+  $("#fin-kicker").textContent=languageText(win?"Vallée de Willamette · Oregon":"La piste s’arrête ici");
+  $("#titre-fin").textContent=languageText(win?"Vous avez atteint l’Oregon":"Le convoi n’ira pas plus loin");
+  $("#texte-fin").textContent=message?languageText(message):(win?(currentLanguage==="en"?`${alive().length} traveler${alive().length===1?"":"s"} finally ${alive().length===1?"looks":"look"} upon the valley. After ${game.days} days on the trail, a new life begins.`:`${alive().length} voyageur${alive().length>1?"s":""} contemple${alive().length>1?"nt":""} enfin la vallée. Après ${game.days} jours sur la piste, une nouvelle vie commence.`):languageText("La faim, la maladie et la route ont eu raison de votre expédition."));
   $("#rang-fin").textContent=endingRank(score);
-  $("#score-fin").textContent=`Score · ${score.toLocaleString("fr-FR")}${win?"":` · Distance · ${Math.round(game.km).toLocaleString("fr-FR")} km`}`;
-  $("#journal-fin").innerHTML=game.journal.map(j=>`<li><time>${escapeHtml(j.date)}</time>${escapeHtml(j.text)}</li>`).join("")||"<li>Aucune entrée dans le journal.</li>";
+  $("#score-fin").textContent=`${currentLanguage==="en"?"Score":"Score"} · ${score.toLocaleString(currentLocale())}${win?"":` · ${currentLanguage==="en"?"Distance":"Distance"} · ${Math.round(game.km).toLocaleString(currentLocale())} km`}`;
+  $("#journal-fin").innerHTML=journalItems(game.journal)||`<li>${languageText("Aucune entrée dans le journal.")}</li>`;
   showScreen("ecran-fin");
 }
 
@@ -689,7 +706,7 @@ function startHunt(){
   hunt={time:14,loot:0,shots:0,background:huntBackground(),cross:{x:380,y:210},animals:[],species:wildlife.pool,last:performance.now(),running:true};
   for(let i=0;i<wildlife.count;i++)spawnAnimal(i*145);
   const canvas=$("#canvas-chasse");canvas.style.backgroundImage=`url('assets/${hunt.background}')`;
-  $("#dialogue-chasse .eyebrow").textContent=regionVisual().title;
+  $("#dialogue-chasse .eyebrow").textContent=languageText(regionVisual().title);
   $("#chasse-balles").textContent=game.cart.munitions;$("#chasse-butin").textContent=0;$("#chasse-temps").textContent=14;
   $("#dialogue-chasse").showModal();canvas.focus();requestAnimationFrame(huntLoop);
 }
@@ -733,7 +750,7 @@ function aimHuntAt(event){
 function shoot(touchAssist=false){
   if(!hunt?.running||game.cart.munitions<=0)return;hunt.shots++;game.cart.munitions--;
   const hit=hunt.animals.find(a=>Math.hypot(a.x-hunt.cross.x,a.y-hunt.cross.y)<a.size*HUNT_SPECIES[a.species].hit+(touchAssist?14:0));
-  if(hit){const range=HUNT_SPECIES[hit.species].loot,gain=Math.min(90-hunt.loot,rand(...range));hunt.loot+=gain;resetAnimal(hit);toast(`Touché : +${gain} kg`)}
+  if(hit){const range=HUNT_SPECIES[hit.species].loot,gain=Math.min(90-hunt.loot,rand(...range));hunt.loot+=gain;resetAnimal(hit);toast(bilingual(`Touché : +${gain} kg`,`Hit: +${gain} kg`))}
   $("#chasse-balles").textContent=game.cart.munitions;$("#chasse-butin").textContent=hunt.loot;
   if(hunt.loot>=90)endHunt();
 }
@@ -741,7 +758,7 @@ function shoot(touchAssist=false){
 function endHunt(){
   if(!hunt?.running)return;
   const result={shots:hunt.shots,remaining:game.cart.munitions,loot:hunt.loot,background:hunt.background};hunt.running=false;game.cart.vivres+=result.loot;
-  addJournal(result.loot?`La chasse rapporte ${result.loot} kg de viande pour ${result.shots} balle${result.shots>1?"s":""} tirée${result.shots>1?"s":""}.`:"La chasse ne rapporte rien cette fois.");
+  addJournal(result.loot?bilingual(`La chasse rapporte ${result.loot} kg de viande pour ${result.shots} balle${result.shots>1?"s":""} tirée${result.shots>1?"s":""}.`,`The hunt yielded ${result.loot} kg of meat for ${result.shots} bullet${result.shots===1?"":"s"} fired.`):bilingual("La chasse ne rapporte rien cette fois.","The hunt yielded nothing this time."));
   $("#dialogue-chasse").close();updateUI();hunt=null;
   $("#dialogue-bilan-chasse .hunt-result-art").style.backgroundImage=`url('assets/${result.background}')`;
   $("#bilan-balles-tirees").textContent=result.shots;$("#bilan-balles-restantes").textContent=result.remaining;$("#bilan-viande").textContent=result.loot;
@@ -783,11 +800,11 @@ function endAttack(){
 
 function showAttackOutcome(){
   const {hits,wounded,dead}=attackOutcome;$("#bilan-attaque-impacts").textContent=hits;$("#bilan-attaque-blesses").textContent=wounded.length;$("#bilan-attaque-deces").textContent=dead.length;
-  const entries=[...wounded.map(p=>`<li><b>${escapeHtml(p.name)}</b><span>${injuryCondition(p.health)}</span></li>`),...dead.map(p=>`<li><b>${escapeHtml(p.name)}</b><span>Décédé</span></li>`)];
-  $("#bilan-attaque-liste").innerHTML=entries.length?entries.join(""):"<li><b>Aucune victime</b><span>Le convoi a tenu bon.</span></li>";
+  const entries=[...wounded.map(p=>`<li><b>${escapeHtml(p.name)}</b><span>${languageText(injuryCondition(p.health))}</span></li>`),...dead.map(p=>`<li><b>${escapeHtml(p.name)}</b><span>${languageText("Décédé")}</span></li>`)];
+  $("#bilan-attaque-liste").innerHTML=entries.length?entries.join(""):`<li><b>${languageText("Aucune victime")}</b><span>${languageText("Le convoi a tenu bon.")}</span></li>`;
   const untreated=wounded.filter(p=>p.needsRemedy).length,usable=Math.min(untreated,game.cart.medicaments);
   $("#soigner-attaque").disabled=usable===0;
-  $("#soigner-attaque").textContent=untreated===0?"Aucun remède nécessaire":usable?`Utiliser ${usable} remède${usable>1?"s":""}`:"Aucun remède disponible";
+  $("#soigner-attaque").textContent=untreated===0?languageText("Aucun remède nécessaire"):usable?(currentLanguage==="en"?`Use ${usable} dose${usable===1?"":"s"} of medicine`:`Utiliser ${usable} remède${usable>1?"s":""}`):languageText("Aucun remède disponible");
   if(!$("#dialogue-bilan-attaque").open)$("#dialogue-bilan-attaque").showModal();
 }
 
@@ -799,7 +816,7 @@ function treatAttackWounds(){
 
 function continueAfterAttack(){
   if(!attackOutcome)return;const {hits,wounded,dead}=attackOutcome;$("#dialogue-bilan-attaque").close();
-  addJournal(`L’attaque se termine après ${hits} impact${hits>1?"s":""} : ${wounded.length} blessé${wounded.length>1?"s":""}, ${dead.length} mort${dead.length>1?"s":""}.`);attackOutcome=null;
+  addJournal(bilingual(`L’attaque se termine après ${hits} impact${hits>1?"s":""} : ${wounded.length} blessé${wounded.length>1?"s":""}, ${dead.length} mort${dead.length>1?"s":""}.`,`The attack ended after ${hits} hit${hits===1?"":"s"}: ${wounded.length} wounded, ${dead.length} dead.`));attackOutcome=null;
   if(!alive().length){finish(false,"Aucun membre du convoi n’a survécu à l’attaque.");return;}updateUI();returnToTrailTop();
 }
 
@@ -827,5 +844,11 @@ function bindEvents(){
     e.preventDefault();attackEvent();
   });
 }
+
+window.refreshGameLanguage=()=>{
+  if(!game)return;
+  if($("#ecran-boutique").classList.contains("active"))renderShop();
+  if(game.finishState)renderFinish();else updateUI();
+};
 
 bindEvents();

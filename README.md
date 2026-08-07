@@ -2,6 +2,8 @@
 
 Jeu de survie et de gestion inspiré du voyage historique vers l’Oregon. L’application est entièrement statique : aucun serveur applicatif, compte ou service distant n’est nécessaire.
 
+L’interface est disponible en français et en anglais. Le sélecteur FR/EN adapte immédiatement les écrans, les événements et le journal de bord.
+
 ## Jouer en ligne
 
 Le jeu est publié sur GitHub Pages : **https://nkeywal.github.io/oregon/**

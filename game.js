@@ -128,6 +128,11 @@ function unitLabel(item,quantity) { return unitLabelFor(item,quantity); }
 function itemQuantityFor(key,quantity,language=currentLanguage) { const quantityText=`${quantity} ${unitLabelFor(SHOP[key],quantity,language)}`;return language==="en"&&key==="vivres"?`${quantityText} of food`:language==="en"&&key==="medicaments"?`${quantityText} of medicine`:quantityText; }
 function itemQuantity(key,quantity) { return itemQuantityFor(key,quantity); }
 function endingRank(score) { return languageText(ENDING_RANKS[Math.min(ENDING_RANKS.length-1,Math.floor(Math.max(0,score)/250))]); }
+function remedyLabel(availableLabel,required=1) {
+  if(game.cart.medicaments>=required)return availableLabel;
+  if(game.cart.medicaments===0)return "Aucun remède disponible";
+  return bilingual(`${required} remèdes nécessaires · ${game.cart.medicaments} disponible`,`${required} doses needed · ${game.cart.medicaments} available`);
+}
 function dailyFoodPerPerson() { return {copieuses:2,normales:1.5,maigres:1}[game.rations]; }
 function consumeFood(days,perPerson=dailyFoodPerPerson()) {
   const needed=perPerson*alive().length*days,consumed=Math.min(game.cart.vivres,needed);
@@ -254,9 +259,9 @@ function escapeHtml(str){const d=document.createElement("div");d.textContent=Str
 function renderShop() {
   const spent=Object.entries(cart).reduce((sum,[k,q])=>sum+q/SHOP[k].step*SHOP[k].price,0);
   $("#argent-boutique").textContent=money(game.initialMoney-spent);
-  $("#liste-boutique").innerHTML=Object.entries(SHOP).map(([key,item])=>`
+  $("#liste-boutique").innerHTML=Object.entries(SHOP).map(([key,item])=>{const canRemove=cart[key]>=item.step,canAdd=cart[key]+item.step<=item.max&&spent+item.price<=game.initialMoney;return `
     <article class="shop-item panel"><h3>${languageText(item.label)}</h3><b>${money(item.price)} / ${item.step} ${unitLabel(item,item.step)}</b><p>${languageText(item.desc)}</p>
-    <div class="stepper"><button type="button" data-shop="${key}" data-dir="-1" aria-label="${currentLanguage==="en"?"Remove":"Retirer"} ${languageText(item.label)}">−</button><output>${cart[key]} ${unitLabel(item,cart[key])}</output><button type="button" data-shop="${key}" data-dir="1" aria-label="${currentLanguage==="en"?"Add":"Ajouter"} ${languageText(item.label)}">+</button></div></article>`).join("");
+    <div class="stepper"><button type="button" data-shop="${key}" data-dir="-1" aria-label="${currentLanguage==="en"?"Remove":"Retirer"} ${languageText(item.label)}" ${canRemove?"":"disabled"}>−</button><output>${cart[key]} ${unitLabel(item,cart[key])}</output><button type="button" data-shop="${key}" data-dir="1" aria-label="${currentLanguage==="en"?"Add":"Ajouter"} ${languageText(item.label)}" ${canAdd?"":"disabled"}>+</button></div></article>`}).join("");
   const notes=[];if(cart.boeufs<4)notes.push("Il faut au moins 4 bœufs.");if(cart.vivres<400)notes.push("Prévoyez environ 400 kg de vivres.");if(cart.munitions<100)notes.push("Prévoyez au moins 100 balles pour la chasse.");
   $("#conseils-boutique").innerHTML=notes.length?notes.map(n=>`<div>⚠ ${languageText(n)}</div>`).join(""):languageText("Votre chargement semble prêt pour la piste.");
 }
@@ -373,7 +378,7 @@ function randomEvent(){
     ()=>{
       const p=pick(alive());p.health=clamp(p.health-rand(12,22),1,100);p.state="Fièvre";p.sickDays=10;
       eventModal("La fièvre",bilingual(`${p.name} souffre d’une forte fièvre.`,`${p.name} is suffering from a high fever.`),"Un remède améliore nettement ses chances.",[
-        {label:"Utiliser un remède",disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+18,1,100);p.sickDays=4;addJournal(bilingual(`${p.name} a reçu un remède.`,`${p.name} received medicine.`))}},
+        {label:remedyLabel("Utiliser un remède"),disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+18,1,100);p.sickDays=4;addJournal(bilingual(`${p.name} a reçu un remède.`,`${p.name} received medicine.`))}},
         {label:"Continuer prudemment",action:()=>{p.health=clamp(p.health-5,0,100);addJournal(bilingual(`${p.name} reste fiévreux.`,`${p.name} remains feverish.`))}}
       ],"incident-fever.png");
     },
@@ -433,7 +438,7 @@ function oxInjuryEvent(){
   const meat=rand(35,55),loadableMeat=Math.min(meat,SHOP.vivres.max-game.cart.vivres),lastOx=game.cart.boeufs===1;
   const slaughterLabel=loadableMeat?bilingual(`L’abattre et charger ${loadableMeat} kg`,`Slaughter it and load ${loadableMeat} kg`):bilingual("L’abattre sans pouvoir charger la viande","Slaughter it with no room for the meat");
   eventModal("Un bœuf blessé","Une pierre a fait chuter l’un des bœufs. Sa patte enflée ne supporte plus le joug.",lastOx?"C’est votre dernier bœuf. L’abattre laisserait le chariot sans attelage.":"Vous pouvez tenter de le soigner ou transformer l’animal en provisions.",[
-    {label:"Le soigner et attendre 2 jours",disabled:game.cart.medicaments<1,action:()=>{
+    {label:remedyLabel("Le soigner et attendre 2 jours"),disabled:game.cart.medicaments<1,action:()=>{
       game.cart.medicaments--;advanceDate(2);consumeFood(2);game.oxStrain=clamp(game.oxStrain-4,0,10);addJournal(bilingual("Un remède et deux jours de repos ont remis un bœuf sur pied.","Medicine and two days of rest got an ox back on its feet."));
     }},
     {label:slaughterLabel,action:()=>{
@@ -445,7 +450,7 @@ function oxInjuryEvent(){
 function injuryEvent(){
   const p=pick(alive()),damage=rand(14,24);p.health=clamp(p.health-damage,1,100);p.state="Blessé";p.sickDays=8;
   eventModal("Blessure sur la piste",bilingual(`${p.name} a fait une mauvaise chute près du chariot.`,`${p.name} took a bad fall near the wagon.`),bilingual(`Sa blessure l’a fortement affaibli. Un remède et des bandages accéléreraient sa guérison.`,`The injury has left ${p.name} badly weakened. Medicine and bandages would speed recovery.`),[
-    {label:"Utiliser un remède",disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+16,1,100);p.sickDays=3;p.state="Convalescent";addJournal(bilingual(`${p.name} a été soigné après sa chute.`,`${p.name} was treated after the fall.`))}},
+    {label:remedyLabel("Utiliser un remède"),disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+16,1,100);p.sickDays=3;p.state="Convalescent";addJournal(bilingual(`${p.name} a été soigné après sa chute.`,`${p.name} was treated after the fall.`))}},
     {label:"Poser une attelle",action:()=>{advanceDate(1);consumeFood(1);p.sickDays=6;addJournal(bilingual(`${p.name} voyage avec une attelle improvisée.`,`${p.name} travels with an improvised splint.`))}}
   ],"incident-injury.png");
 }
@@ -453,7 +458,7 @@ function injuryEvent(){
 function dysenteryEvent(){
   const p=pick(alive()),damage=rand(18,28);p.health=clamp(p.health-damage,1,100);p.state="Dysenterie";p.sickDays=12;
   eventModal("Dysenterie",bilingual(`${p.name} est pris de violentes douleurs et se déshydrate rapidement.`,`${p.name} suffers violent pain and is rapidly becoming dehydrated.`),bilingual(`Son état s’est sérieusement dégradé. Du repos, de l’eau bouillie et un remède peuvent éviter le pire.`,`${p.name}’s condition has seriously deteriorated. Rest, boiled water, and medicine may prevent the worst.`),[
-    {label:"Donner un remède",disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+18,1,100);p.sickDays=5;p.state="Convalescent";addJournal(bilingual(`${p.name} a reçu un remède contre la dysenterie.`,`${p.name} received medicine for dysentery.`))}},
+    {label:remedyLabel("Donner un remède"),disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+18,1,100);p.sickDays=5;p.state="Convalescent";addJournal(bilingual(`${p.name} a reçu un remède contre la dysenterie.`,`${p.name} received medicine for dysentery.`))}},
     {label:"Faire halte 2 jours",action:()=>{advanceDate(2);consumeFood(2);p.health=clamp(p.health+6,1,100);p.sickDays=8;addJournal(bilingual(`Le convoi s’est arrêté pour soigner la dysenterie de ${p.name}.`,`The wagon party stopped to treat ${p.name}’s dysentery.`))}},
     {label:"Continuer",action:()=>{p.health=clamp(p.health-8,1,100);addJournal(bilingual(`${p.name} reste gravement atteint de dysenterie.`,`${p.name} remains seriously ill with dysentery.`))}}
   ],"incident-dysentery.png");
@@ -466,7 +471,7 @@ function climateInjuryEvent(){
   const text=bilingual(cold?`${p.name} souffre d’engelures après une longue exposition au froid.`:`${p.name} est couvert de piqûres douloureuses après une halte sous une chaleur étouffante.`,cold?`${p.name} suffers from frostbite after prolonged exposure to the cold.`:`${p.name} is covered in painful insect bites after a stop in oppressive heat.`);
   const details=cold?"Il faut réchauffer progressivement les zones atteintes.":"Les piqûres se sont infectées et doivent être nettoyées.";
   eventModal(title,text,bilingual(`${details} ${p.name} en ressort affaibli.`,`${languageText(details,"en")} ${p.name} is left weakened.`),[
-    {label:"Utiliser un remède",disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+(cold?17:12),1,100);p.sickDays=3;p.state="Convalescent";addJournal(bilingual(`${p.name} a été soigné pour ${cold?"des engelures":"des piqûres d’insectes"}.`,`${p.name} was treated for ${cold?"frostbite":"insect bites"}.`))}},
+    {label:remedyLabel("Utiliser un remède"),disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+(cold?17:12),1,100);p.sickDays=3;p.state="Convalescent";addJournal(bilingual(`${p.name} a été soigné pour ${cold?"des engelures":"des piqûres d’insectes"}.`,`${p.name} was treated for ${cold?"frostbite":"insect bites"}.`))}},
     {label:cold?"Réchauffer et attendre":"Nettoyer et repartir",action:()=>{if(cold){advanceDate(1);consumeFood(1)}p.sickDays=cold?6:4;addJournal(bilingual(`${p.name} récupère lentement après ${cold?"ses engelures":"ses piqûres"}.`,`${p.name} is recovering slowly from ${cold?"frostbite":"the bites"}.`))}}
   ],cold?"incident-frostbite.png":"incident-bites.png");
 }
@@ -476,7 +481,7 @@ function contagiousDiseaseEvent(){
   patients.forEach(p=>{p.health=clamp(p.health-rand(9,16),1,100);p.state="Malade";p.sickDays=Math.max(p.sickDays,10)});
   const count=patients.length;
   eventModal("Maladie contagieuse",bilingual(`${count} voyageur${count>1?"s":""} présente${count>1?"nt":""} les mêmes symptômes.`,`${count} traveler${count===1?"":"s"} ${count===1?"shows":"show"} the same symptoms.`),bilingual(`La maladie risque d’épuiser rapidement le groupe. Vous avez ${itemQuantityFor("medicaments",game.cart.medicaments,"fr")}.`,`The disease may quickly exhaust the party. You have ${itemQuantityFor("medicaments",game.cart.medicaments,"en")}.`),[
-    {label:bilingual(`Distribuer ${count} remède${count>1?"s":""}`,`Give ${count} dose${count===1?"":"s"}`),disabled:game.cart.medicaments<count,action:()=>{game.cart.medicaments-=count;patients.forEach(p=>{p.health=clamp(p.health+14,1,100);p.sickDays=4;p.state="Convalescent"});addJournal(bilingual(`${count} malade${count>1?"s ont":" a"} reçu un remède.`,`${count} sick traveler${count===1?"":"s"} received medicine.`))}},
+    {label:remedyLabel(bilingual(`Distribuer ${count} remède${count>1?"s":""}`,`Give ${count} dose${count===1?"":"s"}`),count),disabled:game.cart.medicaments<count,action:()=>{game.cart.medicaments-=count;patients.forEach(p=>{p.health=clamp(p.health+14,1,100);p.sickDays=4;p.state="Convalescent"});addJournal(bilingual(`${count} malade${count>1?"s ont":" a"} reçu un remède.`,`${count} sick traveler${count===1?"":"s"} received medicine.`))}},
     {label:"Isoler les malades 2 jours",action:()=>{advanceDate(2);consumeFood(2);patients.forEach(p=>p.sickDays=7);addJournal("Le convoi s’est arrêté pour isoler les malades.")}},
     {label:"Continuer la route",action:()=>{patients.forEach(p=>p.health=clamp(p.health-5,1,100));addJournal("La maladie contagieuse affaiblit le groupe.")}}
   ],"incident-contagious.png");
@@ -631,9 +636,10 @@ function eventModal(title,text,details,actions,art="trail"){
   $("#event-art").style.backgroundImage=`url('assets/${artFile}')`;
   const box=$("#event-actions");box.innerHTML="";
   const isDisabled=a=>typeof a.disabled==="function"?a.disabled():!!a.disabled;
+  const hasExplicitPrimary=actions.some(a=>a.primary),defaultPrimary=hasExplicitPrimary?-1:actions.findIndex(a=>!isDisabled(a));
   const buttons=[];
   actions.forEach((a,i)=>{
-    const b=document.createElement("button");b.type="button";b.className=`btn ${a.primary||(!actions.some(item=>item.primary)&&i===0)?"primary":"secondary"}`;b.textContent=languageText(a.label);b.disabled=isDisabled(a);
+    const b=document.createElement("button");b.type="button";b.className=`btn ${a.primary||i===defaultPrimary?"primary":"secondary"}`;b.textContent=languageText(a.label);b.disabled=isDisabled(a);
     b.addEventListener("click",()=>{
       if(isDisabled(a))return;
       a.action();updateDeaths();

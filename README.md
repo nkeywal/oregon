@@ -8,6 +8,8 @@ L’interface est disponible en français et en anglais. Le sélecteur FR/EN ada
 
 Le jeu est publié sur GitHub Pages : **https://nkeywal.github.io/oregon/**
 
+Chaque modification de la branche principale fait l’objet d’un contrôle automatique (syntaxe JavaScript, fichiers statiques et illustrations requises).
+
 ## Lancer le jeu
 
 Depuis ce dossier :
@@ -28,4 +30,6 @@ Ouvrez ensuite `http://localhost:8000`. Le dossier peut aussi être déployé te
 
 Une partie se joue d’une traite : le jeu n’enregistre aucune progression dans le navigateur.
 
-Les illustrations originales se trouvent dans `assets/`. Chaque étape possède ses paysages doux, froids, chauds et pluvieux, dans une direction artistique commune inspirée des affiches WPA et de la gouache sérigraphiée des années 1930.
+Les illustrations du jeu se trouvent dans `assets/`. Chaque étape possède ses paysages doux, froids, chauds et pluvieux, dans une direction artistique commune inspirée des affiches WPA et de la gouache sérigraphiée des années 1930.
+
+Les fichiers servis sont compressés en WebP pour conserver leur qualité tout en limitant le téléchargement sur mobile.

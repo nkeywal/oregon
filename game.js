@@ -373,21 +373,21 @@ function randomEvent(){
       const lossTextEn=loss>0?`${loss} kg of food ${loss===1?"is":"are"} lost.`:"The food stores were already empty: nothing could be lost.";
       eventModal(bilingual("Mauvaise piste","Rough trail"),bilingual(`Le chariot s’est renversé dans une ornière. ${lossText}`,`The wagon overturned in a rut. ${lossTextEn}`),bilingual("Une journée sera nécessaire pour tout remettre en ordre.","One day will be needed to put everything back in order."),[
         {label:"Réparer et repartir",action:()=>{advanceDate(1);consumeFood(1);addJournal(loss>0?bilingual(`Une chute de chariot nous a coûté ${loss} kg de vivres.`,`A wagon fall cost us ${loss} kg of food.`):bilingual("Le chariot s’est renversé, sans perte de vivres.","The wagon overturned without losing any food."))}}
-      ],"incident-wagon.png");
+      ],"incident-wagon.webp");
     },
     ()=>{
       const p=pick(alive());p.health=clamp(p.health-rand(12,22),1,100);p.state="Fièvre";p.sickDays=10;
       eventModal("La fièvre",bilingual(`${p.name} souffre d’une forte fièvre.`,`${p.name} is suffering from a high fever.`),"Un remède améliore nettement ses chances.",[
         {label:remedyLabel("Utiliser un remède"),disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+18,1,100);p.sickDays=4;addJournal(bilingual(`${p.name} a reçu un remède.`,`${p.name} received medicine.`))}},
         {label:"Continuer prudemment",action:()=>{p.health=clamp(p.health-5,0,100);addJournal(bilingual(`${p.name} reste fiévreux.`,`${p.name} remains feverish.`))}}
-      ],"incident-fever.png");
+      ],"incident-fever.webp");
     },
     ()=>{
       if(game.cart.pieces>0){
         const days=game.profession==="charpentier"?1:2;game.cart.pieces--;
         eventModal("Essieu brisé","Un choc sec — l’essieu du chariot vient de céder.",bilingual(`Vous utilisez une pièce de rechange et perdez ${days===1?"une journée":"deux jours"}.`,`You use a spare part and lose ${days===1?"one day":"two days"}.`),[
           {label:"Effectuer la réparation",action:()=>{advanceDate(days);consumeFood(days);addJournal(bilingual(`L’essieu a été remplacé avec une pièce de rechange en ${days} jour${days>1?"s":""}.`,`The axle was replaced with a spare part in ${days} day${days===1?"":"s"}.`))}}
-        ],"incident-axle.png");
+        ],"incident-axle.webp");
       }else{
         const discardedFood=Math.min(game.cart.vivres,rand(20,45));
         const discardedBlankets=Math.min(game.cart.vetements,1);
@@ -399,7 +399,7 @@ function randomEvent(){
             const losses=[];if(actualFood)losses.push(`${actualFood} kg de vivres`);if(discardedBlankets)losses.push("une couverture");
             addJournal(bilingual(`Faute de pièce, le chariot a été allégé${losses.length?` de ${losses.join(" et ")}`:""} pour reprendre la piste.`,`Without a spare part, the wagon was lightened${losses.length?` by discarding ${losses.map(loss=>languageText(loss,"en")).join(" and ")}`:""} to return to the trail.`));
           }}
-        ],"incident-axle.png");
+        ],"incident-axle.webp");
       }
     },
     ()=>{
@@ -407,7 +407,7 @@ function randomEvent(){
       const details=found?bilingual(`Vous recevez ${found} kg de vivres et quelques conseils.`,`You receive ${found} kg of food and some advice.`):bilingual("Le chariot est déjà plein : vous échangez plutôt des conseils sur la piste.","The wagon is already full, so you exchange advice about the trail instead.");
       eventModal("Une bonne rencontre","Des voyageurs revenant de l’Oregon partagent leurs provisions.",details,[
         {label:"Les remercier",action:()=>addJournal(found?"Une famille généreuse nous a ravitaillés.":bilingual("Une famille généreuse nous a conseillé sur la route à venir.","A generous family shared advice about the road ahead."))}
-      ],"incident-encounter.png");
+      ],"incident-encounter.webp");
     },
     ()=>theftEvent(),
     ()=>tradeEvent(),
@@ -420,7 +420,7 @@ function randomEvent(){
     const days=rand(2,4);
     eventModal("Pluies diluviennes","La boue avale les roues. Impossible d’avancer.",bilingual(`${days} jours de retard, mais le convoi reste à l’abri.`,`${days} days lost, but the wagon party remains sheltered.`),[
       {label:"Attendre l’éclaircie",action:()=>{advanceDate(days);consumeFood(days);addJournal(bilingual(`${days} jours perdus dans les pluies diluviennes.`,`${days} days lost in torrential rain.`))}}
-    ],"incident-rain.png");
+    ],"incident-rain.webp");
   });
   if(game.cart.vetements>0&&game.weather.temp<=5)events.push(()=>blanketLossEvent());
   if(game.weather.temp<=5||game.weather.temp>=27)events.push(()=>climateInjuryEvent());
@@ -444,7 +444,7 @@ function oxInjuryEvent(){
     {label:slaughterLabel,action:()=>{
       game.cart.boeufs--;const loaded=loadFood(meat);game.oxStrain=clamp(game.oxStrain-2,0,10);addJournal(loaded?bilingual(`Un bœuf blessé a été abattu. Sa viande ajoute ${loaded} kg aux réserves.`,`An injured ox was slaughtered. Its meat adds ${loaded} kg to the food stores.`):bilingual("Un bœuf blessé a été abattu, mais le chariot était trop plein pour charger sa viande.","An injured ox was slaughtered, but the wagon was too full to load its meat."));
     }}
-  ],"incident-ox-injury.png");
+  ],"incident-ox-injury.webp");
 }
 
 function injuryEvent(){
@@ -452,7 +452,7 @@ function injuryEvent(){
   eventModal("Blessure sur la piste",bilingual(`${p.name} a fait une mauvaise chute près du chariot.`,`${p.name} took a bad fall near the wagon.`),bilingual(`Sa blessure l’a fortement affaibli. Un remède et des bandages accéléreraient sa guérison.`,`The injury has left ${p.name} badly weakened. Medicine and bandages would speed recovery.`),[
     {label:remedyLabel("Utiliser un remède"),disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+16,1,100);p.sickDays=3;p.state="Convalescent";addJournal(bilingual(`${p.name} a été soigné après sa chute.`,`${p.name} was treated after the fall.`))}},
     {label:"Poser une attelle",action:()=>{advanceDate(1);consumeFood(1);p.sickDays=6;addJournal(bilingual(`${p.name} voyage avec une attelle improvisée.`,`${p.name} travels with an improvised splint.`))}}
-  ],"incident-injury.png");
+  ],"incident-injury.webp");
 }
 
 function dysenteryEvent(){
@@ -461,7 +461,7 @@ function dysenteryEvent(){
     {label:remedyLabel("Donner un remède"),disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+18,1,100);p.sickDays=5;p.state="Convalescent";addJournal(bilingual(`${p.name} a reçu un remède contre la dysenterie.`,`${p.name} received medicine for dysentery.`))}},
     {label:"Faire halte 2 jours",action:()=>{advanceDate(2);consumeFood(2);p.health=clamp(p.health+6,1,100);p.sickDays=8;addJournal(bilingual(`Le convoi s’est arrêté pour soigner la dysenterie de ${p.name}.`,`The wagon party stopped to treat ${p.name}’s dysentery.`))}},
     {label:"Continuer",action:()=>{p.health=clamp(p.health-8,1,100);addJournal(bilingual(`${p.name} reste gravement atteint de dysenterie.`,`${p.name} remains seriously ill with dysentery.`))}}
-  ],"incident-dysentery.png");
+  ],"incident-dysentery.webp");
 }
 
 function climateInjuryEvent(){
@@ -473,7 +473,7 @@ function climateInjuryEvent(){
   eventModal(title,text,bilingual(`${details} ${p.name} en ressort affaibli.`,`${languageText(details,"en")} ${p.name} is left weakened.`),[
     {label:remedyLabel("Utiliser un remède"),disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+(cold?17:12),1,100);p.sickDays=3;p.state="Convalescent";addJournal(bilingual(`${p.name} a été soigné pour ${cold?"des engelures":"des piqûres d’insectes"}.`,`${p.name} was treated for ${cold?"frostbite":"insect bites"}.`))}},
     {label:cold?"Réchauffer et attendre":"Nettoyer et repartir",action:()=>{if(cold){advanceDate(1);consumeFood(1)}p.sickDays=cold?6:4;addJournal(bilingual(`${p.name} récupère lentement après ${cold?"ses engelures":"ses piqûres"}.`,`${p.name} is recovering slowly from ${cold?"frostbite":"the bites"}.`))}}
-  ],cold?"incident-frostbite.png":"incident-bites.png");
+  ],cold?"incident-frostbite.webp":"incident-bites.webp");
 }
 
 function contagiousDiseaseEvent(){
@@ -484,7 +484,7 @@ function contagiousDiseaseEvent(){
     {label:remedyLabel(bilingual(`Distribuer ${count} remède${count>1?"s":""}`,`Give ${count} dose${count===1?"":"s"}`),count),disabled:game.cart.medicaments<count,action:()=>{game.cart.medicaments-=count;patients.forEach(p=>{p.health=clamp(p.health+14,1,100);p.sickDays=4;p.state="Convalescent"});addJournal(bilingual(`${count} malade${count>1?"s ont":" a"} reçu un remède.`,`${count} sick traveler${count===1?"":"s"} received medicine.`))}},
     {label:"Isoler les malades 2 jours",action:()=>{advanceDate(2);consumeFood(2);patients.forEach(p=>p.sickDays=7);addJournal("Le convoi s’est arrêté pour isoler les malades.")}},
     {label:"Continuer la route",action:()=>{patients.forEach(p=>p.health=clamp(p.health-5,1,100));addJournal("La maladie contagieuse affaiblit le groupe.")}}
-  ],"incident-contagious.png");
+  ],"incident-contagious.webp");
 }
 
 function blanketLossEvent(){
@@ -492,7 +492,7 @@ function blanketLossEvent(){
   const blankets=`${loss} couverture${loss>1?"s":""}`;
   eventModal("Couvertures hors d’usage","Une nuit glaciale et humide détrempe les couvertures les plus exposées.",bilingual(`${blankets} ${loss===1?"est devenue":"sont devenues"} inutilisable${loss>1?"s":""}.`,`${loss} blanket${loss===1?" has":"s have"} become unusable.`),[
     {label:"Réorganiser le chargement",action:()=>addJournal(bilingual(`${blankets} perdue${loss>1?"s":""} pendant une nuit de grand froid.`,`${loss} blanket${loss===1?" was":"s were"} lost during a bitterly cold night.`))}
-  ],"incident-blankets.png");
+  ],"incident-blankets.webp");
 }
 
 function theftEvent(){
@@ -506,14 +506,14 @@ function theftEvent(){
     {key:"boeufs",amount:Math.min(game.cart.boeufs,1)}
   ].filter(item=>item.amount>0);
   const stolen=pick(possible);
-  if(!stolen){eventModal("Tentative de vol","Des traces entourent le camp, mais le chargement est intact.","Les coffres étaient heureusement vides ou bien verrouillés.",[{label:"Redoubler de vigilance",action:()=>addJournal("Une tentative de vol a échoué.")}],"incident-theft.png");return;}
+  if(!stolen){eventModal("Tentative de vol","Des traces entourent le camp, mais le chargement est intact.","Les coffres étaient heureusement vides ou bien verrouillés.",[{label:"Redoubler de vigilance",action:()=>addJournal("Une tentative de vol a échoué.")}],"incident-theft.webp");return;}
   if(stolen.key==="money")game.money-=stolen.amount;else game.cart[stolen.key]-=stolen.amount;
   const stolenLabel=stolen.key==="money"?`${stolen.amount} $`:itemQuantityFor(stolen.key,stolen.amount,"fr");
   const stolenLabelEn=stolen.key==="money"?`$${stolen.amount}`:itemQuantityFor(stolen.key,stolen.amount,"en");
   const description=`${stolenLabel} ${stolen.amount===1?"a":"ont"} disparu.`;
   eventModal("Vol au camp","Au lever du jour, un coffre est ouvert et des traces s’éloignent du camp.",bilingual(description,`${stolenLabelEn} ${stolen.amount===1?"is":"are"} missing.`),[
     {label:"Sécuriser le chargement",action:()=>addJournal(bilingual(`Un vol nous a coûté ${stolenLabel}.`,`A theft cost us ${stolenLabelEn}.`))}
-  ],"incident-theft.png");
+  ],"incident-theft.webp");
 }
 
 function tradeEvent(){
@@ -536,13 +536,13 @@ function tradeEvent(){
   eventModal("Une proposition sur la piste",text,"La quantité et le prix sont fixes. Acceptez-vous l’offre ?",[
     {label:"Accepter",disabled:!canAccept,action:()=>{if(buying){game.money-=offer.price;game.cart[offer.key]+=offer.qty;}else{game.money+=offer.price;game.cart[offer.key]-=offer.qty;}addJournal(bilingual(`Marché conclu : ${offer.label} pour ${offer.price} $.`,`Trade completed: ${offerLabelEn} for $${offer.price}.`))}},
     {label:"Refuser",action:()=>addJournal("Nous avons refusé une proposition commerciale.")}
-  ],"incident-trade.png");
+  ],"incident-trade.webp");
 }
 
 function attackEvent(){
   eventModal("Attaque du convoi","Les indiens approchent rapidement à cheval et des projectiles frappent autour des chariots.","Mettez le groupe à couvert et tenez jusqu’à leur retrait.",[
     {label:"Protéger le convoi",action:()=>setTimeout(startAttack,0)}
-  ],"incident-attack.png");
+  ],"incident-attack.webp");
 }
 
 function landmark(mark){
@@ -577,7 +577,7 @@ function riverEvent(mark,art=stageAsset(mark),depth=null,observation=""){
 function queueRiverOutcome(mark,outcome,data){setTimeout(()=>{if(!game.finished)showRiverOutcome(mark,outcome,data)},0)}
 
 function showRiverOutcome(mark,outcome,{method,days,food,text,result}){
-  const art=$("#bilan-riviere-art");art.style.backgroundImage=`url('assets/river-${mark.visual}-${outcome}.png')`;art.setAttribute("aria-label",currentLanguage==="en"?`${languageText(method)} at ${landmarkName(mark)}`:`${languageText(method)} à ${mark.name}`);
+  const art=$("#bilan-riviere-art");art.style.backgroundImage=`url('assets/river-${mark.visual}-${outcome}.webp')`;art.setAttribute("aria-label",currentLanguage==="en"?`${languageText(method)} at ${landmarkName(mark)}`:`${languageText(method)} à ${mark.name}`);
   $("#titre-bilan-riviere").textContent=currentLanguage==="en"?`Report — ${landmarkName(mark)}`:`Bilan — ${mark.name}`;$("#bilan-riviere-texte").textContent=languageText(text);$("#bilan-riviere-methode").textContent=languageText(method);
   $("#bilan-riviere-duree").textContent=currentLanguage==="en"?`${days} day${days===1?"":"s"}`:`${days} jour${days>1?"s":""}`;$("#bilan-riviere-vivres").textContent=`${Math.round(food)} kg`;$("#bilan-riviere-resultat").textContent=languageText(result);
   $("#dialogue-bilan-riviere").showModal();
@@ -727,7 +727,7 @@ function huntWildlife(){
 
 function huntBackground(){
   const key=weatherVisual().key;
-  return {cold:"hunt-cold.png",hot:"hunt-hot.png",rain:"hunt-rain.png",mild:"hunt.webp"}[key];
+  return {cold:"hunt-cold.webp",hot:"hunt-hot.webp",rain:"hunt-rain.webp",mild:"hunt.webp"}[key];
 }
 
 function startHunt(){

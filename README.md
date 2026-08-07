@@ -1,4 +1,4 @@
-# La Piste de l’Oregon
+# Oregon Vibe
 
 Jeu de survie et de gestion inspiré du voyage historique vers l’Oregon. L’application est entièrement statique : aucun serveur applicatif, compte ou service distant n’est nécessaire.
 

@@ -666,11 +666,17 @@ function finish(win,message=""){
 
 // Mini-jeu de chasse
 const HUNT_SPECIES={
-  bison:{size:25,speed:[75,105],loot:[20,28],y:[205,330],hit:.92},
-  deer:{size:18,speed:[105,145],loot:[11,17],y:[180,320],hit:.82},
-  rabbit:{size:10,speed:[145,205],loot:[3,6],y:[315,370],hit:.72},
-  bird:{size:9,speed:[165,230],loot:[2,4],y:[65,175],hit:.7}
+  bison:{size:25,speed:[82,116],loot:[20,28],y:[205,330],hit:.86},
+  deer:{size:18,speed:[115,158],loot:[11,17],y:[180,320],hit:.77},
+  rabbit:{size:10,speed:[158,220],loot:[3,6],y:[315,370],hit:.68},
+  bird:{size:9,speed:[180,245],loot:[2,4],y:[65,175],hit:.66}
 };
+
+function huntWildlife(){
+  if(game.weather.name==="Neige")return {count:3,pool:["bison","deer","rabbit","rabbit","bird","bird","bird"]};
+  if(game.weather.name==="Pluvieux")return {count:5,pool:["bison","deer","deer","deer","rabbit","rabbit","rabbit","bird","bird","bird","bird","bird","bird","bird"]};
+  return {count:5,pool:["bison","bison","deer","deer","rabbit","rabbit","rabbit","bird","bird","bird"]};
+}
 
 function huntBackground(){
   const key=weatherVisual().key;
@@ -680,16 +686,17 @@ function huntBackground(){
 function startHunt(){
   if(game.cart.munitions<=0){toast("Vous n’avez plus de munitions.");return;}
   advanceDate(1);consumeFood(1,2);
-  hunt={time:16,loot:0,shots:0,background:huntBackground(),cross:{x:380,y:210},animals:[],last:performance.now(),running:true};
-  for(let i=0;i<6;i++)spawnAnimal(i*115);
+  const wildlife=huntWildlife();
+  hunt={time:14,loot:0,shots:0,background:huntBackground(),cross:{x:380,y:210},animals:[],species:wildlife.pool,last:performance.now(),running:true};
+  for(let i=0;i<wildlife.count;i++)spawnAnimal(i*145);
   const canvas=$("#canvas-chasse");canvas.style.backgroundImage=`url('assets/${hunt.background}')`;
   $("#dialogue-chasse .eyebrow").textContent=regionVisual().title;
-  $("#chasse-balles").textContent=game.cart.munitions;$("#chasse-butin").textContent=0;$("#chasse-temps").textContent=16;
+  $("#chasse-balles").textContent=game.cart.munitions;$("#chasse-butin").textContent=0;$("#chasse-temps").textContent=14;
   $("#dialogue-chasse").showModal();canvas.focus();requestAnimationFrame(huntLoop);
 }
 
 function spawnAnimal(offset=0){
-  const species=pick(["bison","deer","rabbit","rabbit","bird","bird"]),cfg=HUNT_SPECIES[species],direction=Math.random()<.25?-1:1;
+  const species=pick(hunt.species),cfg=HUNT_SPECIES[species],direction=Math.random()<.25?-1:1;
   hunt.animals.push({species,size:cfg.size,vx:rand(...cfg.speed)*direction,y:rand(...cfg.y),x:direction>0?-60-offset:820+offset,phase:Math.random()*6});
 }
 

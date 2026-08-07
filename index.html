@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#191812">
-  <meta name="description" content="Une aventure de survie sur la piste de l'Oregon, jouable entièrement dans le navigateur.">
-  <title>La Piste de l'Oregon</title>
-  <link rel="stylesheet" href="styles.css?v=20260723-2">
+  <meta name="description" content="Oregon Vibe, une aventure de survie sur la piste de l'Oregon, jouable entièrement dans le navigateur.">
+  <title>Oregon Vibe</title>
+  <link rel="stylesheet" href="styles.css?v=20260807-1">
 </head>
 <body>
   <a class="skip-link" href="#jeu">Aller au jeu</a>
@@ -15,7 +15,7 @@
       <div class="hero-art" role="img" aria-label="Un chariot traverse les grandes plaines vers les montagnes"></div>
       <div class="hero-content panel">
         <p class="eyebrow">Independence, Missouri · 1848</p>
-        <h1 id="titre-jeu">La Piste<br>de l’Oregon</h1>
+        <h1 id="titre-jeu">Oregon<br>Vibe</h1>
         <p>Deux mille miles de poussière, de rivières et de choix difficiles. Conduirez-vous votre famille jusqu’à la vallée de Willamette&nbsp;?</p>
         <div class="button-stack">
           <button id="nouvelle-partie" class="btn primary">Prendre la piste</button>
@@ -43,7 +43,7 @@
           <div class="guide-grid">
             <article class="guide-card"><h4>Bœufs</h4><p>Ils déterminent l’allure du convoi. Une équipe nombreuse tire mieux dans la boue et les pentes. Un animal peut se blesser, se perdre dans un fleuve ou devoir être abattu pour sa viande. Sans bœuf, le voyage s’arrête.</p></article>
             <article class="guide-card"><h4>Vivres</h4><p>Chaque bouche mange chaque jour, même lorsque le chariot attend une réparation ou la baisse des eaux. La chasse peut refaire les réserves, mais elle n’est ni facile ni garantie.</p></article>
-            <article class="guide-card"><h4>Munitions</h4><p>Les balles servent surtout à la chasse. Les petits animaux sont rapides et le gros gibier rare&nbsp;: une caisse pleine ne promet pas un garde-manger plein.</p></article>
+            <article class="guide-card"><h4>Munitions</h4><p>Les balles servent surtout à la chasse. Les petits animaux sont rapides et le gros gibier rare&nbsp;: une caisse pleine ne promet pas un garde-manger plein. Sous la pluie, les bisons se montrent moins souvent&nbsp;; dans la neige, tout le gibier se raréfie.</p></article>
             <article class="guide-card"><h4>Couvertures</h4><p>Elles protègent les voyageurs du froid et de l’humidité. Elles s’usent, se détrempent et peuvent être volées ou emportées par l’eau. Quand elles manquent, les nuits froides laissent des traces.</p></article>
             <article class="guide-card"><h4>Pièces de rechange</h4><p>Une roue, un essieu ou un timon peut céder loin de toute forge. Une pièce épargne des jours d’improvisation et évite de sacrifier une partie du chargement.</p></article>
             <article class="guide-card"><h4>Remèdes</h4><p>Bandages, alcool, sels et fortifiants donnent une chance aux fièvres, aux blessures et aux maladies contagieuses. Ils peuvent aussi aider à remettre un bœuf sur pied.</p></article>
@@ -224,7 +224,7 @@
     <div class="hunt-heading"><div><p class="eyebrow">Les grandes plaines</p><h2 id="titre-chasse">Chasse</h2></div><button id="fermer-chasse" class="icon-btn" aria-label="Fermer">×</button></div>
     <p>Visez avec la souris, les flèches ou en touchant l’animal, puis tirez avec clic, toucher ou Espace. Chaque tir coûte une balle.</p>
     <canvas id="canvas-chasse" width="760" height="420" tabindex="0" aria-label="Mini-jeu de chasse"></canvas>
-    <div class="hunt-footer"><span>Temps <b id="chasse-temps">20</b>s</span><span>Butin <b id="chasse-butin">0</b> kg</span><span>Balles <b id="chasse-balles">0</b></span></div>
+    <div class="hunt-footer"><span>Temps <b id="chasse-temps">14</b>s</span><span>Butin <b id="chasse-butin">0</b> kg</span><span>Balles <b id="chasse-balles">0</b></span></div>
   </dialog>
 
   <dialog id="dialogue-bilan-chasse" class="game-dialog hunt-result-dialog" aria-labelledby="titre-bilan-chasse">
@@ -285,6 +285,6 @@
   </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="game.js?v=20260723-4"></script>
+  <script src="game.js?v=20260807-1"></script>
 </body>
 </html>

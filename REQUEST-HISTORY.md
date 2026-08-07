@@ -1,0 +1,241 @@
+# Request history and evolution
+
+## Purpose of the experiment
+
+To test what a software-development AI produces when asked to code a complete game. For this project, the AI used was Codex with the SOL 5.6 model and the “medium” reasoning level.
+
+## Scope quantification
+
+The initial request contained five broad requirements:
+
+1. Rebuild Oregon Trail in HTML.
+2. Run entirely on the client side.
+3. Reproduce the classic gameplay.
+4. Produce better illustrations with a consistent art direction.
+5. Use multiple agents for the code and images.
+
+This was followed by 29 substantial specification messages, excluding purely operational messages such as “I ran ssh-add,” “GitHub Pages is configured,” or “continue.”
+
+Using a breakdown in which each independently verifiable behavior counts as one request, this amounts to approximately 77 additional requirements:
+
+| Area added after the initial request | Approximate number |
+|---|---:|
+| Images, interface, and mobile | 17 |
+| Gameplay, economy, and balancing | 25 |
+| Incidents, illnesses, and health | 14 |
+| Terminology, copy, and translation | 11 |
+| Help, publishing, and launch preparation | 10 |
+| **Total** | **≈ 77** |
+
+Approximately 94% of the detailed requirements were therefore specified after the initial request. The finished project is substantially broader than a simply illustrated version of the classic Oregon Trail.
+
+## Illustrations and interface
+
+The successive requests added:
+
+- A different illustration for every stage.
+- Four weather variants for each stage: mild, hot, cold, and rainy.
+- Dedicated landscapes for Chimney Rock, Fort Laramie, Independence Rock, South Pass, Fort Boise, The Dalles, and others.
+- A specific image for every incident.
+- Hunting images adapted to the weather.
+- The same illustration during a hunt and in its outcome report.
+- Images specific to each river, crossing method, and outcome.
+- Removal of artificial rain and snow overlays.
+- Greater emphasis on illustrations, especially on mobile.
+- A fix for partially obscured headings on the setup screen.
+- The following mobile order: title, progress, image, journal, wagon, party, controls.
+- Automatic scrolling back to the top after a report.
+- Separate buttons for the map and inventory.
+- A map showing every stage and the party’s current position.
+
+## Hunting
+
+Hunting gradually received:
+
+- An illustrated intermediate report screen.
+- The number of bullets fired and remaining.
+- The amount of meat loaded.
+- Rabbits and birds.
+- Increased difficulty.
+- Fewer bison in rain.
+- Less game in snow.
+- A limit of 90 kg per hunt.
+- Enforcement of the wagon’s maximum capacity.
+- Working touch controls on mobile.
+- Removal of the overlaid “Hit” notification.
+
+## Locations, forts, and trade
+
+The requests included:
+
+- Allowing several actions during the same stop.
+- No longer leaving automatically after a purchase or rest.
+- Buying food or bullets multiple times.
+- Random availability of oxen and equipment at forts.
+- Trade encounters.
+- A fixed item, price, and quantity for each encounter.
+- Limiting the player’s choice to accepting or declining the offer.
+- Clearly disabling purchases that are unaffordable or exceed capacity.
+
+## Added incidents
+
+The initial request did not describe incidents in detail. Later additions included:
+
+- Fever.
+- Dysentery.
+- Injury.
+- Contagious disease.
+- Frostbite in cold weather.
+- Infected bites in hot weather.
+- Loss or consumption of blankets.
+- Theft.
+- An injured ox.
+- A wagon overturning.
+- A broken axle.
+- Torrential rain.
+- A trade encounter.
+- An attack by Indians.
+- A dedicated window when no incident occurs.
+
+Every incident also had to be recorded in the journal and have its own illustration.
+
+## Sensitive point: “Native riders” changed to “Indians”
+
+The exact requested change was:
+
+> “Native riders” → “The Indians”
+
+This vocabulary did not come from the initial request: it was explicitly imposed later.
+
+This is a sensitive editorial choice because “the Indians” generalizes distinct peoples and presents them here in an antagonistic role. The origin of this decision should remain documented if the game is presented publicly or evaluated from a historical perspective.
+
+## Sensitive point: the attack is defensive
+
+A later request specified that an attack by Indians should become a mini-game different from hunting, with travelers potentially wounded or killed and a dedicated outcome report.
+
+The strictly defensive nature of the game was not stated word for word. It was chosen during implementation:
+
+- The player does not shoot.
+- The player moves the wagon.
+- The player avoids projectiles.
+- The player protects the party until the attack ends.
+- The consequences are injuries or deaths.
+
+This is therefore an important implementation decision. It avoids turning Native characters into hunting targets, although the event retains the sensitive depiction of “Indians” as attackers.
+
+The `&` shortcut used to trigger this attack for testing was also explicitly requested and intentionally remains available.
+
+## Health, illness, and death
+
+The requests imposed several editorial rules:
+
+- Never refer to “health points.”
+- Never display a health percentage.
+- Use qualitative conditions such as healthy, tired, or very weak.
+- Do not display “Healthy” when the individual or overall condition is poor.
+- Continue illnesses during travel, repairs, waits, and hunts.
+- Display “No medicine needed” when nobody is wounded.
+- Display “No medicine available” when treatment is needed but impossible.
+- Do not visually present a medical action as available without medicine.
+- Avoid killing several party members at the same instant.
+
+The last rule does not guarantee success: the entire party can still die progressively during the journey.
+
+## Time, weather, and events
+
+The original logic was expanded substantially:
+
+- Events are now rolled daily.
+- A “Travel 5 days” command simulates five separate days.
+- If an event occurs on the second day, only two days are consumed.
+- Once the event is resolved, the journey resumes from that date and position.
+- Consumption depends on the number of survivors.
+- Weather affects distance traveled.
+- Incident probabilities depend on pace and weather.
+- A grueling pace genuinely increases consumption, fatigue, breakdowns, and incidents.
+- August no longer produces implausibly cold weather.
+- Weather follows a seasonal distribution.
+
+## Rivers
+
+River crossings received a complete system:
+
+- Random depth.
+- Variation after waiting.
+- Seasonal influence.
+- Influence from rain, heat, and snowmelt.
+- A choice between ferrying, waiting, and floating the wagon.
+- Risk of losing food, bullets, blankets, spare parts, and medicine.
+- Risk of losing oxen.
+- An illustrated report after every crossing.
+- A different illustration for each river, method, and outcome.
+
+## Resources and failure conditions
+
+The help page and game logic were expanded so that every resource has a purpose and can contribute to failure:
+
+- Every person consumes food on every elapsed day.
+- Bullets determine the ability to hunt.
+- Blankets provide protection from cold.
+- Spare parts prevent long and costly repairs.
+- Medicine treats both travelers and oxen.
+- Money is used at forts, ferries, and encounters.
+- Oxen affect speed and can be injured, stolen, or lost in a river.
+- A slaughtered ox can become food.
+- Losing the final ox ends the journey.
+- Wagon capacity limits every gain.
+- No message may report a loss of “0 kg.”
+
+## Journal and reports
+
+The requests included:
+
+- Recording every incident in the journal.
+- Showing the newest entries first.
+- Adding the complete journal to the ending screen.
+- Displaying a report for an uneventful leg.
+- Showing distance traveled and food consumed.
+- Adding separate reports for hunting, attacks, and rivers.
+
+## Final score
+
+The score was replaced with a Civilization I-inspired system containing twenty ranks, ranging from:
+
+- “Vanished without a trace”
+- to “Father or Mother of Oregon.”
+
+A failed expedition can no longer receive a rank reserved for a successful arrival, even if the player retained substantial money or supplies.
+
+## Language and terminology
+
+Later requests also included:
+
+- “Compagnon·ne” → “Compagnon.”
+- “Voyageur·se” → “Voyageur.”
+- Correct plural handling, including the singular form after zero in French.
+- Removal of the explanatory pace text.
+- Renaming the game “Oregon Vibe” in both French and English.
+- A complete French and English interface.
+- Dynamic translation of events, journals, maps, reports, and scores.
+
+## Help, saving, and publishing
+
+Finally, the scope added:
+
+- Complete removal of game saving.
+- An immersive “Pioneer, what you know before leaving” page.
+- Help explaining resources without revealing internal values.
+- Publishing the repository on GitHub.
+- Deployment through GitHub Pages.
+- A full balancing review.
+- A consistency review of unavailable actions.
+- A complete launch-readiness pass.
+- Image compression.
+- A favicon and social sharing image.
+- Social and indexing metadata.
+- A sitemap and `robots.txt`.
+- Automated GitHub checks for the code and resources.
+
+## Conclusion
+
+The initial request defined the platform, game genre, and visual identity. The later requests determined almost all of the detailed design: survival rules, mobile interface, historical vocabulary, incidents, mini-games, weather, economy, reports, translation, publishing, and sensitive editorial decisions.

@@ -5,6 +5,7 @@ const ENGLISH_TEXT = {
   "Deux mille miles de poussière, de rivières et de choix difficiles. Conduirez-vous votre famille jusqu’à la vallée de Willamette ?":"Two thousand miles of dust, rivers, and difficult choices. Can you lead your family to the Willamette Valley?",
   "Prendre la piste":"Hit the trail",
   "Lire le guide du pionnier":"Read the pioneer guide",
+  "Infos":"Info",
   "La piste ne vous attendra pas : préparez-vous avant de partir.":"The trail will not wait: prepare before you leave.",
   "Independence, Missouri · Printemps 1848":"Independence, Missouri · Spring 1848",
   "Pionnier, ce que tu sais avant le départ":"Pioneer, what you know before leaving",
@@ -88,6 +89,7 @@ function applyStaticLanguage(){
   document.querySelector('meta[name="description"]').content=currentLanguage==="en"?"Oregon Vibe, a survival adventure on the Oregon Trail, playable entirely in your browser.":"Oregon Vibe, une aventure de survie sur la piste de l'Oregon, jouable entièrement dans le navigateur.";
   document.querySelectorAll("[data-language]").forEach(button=>button.setAttribute("aria-pressed",String(button.dataset.language===currentLanguage)));
   document.querySelector("#language-switch").setAttribute("aria-label",currentLanguage==="en"?"Choose language":"Choisir la langue");
+  document.querySelector("#infos-projet").href=currentLanguage==="en"?"https://nkeywal.github.io/oregon/REQUEST-HISTORY.html":"https://nkeywal.github.io/oregon/HISTORIQUE-DEMANDES.html";
 }
 
 function setLanguage(language){

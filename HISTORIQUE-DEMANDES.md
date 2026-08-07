@@ -1,5 +1,9 @@
 # Historique et évolution des demandes
 
+## Objectif de l’expérience
+
+Tester ce que produit une IA de développement logiciel lorsqu’on lui demande de coder un jeu complet. Pour ce projet, l’IA utilisée était Codex avec le modèle SOL 5.6 et un niveau de raisonnement « medium ».
+
 ## Quantification du périmètre
 
 La demande initiale contenait cinq grandes exigences :

@@ -269,42 +269,54 @@ function leaveTown(){
   showScreen("ecran-voyage");updateUI();
 }
 
+function dailyIncidentChance(pace,weather){
+  const weatherRisk={Doux:0,Chaud:.04,Pluvieux:.08,Froid:.04,Neige:.1}[weather.name]||0;
+  const journeyChance=clamp(pace.incident+weatherRisk+game.oxStrain*.01,.2,.96);
+  return 1-Math.pow(1-journeyChance,1/5);
+}
+
+function dailyIncidentOccurs(pace,weather){return Math.random()<dailyIncidentChance(pace,weather)}
+
+function addTravelJournal(distance,days){
+  const paceJournal=game.pace==="epuisant"?" Le rythme épuisant a durement éprouvé le convoi.":"";
+  const paceJournalEn=game.pace==="epuisant"?" The grueling pace severely tested the wagon party.":"";
+  addJournal(bilingual(`${distance} km parcourus en ${days} jour${days>1?"s":""}.${paceJournal} Temps ${game.weather.name.toLowerCase()} sur la piste.`,`${distance} km traveled in ${days} day${days===1?"":"s"}.${paceJournalEn} ${languageText(game.weather.name,"en")} weather on the trail.`));
+}
+
 function travel(){
   if(game.finished)return;
   if(checkJourneyFailure())return;
   if(game.cart.vivres<=0){ resolveStarvation(); return; }
-  const from=game.km;
   const pace=PACES[game.pace];
-  const oxFactor=clamp(game.cart.boeufs/6,.25,1.15);
-  const travelWeather=game.weather;
-  const plannedDistance=Math.max(1,Math.round(pace.km*oxFactor*travelWeatherFactor(travelWeather)));
-  let distance=plannedDistance;
-  const next=LANDMARKS[game.landmarkIndex];if(next&&from<next.km&&from+distance>=next.km)distance=next.km-from;
-  const travelDays=distance<plannedDistance?Math.max(1,Math.ceil(5*distance/plannedDistance)):5,timeRatio=travelDays/5;
-  game.km+=distance;advanceDate(travelDays);
-  const food=consumeFood(travelDays,dailyFoodPerPerson()*pace.food),foodConsumed=Math.round(food.consumed),foodShortage=food.consumed<food.needed;
-  game.oxStrain=clamp((game.oxStrain||0)+pace.strain*timeRatio,0,10);
-  for(const p of alive()){
-    const rationHealth={copieuses:2,normales:0,maigres:-4}[game.rations];
-    const coldPenalty=travelWeather.temp<=5&&game.cart.vetements<alive().length?(travelWeather.temp<0?-6:-3):0;
-    const heatPenalty=travelWeather.temp>=27?-2:0;
-    p.health=clamp(p.health+Math.round((pace.health+rationHealth+coldPenalty+heatPenalty)*timeRatio)+(foodShortage?-8:0),0,100);
-    if(p.sickDays>0){p.sickDays-=travelDays;p.health=clamp(p.health-travelDays,0,100);if(p.sickDays<=0)p.state="En forme";}
+  let distance=0,foodConsumed=0,travelDays=0;
+  for(let day=0;day<5;day++){
+    if(game.cart.vivres<=0){
+      if(travelDays)addTravelJournal(distance,travelDays);
+      resolveStarvation();updateUI();return;
+    }
+    const travelWeather=game.weather,oxFactor=clamp(game.cart.boeufs/6,.25,1.15);
+    const plannedDistance=Math.max(1,Math.round(pace.km/5*oxFactor*travelWeatherFactor(travelWeather)));
+    const next=LANDMARKS[game.landmarkIndex];
+    const remainingToStop=Math.min(next?next.km-game.km:Infinity,KM_TOTAL-game.km);
+    const dayDistance=Math.max(0,Math.min(plannedDistance,remainingToStop));
+    game.km+=dayDistance;distance+=dayDistance;advanceDate(1);travelDays++;
+    const food=consumeFood(1,dailyFoodPerPerson()*pace.food),foodShortage=food.consumed<food.needed;
+    foodConsumed+=food.consumed;game.oxStrain=clamp((game.oxStrain||0)+pace.strain/5,0,10);
+    for(const p of alive()){
+      const rationHealth={copieuses:2,normales:0,maigres:-4}[game.rations];
+      const coldPenalty=travelWeather.temp<=5&&game.cart.vetements<alive().length?(travelWeather.temp<0?-6:-3):0;
+      const heatPenalty=travelWeather.temp>=27?-2:0;
+      p.health=clamp(p.health+(pace.health+rationHealth+coldPenalty+heatPenalty)/5+(foodShortage?-8:0),0,100);
+      if(p.sickDays>0){p.sickDays--;p.health=clamp(p.health-1,0,100);if(p.sickDays<=0)p.state="En forme";}
+    }
+    updateDeaths();
+    if(game.finished)return;
+    if(game.km>=KM_TOTAL){addTravelJournal(distance,travelDays);finish(true);return;}
+    if(next&&game.km>=next.km){addTravelJournal(distance,travelDays);game.landmarkIndex++;landmark(next);updateUI();return;}
+    if(dailyIncidentOccurs(pace,travelWeather)){addTravelJournal(distance,travelDays);randomEvent();updateUI();return;}
+    game.weather=weatherForSeason();
   }
-  game.weather=weatherForSeason();
-  const paceJournal=game.pace==="epuisant"?" Le rythme épuisant a durement éprouvé le convoi.":"";
-  const paceJournalEn=game.pace==="epuisant"?" The grueling pace severely tested the wagon party.":"";
-  addJournal(bilingual(`${distance} km parcourus en ${travelDays} jour${travelDays>1?"s":""}.${paceJournal} ${game.weather.name.toLowerCase()} à l’horizon.`,`${distance} km traveled in ${travelDays} day${travelDays===1?"":"s"}.${paceJournalEn} ${languageText(game.weather.name,"en")} weather ahead.`));
-  updateDeaths();
-  if(game.finished)return;
-  if(game.km>=KM_TOTAL){finish(true);return;}
-  if(next && game.km>=next.km){game.landmarkIndex++;landmark(next);}
-  else {
-    const weatherRisk={Doux:0,Chaud:.04,Pluvieux:.08,Froid:.04,Neige:.1}[travelWeather.name]||0;
-    const incidentChance=clamp(pace.incident+weatherRisk+game.oxStrain*.01,.2,.96);
-    if(Math.random()<incidentChance)randomEvent();else quietTravelEvent(distance,foodConsumed,travelDays);
-  }
-  updateUI();
+  addTravelJournal(distance,travelDays);quietTravelEvent(distance,Math.round(foodConsumed),travelDays);updateUI();
 }
 
 function quietTravelEvent(distance,foodConsumed,travelDays=5){

@@ -54,9 +54,9 @@ const WEATHER = [
   {name:"Froid",temp:4,cls:""},{name:"Neige",temp:-4,cls:"snow"}
 ];
 const PACES = {
-  prudent:{km:65,health:1,food:.9,incident:.32,strain:-1,hint:"Ménage le groupe et l’attelage · incidents moins fréquents"},
-  soutenu:{km:90,health:-1,food:1,incident:.52,strain:1,hint:"Bon progrès, avec une fatigue et des risques réguliers"},
-  epuisant:{km:115,health:-7,food:1.2,incident:.88,strain:3,hint:"Forte fatigue · davantage de pannes, blessures et bœufs épuisés"}
+  prudent:{km:65,health:1,food:.9,incident:.32,strain:-1},
+  soutenu:{km:90,health:-1,food:1,incident:.52,strain:1},
+  epuisant:{km:115,health:-7,food:1.2,incident:.88,strain:3}
 };
 const MONTHLY_WEATHER = [
   [3,4,4],       // janvier
@@ -221,7 +221,6 @@ function updateUI() {
   $("#stat-boeufs").textContent=game.cart.boeufs;
   $("#stat-vetements").textContent=game.cart.vetements;
   $("#rythme").value=game.pace; $("#rations").value=game.rations;
-  $("#rythme-effet").textContent=PACES[game.pace].hint;
   const avg=alive().length ? alive().reduce((n,p)=>n+p.health,0)/alive().length : 0;
   const [global,cls]=healthLabel(avg); $("#sante-globale").textContent=global; $("#sante-globale").className=`status ${cls}`;
   $("#liste-groupe").innerHTML=game.party.map(p=>{const [label,c]=healthLabel(p.health),state=p.state!=="En forme"?p.state:label;return `<li><span class="health-dot ${c}" aria-hidden="true"></span><b>${escapeHtml(p.name)}</b><span class="party-state">${p.alive?escapeHtml(state):label}</span></li>`}).join("");
@@ -812,7 +811,7 @@ function bindEvents(){
   $("#form-groupe").addEventListener("submit",e=>{e.preventDefault();const fd=new FormData(e.currentTarget);const names=[0,1,2,3,4].map(i=>String(fd.get(`nom${i}`)).trim());if(names.some(name=>!name)){toast("Donnez un nom à chaque voyageur.");return;}game=baseGame(names,fd.get("profession"),fd.get("mois"));cart=Object.fromEntries(Object.entries(SHOP).map(([k,v])=>[k,v.start]));renderShop();showScreen("ecran-boutique")});
   $("#liste-boutique").addEventListener("click",e=>{const b=e.target.closest("[data-shop]");if(b)changeCart(b.dataset.shop,Number(b.dataset.dir))});
   $("#retour-groupe").addEventListener("click",()=>showScreen("ecran-groupe"));$("#partir").addEventListener("click",leaveTown);
-  $("#rythme").addEventListener("change",e=>{game.pace=e.target.value;$("#rythme-effet").textContent=PACES[game.pace].hint});$("#rations").addEventListener("change",e=>game.rations=e.target.value);
+  $("#rythme").addEventListener("change",e=>game.pace=e.target.value);$("#rations").addEventListener("change",e=>game.rations=e.target.value);
   $("#avancer").addEventListener("click",travel);$("#repos").addEventListener("click",rest);$("#chasser").addEventListener("click",startHunt);$("#carte-btn").addEventListener("click",showMap);$("#inventaire-btn").addEventListener("click",showInventory);$("#journal-plus").addEventListener("click",showJournal);$("#aide").addEventListener("click",showHelp);
   $("#rejouer").addEventListener("click",()=>{game=null;showScreen("ecran-groupe")});$("#fermer-chasse").addEventListener("click",endHunt);
   $("#dialogue-evenement").addEventListener("cancel",e=>e.preventDefault());

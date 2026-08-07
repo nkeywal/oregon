@@ -777,7 +777,7 @@ function aimHuntAt(event){
 function shoot(touchAssist=false){
   if(!hunt?.running||game.cart.munitions<=0)return;hunt.shots++;game.cart.munitions--;
   const hit=hunt.animals.find(a=>Math.hypot(a.x-hunt.cross.x,a.y-hunt.cross.y)<a.size*HUNT_SPECIES[a.species].hit+(touchAssist?14:0));
-  if(hit){const range=HUNT_SPECIES[hit.species].loot,gain=Math.min(hunt.limit-hunt.loot,rand(...range));hunt.loot+=gain;resetAnimal(hit);toast(bilingual(`Touché : +${gain} kg`,`Hit: +${gain} kg`))}
+  if(hit){const range=HUNT_SPECIES[hit.species].loot,gain=Math.min(hunt.limit-hunt.loot,rand(...range));hunt.loot+=gain;resetAnimal(hit)}
   $("#chasse-balles").textContent=game.cart.munitions;$("#chasse-butin").textContent=hunt.loot;
   if(hunt.loot>=hunt.limit)endHunt();
 }

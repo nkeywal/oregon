@@ -57,9 +57,14 @@ test("weather is refreshed after elapsed non-travel days",()=>{
   assert.equal(scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);weatherForSeason=()=>WEATHER[1];consumeDelay(2,2);game.weather.name`),"Chaud");
 });
 
-test("travel journal records the supplied end-of-leg weather",()=>{
-  const text=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.weather=WEATHER[1];addTravelJournal(25,2,WEATHER[3]);game.journal[0].text.fr`);
-  assert.match(text,/Temps froid en fin d’étape/);assert.doesNotMatch(text,/chaud/);
+test("travel journal associates distance with each encountered weather",()=>{
+  const text=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);addTravelJournal(25,2,[{name:"Neige",distance:12,days:1},{name:"Doux",distance:13,days:1}]);game.journal[0].text.fr`);
+  assert.equal(text,"25 km parcourus en 2 jours : 12 km par temps de neige et 13 km par temps modéré.");
+});
+
+test("weather directly changes travel distance",()=>{
+  const factors=scenario(`Object.fromEntries(WEATHER.map(weather=>[weather.name,travelWeatherFactor(weather)]))`);
+  assert.equal(factors.Doux,1);assert.ok(factors.Chaud<factors.Doux);assert.ok(factors.Pluvieux<factors.Doux);assert.ok(factors.Neige<factors.Pluvieux);
 });
 
 test("event pool excludes new illnesses for already affected travelers",()=>{
@@ -120,6 +125,11 @@ test("travel stops on the exact incident day",()=>{
 test("an uneventful travel command resolves five daily simulations",()=>{
   const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.vivres=500;updateUI=()=>{};setTrailScene=()=>{};dailyIncidentOccurs=()=>false;weatherForSeason=()=>WEATHER[0];quietTravelEvent=(distance,food,days)=>{game.report={distance,food,days}};travel();({days:game.days,km:game.km,food:game.cart.vivres,report:game.report})`);
   assert.equal(result.days,5);assert.equal(result.km,80);assert.equal(result.food,462.5);assert.equal(result.report.days,5);assert.equal(result.report.food,38);
+});
+
+test("a changing forecast affects each day and is detailed in the journal",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.vivres=500;updateUI=()=>{};setTrailScene=()=>{};dailyIncidentOccurs=()=>false;const forecast=[WEATHER[4],WEATHER[1],WEATHER[2],WEATHER[0]];weatherForSeason=()=>forecast.shift()??WEATHER[0];quietTravelEvent=()=>{};travel();({km:game.km,text:game.journal[0].text.fr})`);
+  assert.equal(result.km,70);assert.equal(result.text,"70 km parcourus en 5 jours : 32 km par temps modéré, 11 km par temps de neige, 14 km par temps très chaud et 13 km par temps pluvieux.");
 });
 
 test("river depth stays physical across seasonal and weather variation",()=>{

@@ -334,10 +334,32 @@ function dailyIncidentChance(pace,weather){
 
 function dailyIncidentOccurs(pace,weather){return Math.random()<dailyIncidentChance(pace,weather)}
 
-function addTravelJournal(distance,days,weather=game.weather){
+function travelWeatherLabel(weatherName,language=currentLanguage){
+  const labels={
+    Doux:{fr:"temps modéré",en:"mild weather"},
+    Chaud:{fr:"temps très chaud",en:"very hot weather"},
+    Pluvieux:{fr:"temps pluvieux",en:"rainy weather"},
+    Froid:{fr:"temps froid",en:"cold weather"},
+    Neige:{fr:"temps de neige",en:"snowy weather"}
+  };
+  return labels[weatherName]?.[language]??String(weatherName).toLowerCase();
+}
+
+function recordTravelWeather(breakdown,weather,distance){
+  let entry=breakdown.find(item=>item.name===weather.name);
+  if(!entry){entry={name:weather.name,distance:0,days:0};breakdown.push(entry)}
+  entry.distance+=distance;entry.days++;
+}
+
+function addTravelJournal(distance,days,weatherBreakdown=[]){
+  const breakdown=weatherBreakdown.length?weatherBreakdown:[{name:game.weather.name,distance,days}];
+  const detailsFr=joinList(breakdown.map(item=>`${item.distance} km par ${travelWeatherLabel(item.name,"fr")}`),"fr");
+  const detailsEn=joinList(breakdown.map(item=>`${item.distance} km in ${travelWeatherLabel(item.name,"en")}`),"en");
   const paceJournal=game.pace==="epuisant"?" Le rythme épuisant a durement éprouvé le convoi.":"";
   const paceJournalEn=game.pace==="epuisant"?" The grueling pace severely tested the wagon party.":"";
-  addJournal(bilingual(`${distance} km parcourus en ${days} jour${days>1?"s":""}.${paceJournal} Temps ${weather.name.toLowerCase()} en fin d’étape.`,`${distance} km traveled in ${days} day${days===1?"":"s"}.${paceJournalEn} ${languageText(weather.name,"en")} weather at the end of the leg.`));
+  const weatherTextFr=breakdown.length===1?`par ${travelWeatherLabel(breakdown[0].name,"fr")}`:`: ${detailsFr}`;
+  const weatherTextEn=breakdown.length===1?`in ${travelWeatherLabel(breakdown[0].name,"en")}`:`: ${detailsEn}`;
+  addJournal(bilingual(`${distance} km parcourus en ${days} jour${days>1?"s":""} ${weatherTextFr}.${paceJournal}`,`${distance} km traveled in ${days} day${days===1?"":"s"} ${weatherTextEn}.${paceJournalEn}`));
 }
 
 function travel(){
@@ -345,18 +367,18 @@ function travel(){
   if(checkJourneyFailure())return;
   if(game.cart.vivres<=0){ resolveStarvation(); return; }
   const pace=PACES[game.pace];
-  let distance=0,foodConsumed=0,travelDays=0,lastTravelWeather=game.weather;
+  let distance=0,foodConsumed=0,travelDays=0;const travelWeatherBreakdown=[];
   for(let day=0;day<5;day++){
     if(game.cart.vivres<=0){
-      if(travelDays)addTravelJournal(distance,travelDays,lastTravelWeather);
+      if(travelDays)addTravelJournal(distance,travelDays,travelWeatherBreakdown);
       resolveStarvation();updateUI();return;
     }
-    const travelWeather=game.weather,oxFactor=clamp(.45+game.cart.boeufs*.075,.5,1.35);lastTravelWeather=travelWeather;
+    const travelWeather=game.weather,oxFactor=clamp(.45+game.cart.boeufs*.075,.5,1.35);
     const plannedDistance=Math.max(1,Math.round(pace.km/5*oxFactor*travelWeatherFactor(travelWeather)));
     const next=LANDMARKS[game.landmarkIndex];
     const remainingToStop=Math.min(next?next.km-game.km:Infinity,KM_TOTAL-game.km);
     const dayDistance=Math.max(0,Math.min(plannedDistance,remainingToStop));
-    game.km+=dayDistance;distance+=dayDistance;advanceDate(1);travelDays++;
+    game.km+=dayDistance;distance+=dayDistance;recordTravelWeather(travelWeatherBreakdown,travelWeather,dayDistance);advanceDate(1);travelDays++;
     const food=consumeFood(1,dailyFoodPerPerson()*pace.food),foodShortage=food.missing>0;
     foodConsumed+=food.consumed;game.oxStrain=clamp((game.oxStrain||0)+pace.strain/5+Math.max(0,6-game.cart.boeufs)*.04,0,10);
     for(const p of alive()){
@@ -370,12 +392,12 @@ function travel(){
     }
     updateDeaths();
     if(game.finished)return;
-    if(game.km>=KM_TOTAL){addTravelJournal(distance,travelDays,lastTravelWeather);finish(true);return;}
-    if(next&&game.km>=next.km){addTravelJournal(distance,travelDays,lastTravelWeather);game.landmarkIndex++;landmark(next);updateUI();return;}
-    if(dailyIncidentOccurs(pace,travelWeather)){addTravelJournal(distance,travelDays,lastTravelWeather);randomEvent();updateUI();return;}
+    if(game.km>=KM_TOTAL){addTravelJournal(distance,travelDays,travelWeatherBreakdown);finish(true);return;}
+    if(next&&game.km>=next.km){addTravelJournal(distance,travelDays,travelWeatherBreakdown);game.landmarkIndex++;landmark(next);updateUI();return;}
+    if(dailyIncidentOccurs(pace,travelWeather)){addTravelJournal(distance,travelDays,travelWeatherBreakdown);randomEvent();updateUI();return;}
     game.weather=weatherForSeason();
   }
-  addTravelJournal(distance,travelDays,lastTravelWeather);quietTravelEvent(distance,Math.round(foodConsumed),travelDays);updateUI();
+  addTravelJournal(distance,travelDays,travelWeatherBreakdown);quietTravelEvent(distance,Math.round(foodConsumed),travelDays);updateUI();
 }
 
 function quietTravelEvent(distance,foodConsumed,travelDays=5){

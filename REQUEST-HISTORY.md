@@ -14,19 +14,19 @@ The initial request contained five broad requirements:
 4. Produce better illustrations with a consistent art direction.
 5. Use multiple agents for the code and images.
 
-This was followed by 36 substantial specification messages, excluding purely operational messages such as “I ran ssh-add,” “GitHub Pages is configured,” or “continue.”
+This was followed by 37 substantial specification messages, excluding purely operational messages such as “I ran ssh-add,” “GitHub Pages is configured,” or “continue.”
 
-Using a breakdown in which each explicitly requested, independently verifiable behavior counts as one request, this amounts to approximately 90 additional requirements:
+Using a breakdown in which each explicitly requested, independently verifiable behavior counts as one request, this amounts to approximately 92 additional requirements:
 
 | Area added after the initial request | Approximate number |
 |---|---:|
 | Images, interface, and mobile | 19 |
-| Gameplay, economy, and balancing | 33 |
-| Incidents, illnesses, and health | 14 |
+| Gameplay, economy, and balancing | 34 |
+| Incidents, illnesses, and health | 15 |
 | Terminology, copy, and translation | 11 |
 | Help, publishing, and launch preparation | 10 |
 | Experiment documentation | 3 |
-| **Total** | **≈ 90** |
+| **Total** | **≈ 92** |
 
 Approximately 95% of the detailed requirements were therefore specified after the initial request. The finished project is substantially broader than a simply illustrated version of the classic Oregon Trail.
 
@@ -147,6 +147,7 @@ The requests imposed several editorial rules:
 - Display “No medicine available” when treatment is needed but impossible.
 - Do not visually present a medical action as available without medicine.
 - Avoid killing several party members at the same instant.
+- Present every death in an event window with a dedicated illustration.
 
 The last rule does not guarantee success: the entire party can still die progressively during the journey.
 
@@ -222,6 +223,8 @@ The score was replaced with a Civilization I-inspired system containing twenty r
 - to “Father or Mother of Oregon.”
 
 A failed expedition can no longer receive a rank reserved for a successful arrival, even if the player retained substantial money or supplies.
+
+Every party member who dies along the way must also incur an explicit final-score penalty.
 
 ## Language and terminology
 

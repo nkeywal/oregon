@@ -170,8 +170,19 @@ test("trade selection prefers an offer the player can accept",()=>{
 });
 
 test("one resolution kills at most one traveler",()=>{
-  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.party.forEach(p=>p.health=0);updateDeaths();({dead:game.party.filter(p=>!p.alive).length,critical:game.party.filter(p=>p.alive&&p.health===1).length})`);
-  assert.equal(result.dead,1);assert.equal(result.critical,4);
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.party.forEach(p=>p.health=0);const deceased=updateDeaths();({dead:game.party.filter(p=>!p.alive).length,critical:game.party.filter(p=>p.alive&&p.health===1).length,pending:game.pendingDeath.name,deceased:deceased.name})`);
+  assert.equal(result.dead,1);assert.equal(result.critical,4);assert.equal(result.pending,result.deceased);
+});
+
+test("a death opens a specific illustrated event",()=>{
+  const result=scenario(`game=baseGame(["Lou","B","C","D","E"],"fermier",3);game.party[0].health=0;eventModal=(title,text,details,actions,art)=>{game.deathEvent={title,text,details,actions,art}};updateDeaths();const shown=showPendingDeathEvent();({shown,art:game.deathEvent.art,title:game.deathEvent.title.fr,text:game.deathEvent.text.en,open:game.deathEventOpen})`);
+  assert.equal(result.shown,true);assert.equal(result.art,"incident-death.webp");assert.equal(result.title,"Un compagnon est mort");assert.equal(result.text,"Lou died on the trail.");assert.equal(result.open,true);
+});
+
+test("each death applies an explicit final score penalty",()=>{
+  const result=scenario(`renderFinish=()=>{};const scoreFor=dead=>{game=baseGame(["A","B","C","D","E"],"charpentier",3);game.km=KM_TOTAL;game.money=200;for(const key of Object.keys(game.cart))game.cart[key]=0;if(dead)game.party[4].alive=false;finish(true);return {score:game.score,rank:endingRank(game.score),penalty:game.finishState.deathPenalty}};({intact:scoreFor(false),loss:scoreFor(true)})`);
+  assert.equal(result.intact.penalty,0);assert.equal(result.loss.penalty,750);assert.equal(result.intact.score-result.loss.score,750);
+  assert.equal(result.intact.rank,"Maître de la piste de l’Oregon");assert.notEqual(result.loss.rank,result.intact.rank);
 });
 
 test("travel stops on the exact incident day",()=>{

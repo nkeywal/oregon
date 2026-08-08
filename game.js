@@ -94,7 +94,8 @@ function baseGame(names, profession, month) {
     version:1, profession, money, initialMoney:money, cart:{...cart},
     party:names.map(name => ({name,health:100,state:"En forme",alive:true,sickDays:0})),
     day:1, month:Number(month), year:1848, km:0, days:0, pace:"soutenu", rations:"normales",
-    weather:{...WEATHER[0]}, weatherHistory:["Doux"], landmarkIndex:0, oxStrain:0, lastEvent:null, journal:[], finished:false, score:0
+    weather:{...WEATHER[0]}, weatherHistory:["Doux"], landmarkIndex:0, oxStrain:0, lastEvent:null, journal:[], finished:false, score:0,
+    pendingDeath:null, deathEventOpen:false, pendingRiverOutcome:null
   };
 }
 
@@ -456,6 +457,9 @@ function travel(){
       p.health=clamp(p.health+(pace.health+rationHealth+coldPenalty+rainPenalty+heatPenalty+strainPenalty)/5-starvationPenalty,0,100);
     }
     updateDeaths();
+    if(game.pendingDeath){
+      addTravelJournal(distance,travelDays,travelWeatherBreakdown,travelRoute);showPendingDeathEvent();updateUI();return;
+    }
     if(game.finished)return;
     if(game.km>=KM_TOTAL){addTravelJournal(distance,travelDays,travelWeatherBreakdown,travelRoute);finish(true);return;}
     if(next&&game.km>=next.km){addTravelJournal(distance,travelDays,travelWeatherBreakdown,travelRoute);game.landmarkIndex++;landmark(next);updateUI();return;}
@@ -480,7 +484,7 @@ function weatherForSeason(){
 function resolveStarvation(){
   for(const p of alive())p.health=clamp(p.health-18,0,100);
   for(let day=0;day<3;day++){advanceDate(1);refreshWeather()}addJournal("Les vivres sont épuisés. La faim affaiblit tout le monde.");updateDeaths();
-  if(game.finished)return;
+  if(showPendingDeathEvent()||game.finished)return;
   updateUI();randomEvent();
 }
 
@@ -488,14 +492,24 @@ function updateDeaths(){
   const dying=shuffled(alive().filter(p=>p.health<=0));
   const deaths=dying.slice(0,1);
   for(const p of deaths){
-    p.alive=false;p.state="Décédé";addJournal(bilingual(`${p.name} est mort sur la piste.`,`${p.name} died on the trail.`));
+    p.alive=false;p.state="Décédé";game.pendingDeath=p;
   }
   // Une même étape peut affaiblir tout le groupe, mais ne doit pas tuer
   // plusieurs voyageurs simultanément. Les autres restent en état critique.
   for(const p of dying.slice(1)){
     p.health=1;p.state="Très faible";
   }
-  if(alive().length===0)finish(false,"La piste a eu raison de tout le convoi.");
+  return deaths[0]??null;
+}
+
+function showPendingDeathEvent(){
+  const traveler=game.pendingDeath;
+  if(!traveler)return false;
+  game.pendingDeath=null;game.deathEventOpen=true;
+  eventModal(bilingual("Un compagnon est mort","A companion has died"),bilingual(`${traveler.name} est mort sur la piste.`,`${traveler.name} died on the trail.`),bilingual("Le convoi s’arrête pour lui offrir une sépulture avant de reprendre la route.","The wagon party stops to give them a burial before returning to the trail."),[
+    {label:bilingual("Rendre un dernier hommage et repartir","Pay your last respects and leave"),action:()=>{game.deathEventOpen=false;if(alive().length===0){finish(false,"La piste a eu raison de tout le convoi.");return;}setTimeout(showPendingRiverOutcome,0)}}
+  ],"incident-death.webp");
+  return true;
 }
 
 function eventEligibleTravelers(){return alive().filter(p=>p.sickDays<=0&&!p.needsRemedy)}
@@ -723,7 +737,12 @@ function riverEvent(mark,art=stageAsset(mark),depth=null,observation=""){
   ],art);
 }
 
-function queueRiverOutcome(mark,outcome,data){setTimeout(()=>showRiverOutcome(mark,outcome,data),0)}
+function queueRiverOutcome(mark,outcome,data){game.pendingRiverOutcome={mark,outcome,data};setTimeout(showPendingRiverOutcome,0)}
+
+function showPendingRiverOutcome(){
+  if(!game.pendingRiverOutcome||game.pendingDeath||game.deathEventOpen)return;
+  const {mark,outcome,data}=game.pendingRiverOutcome;game.pendingRiverOutcome=null;showRiverOutcome(mark,outcome,data);
+}
 
 function showRiverOutcome(mark,outcome,data){
   activeRiverOutcome={mark,outcome,...data};renderRiverOutcome();$("#dialogue-bilan-riviere").showModal();
@@ -796,6 +815,7 @@ function eventModal(title,text,details,actions,art="trail"){
     b.addEventListener("click",()=>{
       if(actionDisabled(a))return;
       a.action();updateDeaths();
+      if(showPendingDeathEvent()){updateUI();return;}
       if(game.finished||checkJourneyFailure()){d.close();return;}
       updateUI();
       if(a.keepOpen){
@@ -826,7 +846,7 @@ function refreshEventModalLanguage(){
 function rest(){
   if(checkJourneyFailure())return;
   if(game.cart.vivres<alive().length*4){toast("Pas assez de vivres pour camper deux jours.");return;}
-  consumeDelay(2,2);game.oxStrain=clamp(game.oxStrain-3,0,10);alive().forEach(p=>{p.health=clamp(p.health+7,0,100);if(p.health>60&&p.sickDays<=0&&!p.needsRemedy)p.state="En forme"});addJournal("Deux jours de repos ont remonté le moral du groupe et soulagé l’attelage.");updateDeaths();if(!game.finished)updateUI();returnToTrailTop();
+  consumeDelay(2,2);game.oxStrain=clamp(game.oxStrain-3,0,10);alive().forEach(p=>{p.health=clamp(p.health+7,0,100);if(p.health>60&&p.sickDays<=0&&!p.needsRemedy)p.state="En forme"});addJournal("Deux jours de repos ont remonté le moral du groupe et soulagé l’attelage.");updateDeaths();if(showPendingDeathEvent())updateUI();else if(!game.finished)updateUI();returnToTrailTop();
 }
 
 function renderTrailMap(){
@@ -869,21 +889,23 @@ function showHelp(){
 function finish(win,message=""){
   game.finished=true;const avg=alive().length?alive().reduce((n,p)=>n+p.health,0)/alive().length:0;
   const equipment=game.cart.munitions*.2+game.cart.vetements*12+game.cart.pieces*20+game.cart.medicaments*14+game.cart.boeufs*30;
-  const assets=Math.max(0,game.money+game.cart.vivres*2+equipment+alive().length*250+avg*10+(game.profession==="fermier"?1200:game.profession==="charpentier"?600:0));
+  const assets=Math.max(0,game.money+game.cart.vivres*2+equipment+game.party.length*250+avg*10+(game.profession==="fermier"?1200:game.profession==="charpentier"?600:0));
+  const deaths=game.party.length-alive().length,deathPenalty=deaths*750;
   // L'arrivée compte davantage que les économies laissées dans un chariot abandonné.
   const progress=clamp(game.km/KM_TOTAL,0,1);
-  const score=win?Math.max(2250,Math.round(assets+1000)):Math.min(2249,Math.round(assets*progress*.45));
-  game.score=score;game.finishState={win,message};renderFinish();
+  const score=win?Math.max(0,Math.round(assets+1000-deathPenalty)):Math.min(2249,Math.max(0,Math.round((assets-deathPenalty)*progress*.45)));
+  game.score=score;game.finishState={win,message,deaths,deathPenalty};renderFinish();
 }
 
 function renderFinish(){
-  const {win,message}=game.finishState,score=game.score;
+  const {win,message,deaths=0,deathPenalty=0}=game.finishState,score=game.score;
   $("#ecran-fin").classList.toggle("defeat",!win);
   $("#fin-kicker").textContent=languageText(win?"Vallée de Willamette · Oregon":"La piste s’arrête ici");
   $("#titre-fin").textContent=languageText(win?"Vous avez atteint l’Oregon":"Le convoi n’ira pas plus loin");
   $("#texte-fin").textContent=message?languageText(message):(win?(currentLanguage==="en"?`${alive().length} traveler${alive().length===1?"":"s"} finally ${alive().length===1?"looks":"look"} upon the valley. After ${game.days} days on the trail, a new life begins.`:`${alive().length} voyageur${alive().length>1?"s":""} contemple${alive().length>1?"nt":""} enfin la vallée. Après ${game.days} jours sur la piste, une nouvelle vie commence.`):languageText("La faim, la maladie et la route ont eu raison de votre expédition."));
   $("#rang-fin").textContent=endingRank(score);
-  $("#score-fin").textContent=`${currentLanguage==="en"?"Score":"Score"} · ${score.toLocaleString(currentLocale())}${win?"":` · ${currentLanguage==="en"?"Distance":"Distance"} · ${Math.round(game.km).toLocaleString(currentLocale())} km`}`;
+  const humanLosses=deaths?(currentLanguage==="en"?` · Human losses: −${deathPenalty.toLocaleString(currentLocale())}`:` · Pertes humaines : −${deathPenalty.toLocaleString(currentLocale())}`):"";
+  $("#score-fin").textContent=`${currentLanguage==="en"?"Score":"Score"} · ${score.toLocaleString(currentLocale())}${humanLosses}${win?"":` · ${currentLanguage==="en"?"Distance":"Distance"} · ${Math.round(game.km).toLocaleString(currentLocale())} km`}`;
   $("#journal-fin").innerHTML=journalItems(game.journal)||`<li>${languageText("Aucune entrée dans le journal.")}</li>`;
   showScreen("ecran-fin");
 }
@@ -911,7 +933,7 @@ function startHunt(){
   if(game.cart.munitions<=0){toast("Vous n’avez plus de munitions.");return;}
   if(game.cart.vivres>=SHOP.vivres.max){toast("Le chariot ne peut pas charger davantage de vivres.");return;}
   consumeDelay(1,2,false);updateDeaths();
-  if(game.finished)return;
+  if(showPendingDeathEvent()||game.finished)return;
   const wildlife=huntWildlife();
   hunt={time:14,loot:0,limit:Math.min(90,SHOP.vivres.max-game.cart.vivres),shots:0,background:huntBackground(),cross:{x:380,y:210},animals:[],species:wildlife.pool,last:performance.now(),running:true};
   for(let i=0;i<wildlife.count;i++)spawnAnimal(i*145);
@@ -1002,7 +1024,7 @@ function endAttack(){
   const candidates=shuffled(alive()),affected=Math.min(candidates.length,Math.ceil(hits/2)),wounded=[],dead=[];
   for(const p of candidates.slice(0,affected)){
     const lethalChance=Math.max(0,(hits-4)*.07);
-    if(dead.length===0&&Math.random()<lethalChance){p.health=0;p.alive=false;p.state="Décédé";dead.push(p);}
+    if(dead.length===0&&Math.random()<lethalChance){p.health=0;p.alive=false;p.state="Décédé";game.pendingDeath=p;dead.push(p);}
     else{p.health=clamp(p.health-rand(18,32)-Math.floor(hits/3),1,100);p.state="Blessé";p.needsRemedy=true;wounded.push(p);}
   }
   attackOutcome={hits,wounded,dead};showAttackOutcome();
@@ -1027,6 +1049,7 @@ function treatAttackWounds(){
 function continueAfterAttack(){
   if(!attackOutcome)return;const {hits,wounded,dead}=attackOutcome;$("#dialogue-bilan-attaque").close();
   addJournal(bilingual(`L’attaque se termine après ${hits} impact${hits>1?"s":""} : ${wounded.length} blessé${wounded.length>1?"s":""}, ${dead.length} mort${dead.length>1?"s":""}.`,`The attack ended after ${hits} hit${hits===1?"":"s"}: ${wounded.length} wounded, ${dead.length} dead.`));attackOutcome=null;
+  if(showPendingDeathEvent()){updateUI();return;}
   if(!alive().length){finish(false,"Aucun membre du convoi n’a survécu à l’attaque.");return;}updateUI();returnToTrailTop();
 }
 

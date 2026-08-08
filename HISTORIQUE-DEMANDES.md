@@ -14,19 +14,19 @@ La demande initiale contenait cinq grandes exigences :
 4. Produire de meilleures illustrations avec une direction artistique homogène.
 5. Utiliser plusieurs agents pour le code et les images.
 
-Ensuite, il y a eu 36 messages substantiels de spécification, en excluant les simples messages opérationnels comme « j’ai fait ssh-add », « GitHub Pages est configuré » ou « continue ».
+Ensuite, il y a eu 37 messages substantiels de spécification, en excluant les simples messages opérationnels comme « j’ai fait ssh-add », « GitHub Pages est configuré » ou « continue ».
 
-Avec un découpage où chaque comportement vérifiable explicitement demandé compte comme une demande, on obtient environ 90 exigences supplémentaires :
+Avec un découpage où chaque comportement vérifiable explicitement demandé compte comme une demande, on obtient environ 92 exigences supplémentaires :
 
 | Domaine ajouté après la demande initiale | Nombre approximatif |
 |---|---:|
 | Images, interface et mobile | 19 |
-| Gameplay, économie et équilibrage | 33 |
-| Incidents, maladies et santé | 14 |
+| Gameplay, économie et équilibrage | 34 |
+| Incidents, maladies et santé | 15 |
 | Terminologie, textes et traduction | 11 |
 | Aide, publication et préproduction | 10 |
 | Documentation de l’expérience | 3 |
-| **Total** | **≈ 90** |
+| **Total** | **≈ 92** |
 
 Ainsi, environ 95 % des exigences détaillées ont été formulées après la demande initiale. Le projet final est sensiblement plus large qu’un simple Oregon Trail classique illustré.
 
@@ -147,6 +147,7 @@ Les demandes ont imposé plusieurs règles éditoriales :
 - Afficher « Aucun remède disponible » lorsqu’un traitement est requis mais impossible.
 - Ne pas proposer visuellement une action médicale comme disponible sans remède.
 - Éviter de tuer plusieurs membres du groupe au même instant.
+- Présenter chaque décès dans une fenêtre d’événement avec une illustration spécifique.
 
 Ce dernier point ne rend pas la partie gagnable automatiquement : tout le groupe peut mourir progressivement au cours du voyage.
 
@@ -222,6 +223,8 @@ Le score a été remplacé par une logique inspirée de Civilization I, avec vin
 - jusqu’à « Père ou Mère de l’Oregon ».
 
 Une défaite ne peut plus obtenir un rang réservé à une arrivée réussie, même si le joueur conservait beaucoup d’argent ou de provisions.
+
+Chaque membre du groupe mort en chemin doit également entraîner une pénalité explicite dans le score final.
 
 ## Langue et terminologie
 

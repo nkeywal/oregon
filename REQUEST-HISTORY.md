@@ -14,19 +14,19 @@ The initial request contained five broad requirements:
 4. Produce better illustrations with a consistent art direction.
 5. Use multiple agents for the code and images.
 
-This was followed by 31 substantial specification messages, excluding purely operational messages such as “I ran ssh-add,” “GitHub Pages is configured,” or “continue.”
+This was followed by 32 substantial specification messages, excluding purely operational messages such as “I ran ssh-add,” “GitHub Pages is configured,” or “continue.”
 
-Using a breakdown in which each explicitly requested, independently verifiable behavior counts as one request, this amounts to approximately 81 additional requirements:
+Using a breakdown in which each explicitly requested, independently verifiable behavior counts as one request, this amounts to approximately 82 additional requirements:
 
 | Area added after the initial request | Approximate number |
 |---|---:|
 | Images, interface, and mobile | 18 |
-| Gameplay, economy, and balancing | 25 |
+| Gameplay, economy, and balancing | 26 |
 | Incidents, illnesses, and health | 14 |
 | Terminology, copy, and translation | 11 |
 | Help, publishing, and launch preparation | 10 |
 | Experiment documentation | 3 |
-| **Total** | **≈ 81** |
+| **Total** | **≈ 82** |
 
 Approximately 94% of the detailed requirements were therefore specified after the initial request. The finished project is substantially broader than a simply illustrated version of the classic Oregon Trail.
 
@@ -163,6 +163,7 @@ The original logic was expanded substantially:
 - A grueling pace genuinely increases consumption, fatigue, breakdowns, and incidents.
 - August no longer produces implausibly cold weather.
 - Weather follows a seasonal distribution.
+- A new complete pass must review the overall logic, event selection, and any remaining inconsistencies.
 
 ## Rivers
 

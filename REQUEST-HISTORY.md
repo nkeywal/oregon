@@ -14,19 +14,19 @@ The initial request contained five broad requirements:
 4. Produce better illustrations with a consistent art direction.
 5. Use multiple agents for the code and images.
 
-This was followed by 34 substantial specification messages, excluding purely operational messages such as “I ran ssh-add,” “GitHub Pages is configured,” or “continue.”
+This was followed by 35 substantial specification messages, excluding purely operational messages such as “I ran ssh-add,” “GitHub Pages is configured,” or “continue.”
 
-Using a breakdown in which each explicitly requested, independently verifiable behavior counts as one request, this amounts to approximately 88 additional requirements:
+Using a breakdown in which each explicitly requested, independently verifiable behavior counts as one request, this amounts to approximately 89 additional requirements:
 
 | Area added after the initial request | Approximate number |
 |---|---:|
 | Images, interface, and mobile | 18 |
-| Gameplay, economy, and balancing | 32 |
+| Gameplay, economy, and balancing | 33 |
 | Incidents, illnesses, and health | 14 |
 | Terminology, copy, and translation | 11 |
 | Help, publishing, and launch preparation | 10 |
 | Experiment documentation | 3 |
-| **Total** | **≈ 88** |
+| **Total** | **≈ 89** |
 
 Approximately 95% of the detailed requirements were therefore specified after the initial request. The finished project is substantially broader than a simply illustrated version of the classic Oregon Trail.
 
@@ -169,6 +169,7 @@ The original logic was expanded substantially:
 - Desert basins never generate snow.
 - Terrain, slope, and actual trail quality modify speed and incident risk.
 - Conditions for each section of trail are displayed over the landscape and recorded in the journal.
+- A prepared playthrough should remain consistent with the historical journey’s four-to-six-month duration.
 - A new complete pass must review the overall logic, event selection, and any remaining inconsistencies.
 
 ## Rivers

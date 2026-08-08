@@ -88,6 +88,11 @@ test("daily distance combines oxen, weather, and route difficulty",()=>{
   assert.ok(result.plain>result.snow);assert.ok(result.plain>result.mountains);assert.ok(result.plain>result.fewOxen);
 });
 
+test("strenuous travel matches the historical 12 to 15 miles per travel day",()=>{
+  const result=scenario(`const oxFactor=clamp(.45+6*.075,.5,1.35),representativeWeather=.92;const days=ROUTE_SEGMENTS.reduce((total,route)=>total+(route.end-route.start)/(PACES.soutenu.km/5*oxFactor*route.speed*representativeWeather),0);({days,kmPerDay:KM_TOTAL/days})`);
+  assert.ok(result.kmPerDay>=12*1.60934);assert.ok(result.kmPerDay<=15*1.60934);assert.ok(result.days>=120&&result.days<=150);
+});
+
 test("weather depends on the date and recent weather history",()=>{
   const result=scenario(`const route=routeSegmentAt(500),expected=18;({winter:seasonalTemperature(0,15),summer:seasonalTemperature(6,15),fresh:weatherWeights(route,expected,[]).Doux,persistent:weatherWeights(route,expected,["Doux","Doux","Doux"]).Doux})`);
   assert.ok(result.winter<result.summer);assert.ok(result.persistent>result.fresh*5);
@@ -171,17 +176,17 @@ test("one resolution kills at most one traveler",()=>{
 
 test("travel stops on the exact incident day",()=>{
   const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.vivres=500;updateUI=()=>{};setTrailScene=()=>{};weatherForSeason=()=>WEATHER[0];let rolls=0;dailyIncidentOccurs=()=>++rolls===2;randomEvent=()=>{game.testEvent=true};travel();({days:game.days,km:game.km,food:game.cart.vivres,event:game.testEvent})`);
-  assert.equal(result.days,2);assert.equal(result.km,48);assert.equal(result.food,485);assert.equal(result.event,true);
+  assert.equal(result.days,2);assert.equal(result.km,60);assert.equal(result.food,485);assert.equal(result.event,true);
 });
 
 test("an uneventful travel command resolves five daily simulations",()=>{
   const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.vivres=500;updateUI=()=>{};setTrailScene=()=>{};dailyIncidentOccurs=()=>false;weatherForSeason=()=>WEATHER[0];quietTravelEvent=(distance,food,days)=>{game.report={distance,food,days}};travel();({days:game.days,km:game.km,food:game.cart.vivres,report:game.report})`);
-  assert.equal(result.days,5);assert.equal(result.km,120);assert.equal(result.food,462.5);assert.equal(result.report.days,5);assert.equal(result.report.food,38);
+  assert.equal(result.days,5);assert.equal(result.km,150);assert.equal(result.food,462.5);assert.equal(result.report.days,5);assert.equal(result.report.food,38);
 });
 
 test("a changing forecast affects each day and is detailed in the journal",()=>{
   const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.vivres=500;updateUI=()=>{};setTrailScene=()=>{};dailyIncidentOccurs=()=>false;const forecast=[WEATHER[4],WEATHER[1],WEATHER[2],WEATHER[0]];weatherForSeason=()=>forecast.shift()??WEATHER[0];quietTravelEvent=()=>{};travel();({km:game.km,text:game.journal[0].text.fr})`);
-  assert.equal(result.km,105);assert.equal(result.text,"105 km parcourus en 5 jours : 48 km par temps modéré, 16 km par temps de neige, 21 km par temps très chaud et 20 km par temps pluvieux. Terrain : Prairies du Kansas ; terrain ondulé ; piste bien marquée ; climat continental humide.");
+  assert.equal(result.km,128);assert.equal(result.text,"128 km parcourus en 5 jours : 60 km par temps modéré, 19 km par temps de neige, 25 km par temps très chaud et 24 km par temps pluvieux. Terrain : Prairies du Kansas ; terrain ondulé ; piste bien marquée ; climat continental humide.");
 });
 
 test("river depth stays physical across seasonal and weather variation",()=>{
@@ -197,6 +202,12 @@ test("a dangerous river crossing can take the last ox and still queue its report
 test("food loading never exceeds capacity",()=>{
   const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.vivres=795;const loaded=loadFood(25);({loaded,left:game.cart.vivres})`);
   assert.equal(result.loaded,5);assert.equal(result.left,800);
+});
+
+test("prepared complete journeys stay in the historical four-to-six-month window",()=>{
+  const result=scenario(`let seed=1848;Math.random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296};finish=win=>{game.finished=true;game.testWin=win};updateUI=()=>{};setTrailScene=()=>{};showLandmarkArt=()=>{};toast=()=>{};returnToTrailTop=()=>{};refreshFortArrivalArt=()=>{};queueRiverOutcome=()=>{};startAttack=()=>{};eventModal=(title,text,details,actions)=>{let action=actions.find(candidate=>!actionDisabled(candidate));if(String(languageText(title)).includes("Fort"))action=actions.find(candidate=>languageText(candidate.label)==="Repartir")||action;if(!action)throw new Error("No playable event action");action.action();updateDeaths();checkJourneyFailure()};const runs={prudent:[],soutenu:[]};for(const pace of Object.keys(runs))for(let attempt=0;attempt<40;attempt++){game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{boeufs:8,vivres:700,munitions:300,vetements:8,pieces:5,medicaments:8});game.money=300;game.pace=pace;game.weather=weatherForPosition(game.month,game.day,game.year,0,[]);game.weatherHistory=[game.weather.name];let turns=0;while(!game.finished&&turns++<500){if(game.cart.vivres<100&&game.cart.munitions>=5){game.cart.munitions-=5;loadFood(55)}const average=alive().reduce((sum,traveler)=>sum+traveler.health,0)/alive().length;if(average<48&&game.cart.vivres>=alive().length*4)rest();else travel()}if(game.testWin)runs[pace].push(game.days)}for(const values of Object.values(runs))values.sort((a,b)=>a-b);const percentile=(values,p)=>values[Math.floor((values.length-1)*p)];({wins:Object.fromEntries(Object.entries(runs).map(([pace,values])=>[pace,values.length])),prudent:{p10:percentile(runs.prudent,.1),p90:percentile(runs.prudent,.9)},soutenu:{p10:percentile(runs.soutenu,.1),p90:percentile(runs.soutenu,.9)}})`);
+  assert.ok(result.wins.prudent>=35);assert.ok(result.wins.soutenu>=35);
+  assert.ok(result.prudent.p10>=120&&result.prudent.p90<=183);assert.ok(result.soutenu.p10>=120&&result.soutenu.p90<=183);
 });
 
 test("fort rest cost follows the current party size",()=>{

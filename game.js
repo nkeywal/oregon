@@ -68,10 +68,11 @@ const WEATHER = [
   {name:"Froid",temp:4,cls:""},{name:"Neige",temp:-4,cls:""}
 ];
 const MONTHLY_BASE_TEMPERATURE = [-2,1,7,13,18,24,28,27,21,14,6,0];
+// Calibré sur 12 à 15 miles par journée de marche en moyenne sur l'ensemble de la piste.
 const PACES = {
-  prudent:{km:100,health:1,food:.8,incident:.38,strain:-1},
-  soutenu:{km:140,health:-1,food:1,incident:.62,strain:1},
-  epuisant:{km:180,health:-7,food:1.45,incident:.92,strain:3}
+  prudent:{km:130,health:1,food:.8,incident:.38,strain:-1},
+  soutenu:{km:170,health:-1,food:1,incident:.62,strain:1},
+  epuisant:{km:210,health:-7,food:1.45,incident:.92,strain:3}
 };
 // Fonte printanière, étiage estival et réaction aux conditions des derniers jours.
 const RIVER_SEASON_LEVEL = [-.15,-.1,.05,.25,.4,.3,.05,-.2,-.25,-.1,-.05,-.1];

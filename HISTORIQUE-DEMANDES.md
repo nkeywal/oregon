@@ -14,19 +14,19 @@ La demande initiale contenait cinq grandes exigences :
 4. Produire de meilleures illustrations avec une direction artistique homogène.
 5. Utiliser plusieurs agents pour le code et les images.
 
-Ensuite, il y a eu 30 messages substantiels de spécification, en excluant les simples messages opérationnels comme « j’ai fait ssh-add », « GitHub Pages est configuré » ou « continue ».
+Ensuite, il y a eu 31 messages substantiels de spécification, en excluant les simples messages opérationnels comme « j’ai fait ssh-add », « GitHub Pages est configuré » ou « continue ».
 
-Avec un découpage où chaque comportement vérifiable explicitement demandé compte comme une demande, on obtient environ 80 exigences supplémentaires :
+Avec un découpage où chaque comportement vérifiable explicitement demandé compte comme une demande, on obtient environ 81 exigences supplémentaires :
 
 | Domaine ajouté après la demande initiale | Nombre approximatif |
 |---|---:|
-| Images, interface et mobile | 17 |
+| Images, interface et mobile | 18 |
 | Gameplay, économie et équilibrage | 25 |
 | Incidents, maladies et santé | 14 |
 | Terminologie, textes et traduction | 11 |
 | Aide, publication et préproduction | 10 |
 | Documentation de l’expérience | 3 |
-| **Total** | **≈ 80** |
+| **Total** | **≈ 81** |
 
 Ainsi, environ 94 % des exigences détaillées ont été formulées après la demande initiale. Le projet final est sensiblement plus large qu’un simple Oregon Trail classique illustré.
 
@@ -43,6 +43,7 @@ Les demandes successives ont ajouté :
 - Une illustration différente pour chaque étape.
 - Quatre variantes climatiques par étape : doux, chaud, froid et pluie.
 - Des paysages propres à Chimney Rock, Fort Laramie, Independence Rock, South Pass, Fort Boise, The Dalles, etc.
+- Pour chaque fort, une vue d’approche où la destination reste lointaine, puis une image d’arrivée distincte à la porte ou dans l’enceinte.
 - Des images particulières pour chaque incident.
 - Des images de chasse adaptées au climat.
 - La même illustration pendant la chasse et dans son bilan.

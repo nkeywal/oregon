@@ -223,6 +223,10 @@ function stageAsset(stage=currentStage(),weather=weatherVisual()) {
   return `stage-${stage.visual}-${weather.key}.webp`;
 }
 
+function fortArrivalAsset(fort,weather=weatherVisual()) {
+  return `arrival-${fort.visual}-${weather.key}.webp`;
+}
+
 function setTrailScene() {
   const weather=weatherVisual(),stage=currentStage(),scene=$("#scene");
   scene.className=`scene trail-scene stage-scene weather-${weather.key}`;
@@ -550,9 +554,9 @@ function attackEvent(){
 }
 
 function landmark(mark){
-  const art=stageAsset(mark),scene=$("#scene");
+  const weather=weatherVisual(),art=mark.kind==="fort"?fortArrivalAsset(mark,weather):stageAsset(mark,weather),scene=$("#scene");
   scene.className="scene landmark-scene";scene.style.backgroundImage=`url('assets/${art}')`;
-  scene.setAttribute("aria-label",currentLanguage==="en"?`${landmarkName(mark)}, in ${languageText(weatherVisual().label)}`:`${mark.name}, par ${weatherVisual().label}`);
+  scene.setAttribute("aria-label",mark.kind==="fort"?(currentLanguage==="en"?`Arriving at the gate of ${landmarkName(mark)}, in ${languageText(weather.label)}`:`Arrivée à la porte de ${mark.name}, par ${weather.label}`):(currentLanguage==="en"?`${landmarkName(mark)}, in ${languageText(weather.label)}`:`${mark.name}, par ${weather.label}`));
   if(mark.kind==="river") riverEvent(mark,art);
   else if(mark.kind==="fort") fortEvent(mark,art);
   else eventModal(bilingual(mark.name,landmarkName(mark)),bilingual(`Le convoi atteint ${mark.name}.`,`The wagon party reaches ${landmarkName(mark)}.`),"Un repère bienvenu sur l’immensité de la piste.",[{label:"Graver nos noms et repartir",action:()=>{addJournal(bilingual(`Nous avons atteint ${mark.name}.`,`We reached ${landmarkName(mark)}.`));setTrailScene();}}],art);
@@ -614,7 +618,7 @@ function riverRisk(mark,depth){
   setTrailScene();updateDeaths();
 }
 
-function fortEvent(mark,art=stageAsset(mark)){
+function fortEvent(mark,art=fortArrivalAsset(mark)){
   const price=Math.round(1.3+game.km/KM_TOTAL*.7);
   const foodCost=20*price, ammoCost=6*price, restFood=alive().length*4;
   const equipment=[

@@ -14,19 +14,19 @@ The initial request contained five broad requirements:
 4. Produce better illustrations with a consistent art direction.
 5. Use multiple agents for the code and images.
 
-This was followed by 30 substantial specification messages, excluding purely operational messages such as “I ran ssh-add,” “GitHub Pages is configured,” or “continue.”
+This was followed by 31 substantial specification messages, excluding purely operational messages such as “I ran ssh-add,” “GitHub Pages is configured,” or “continue.”
 
-Using a breakdown in which each explicitly requested, independently verifiable behavior counts as one request, this amounts to approximately 80 additional requirements:
+Using a breakdown in which each explicitly requested, independently verifiable behavior counts as one request, this amounts to approximately 81 additional requirements:
 
 | Area added after the initial request | Approximate number |
 |---|---:|
-| Images, interface, and mobile | 17 |
+| Images, interface, and mobile | 18 |
 | Gameplay, economy, and balancing | 25 |
 | Incidents, illnesses, and health | 14 |
 | Terminology, copy, and translation | 11 |
 | Help, publishing, and launch preparation | 10 |
 | Experiment documentation | 3 |
-| **Total** | **≈ 80** |
+| **Total** | **≈ 81** |
 
 Approximately 94% of the detailed requirements were therefore specified after the initial request. The finished project is substantially broader than a simply illustrated version of the classic Oregon Trail.
 
@@ -43,6 +43,7 @@ The successive requests added:
 - A different illustration for every stage.
 - Four weather variants for each stage: mild, hot, cold, and rainy.
 - Dedicated landscapes for Chimney Rock, Fort Laramie, Independence Rock, South Pass, Fort Boise, The Dalles, and others.
+- For every fort, an approach view in which the destination remains distant, followed by a distinct arrival image at the gate or inside the enclosure.
 - A specific image for every incident.
 - Hunting images adapted to the weather.
 - The same illustration during a hunt and in its outcome report.

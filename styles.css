@@ -54,7 +54,8 @@ dialog{border:0;padding:0;color:var(--ink);background:var(--paper);box-shadow:0 
   .sidebar .stats-grid{grid-template-columns:repeat(2,1fr)}
 }
 .scene{border-width:4px;box-shadow:0 14px 34px rgba(15,12,8,.22)}
-.scene-caption{background:linear-gradient(90deg,rgba(25,24,18,.92),rgba(25,24,18,.72));border-top:1px solid rgba(217,164,65,.55);backdrop-filter:blur(2px)}
+.scene-caption{background:linear-gradient(90deg,rgba(25,24,18,.92),rgba(25,24,18,.72));border-top:1px solid rgba(217,164,65,.55);backdrop-filter:blur(2px);align-items:flex-end;gap:1rem}.scene-place{display:flex;flex-direction:column;gap:.18rem;min-width:0}.scene-place small{font-size:.68rem;line-height:1.25;opacity:.82;font-weight:400}.scene-caption>b{white-space:nowrap}
+.weather.rain,.weather.snow{background:none}
 .game-dialog{width:min(760px,calc(100% - 1rem));max-width:min(760px,calc(100% - 1rem))}
 
 @media(max-width:560px){

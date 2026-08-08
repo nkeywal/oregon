@@ -50,29 +50,29 @@ const LANDMARKS = [
 ];
 const FINAL_STAGE = {km:KM_TOTAL,name:"Vallée de Willamette",visual:"willamette"};
 
+const ROUTE_SEGMENTS = [
+  {start:0,end:165,key:"kansas-prairie",terrain:{fr:"Prairies du Kansas",en:"Kansas prairie"},slope:{fr:"terrain ondulé",en:"rolling ground"},road:{fr:"piste bien marquée",en:"well-marked trail"},climate:{fr:"continental humide",en:"humid continental"},summary:{fr:"Terrain ondulé · bonne piste · climat humide",en:"Rolling ground · good trail · humid climate"},speed:.97,risk:.01,tempOffset:0,rain:1,allowSnow:true,allowHot:true},
+  {start:165,end:490,key:"great-plains",terrain:{fr:"Grandes Plaines",en:"Great Plains"},slope:{fr:"montée presque imperceptible",en:"barely perceptible ascent"},road:{fr:"piste ferme et visible",en:"firm, visible trail"},climate:{fr:"prairie venteuse",en:"windy grassland"},summary:{fr:"Montée légère · bonne piste · prairie venteuse",en:"Slight ascent · good trail · windy grassland"},speed:.96,risk:.01,tempOffset:-1,rain:.8,allowSnow:true,allowHot:true},
+  {start:490,end:980,key:"platte-valley",terrain:{fr:"Vallée de la Platte",en:"Platte Valley"},slope:{fr:"longue montée douce",en:"long gentle ascent"},road:{fr:"piste fréquentée",en:"well-traveled trail"},climate:{fr:"semi-aride et venteux",en:"semi-arid and windy"},summary:{fr:"Montée douce · piste fréquentée · climat semi-aride",en:"Gentle ascent · traveled trail · semi-arid climate"},speed:.94,risk:.02,tempOffset:-2,rain:.65,allowSnow:true,allowHot:true},
+  {start:980,end:1240,key:"rockies-foothills",terrain:{fr:"Contreforts des Rocheuses",en:"Rocky Mountain foothills"},slope:{fr:"montée irrégulière",en:"uneven ascent"},road:{fr:"ornières et pierres",en:"ruts and stones"},climate:{fr:"sec, nuits fraîches",en:"dry with cool nights"},summary:{fr:"Montée irrégulière · piste pierreuse · climat sec",en:"Uneven ascent · stony trail · dry climate"},speed:.84,risk:.07,tempOffset:-4,rain:.55,allowSnow:true,allowHot:true},
+  {start:1240,end:1510,key:"high-plains",terrain:{fr:"Hautes plaines",en:"High Plains"},slope:{fr:"montée régulière",en:"steady ascent"},road:{fr:"sol dur mais pierreux",en:"firm but stony ground"},climate:{fr:"frais et peu humide",en:"cool and rather dry"},summary:{fr:"Montée régulière · piste dure · climat frais",en:"Steady ascent · firm trail · cool climate"},speed:.87,risk:.05,tempOffset:-5,rain:.5,allowSnow:true,allowHot:false},
+  {start:1510,end:1810,key:"south-pass",terrain:{fr:"Sweetwater et South Pass",en:"Sweetwater and South Pass"},slope:{fr:"longue montée douce vers un col large",en:"long gentle ascent to a broad pass"},road:{fr:"piste visible mais très exposée",en:"visible but highly exposed trail"},climate:{fr:"haute altitude et changeant",en:"high-altitude and changeable"},summary:{fr:"Montée douce · piste exposée · climat d’altitude",en:"Gentle ascent · exposed trail · high-altitude climate"},speed:.86,risk:.06,tempOffset:-8,rain:.7,allowSnow:true,allowHot:false},
+  {start:1810,end:2320,key:"high-desert",terrain:{fr:"Bassin aride",en:"High desert basin"},slope:{fr:"longue descente accidentée",en:"long, broken descent"},road:{fr:"piste sèche et difficile",en:"dry, difficult trail"},climate:{fr:"désertique, très sec",en:"desert, very dry"},summary:{fr:"Descente accidentée · piste difficile · désert sec",en:"Broken descent · difficult trail · dry desert"},speed:.83,risk:.08,tempOffset:2,rain:.12,allowSnow:false,allowHot:true},
+  {start:2320,end:2580,key:"snake-plain",terrain:{fr:"Plaine de la Snake",en:"Snake River Plain"},slope:{fr:"faibles montées et descentes",en:"gentle rises and dips"},road:{fr:"poussière et roches volcaniques",en:"dust and volcanic rock"},climate:{fr:"aride et chaud",en:"arid and hot"},summary:{fr:"Relief faible · piste rocheuse · désert chaud",en:"Gentle relief · rocky trail · hot desert"},speed:.88,risk:.06,tempOffset:3,rain:.18,allowSnow:false,allowHot:true},
+  {start:2580,end:2920,key:"blue-mountains",terrain:{fr:"Blue Mountains",en:"Blue Mountains"},slope:{fr:"montées raides puis descentes",en:"steep climbs followed by descents"},road:{fr:"piste forestière mauvaise",en:"poor forest trail"},climate:{fr:"montagnard et humide",en:"mountainous and wet"},summary:{fr:"Fortes pentes · mauvaise piste · montagne humide",en:"Steep slopes · poor trail · wet mountains"},speed:.68,risk:.14,tempOffset:-7,rain:1.05,allowSnow:true,allowHot:false},
+  {start:2920,end:KM_TOTAL,key:"columbia",terrain:{fr:"Gorge de la Columbia",en:"Columbia Gorge"},slope:{fr:"descente raide vers Willamette",en:"steep descent toward Willamette"},road:{fr:"piste boueuse et encombrée",en:"muddy, obstructed trail"},climate:{fr:"océanique très humide",en:"very wet maritime"},summary:{fr:"Forte descente · piste boueuse · climat très humide",en:"Steep descent · muddy trail · very wet climate"},speed:.74,risk:.11,tempOffset:-2,rain:1.65,allowSnow:true,allowHot:false}
+];
+
 const WEATHER = [
   {name:"Doux",temp:18,cls:""},{name:"Chaud",temp:31,cls:""},{name:"Pluvieux",temp:13,cls:"rain"},
-  {name:"Froid",temp:4,cls:""},{name:"Neige",temp:-4,cls:"snow"}
+  {name:"Froid",temp:4,cls:""},{name:"Neige",temp:-4,cls:""}
 ];
+const MONTHLY_BASE_TEMPERATURE = [-2,1,7,13,18,24,28,27,21,14,6,0];
 const PACES = {
-  prudent:{km:65,health:1,food:.8,incident:.38,strain:-1},
-  soutenu:{km:90,health:-1,food:1,incident:.62,strain:1},
-  epuisant:{km:115,health:-7,food:1.45,incident:.92,strain:3}
+  prudent:{km:100,health:1,food:.8,incident:.38,strain:-1},
+  soutenu:{km:140,health:-1,food:1,incident:.62,strain:1},
+  epuisant:{km:180,health:-7,food:1.45,incident:.92,strain:3}
 };
-const MONTHLY_WEATHER = [
-  [3,4,4],       // janvier
-  [3,3,4,2],     // février
-  [3,3,4,2,0],   // mars
-  [0,0,2,3],     // avril
-  [0,0,0,2,1],   // mai
-  [0,0,1,1,2],   // juin
-  [1,1,1,0,2],   // juillet
-  [1,1,0,0,2],   // août
-  [0,0,1,2,3],   // septembre
-  [0,0,2,3,3],   // octobre
-  [3,3,4,2],     // novembre
-  [3,4,4,2]      // décembre
-];
 // Fonte printanière, étiage estival et réaction aux conditions des derniers jours.
 const RIVER_SEASON_LEVEL = [-.15,-.1,.05,.25,.4,.3,.05,-.2,-.25,-.1,-.05,-.1];
 const RIVER_WEATHER_LEVEL = {Doux:0,Chaud:-.18,Pluvieux:.35,Froid:-.1,Neige:-.15};
@@ -93,7 +93,7 @@ function baseGame(names, profession, month) {
     version:1, profession, money, initialMoney:money, cart:{...cart},
     party:names.map(name => ({name,health:100,state:"En forme",alive:true,sickDays:0})),
     day:1, month:Number(month), year:1848, km:0, days:0, pace:"soutenu", rations:"normales",
-    weather:WEATHER[0], landmarkIndex:0, oxStrain:0, lastEvent:null, journal:[], finished:false, score:0
+    weather:{...WEATHER[0]}, weatherHistory:["Doux"], landmarkIndex:0, oxStrain:0, lastEvent:null, journal:[], finished:false, score:0
   };
 }
 
@@ -133,6 +133,13 @@ function shuffled(arr) {
   return result;
 }
 function clamp(v,min,max) { return Math.max(min,Math.min(max,v)); }
+function weightedPick(entries){
+  const total=entries.reduce((sum,entry)=>sum+Math.max(0,entry.weight),0);
+  if(total<=0)return entries[0]?.value;
+  let roll=Math.random()*total;
+  for(const entry of entries){roll-=Math.max(0,entry.weight);if(roll<=0)return entry.value}
+  return entries.at(-1)?.value;
+}
 function money(n) { const amount=Math.max(0,Math.round(n)).toLocaleString(currentLocale());return currentLanguage==="en"?`$${amount}`:`${amount} $`; }
 // Dans l'interface du jeu, zéro conserve le singulier : « 0 pièce ».
 function unitLabelFor(item,quantity,language=currentLanguage) { return language==="en"?(quantity<=1?item.unitEn:item.pluralEn):quantity<=1?item.unit:item.plural; }
@@ -161,9 +168,14 @@ function applyFoodShortage(food,days) {
   addJournal(bilingual(`Les vivres n’ont pas suffi pendant ${days} jour${days>1?"s":""}. La faim a affaibli le groupe.`,`Food ran short for ${days} day${days===1?"":"s"}. Hunger weakened the party.`));
   return penalty;
 }
-function consumeDelay(days,perPerson=dailyFoodPerPerson(),refreshWeather=true) {
-  advanceDate(days);const food=consumeFood(days,perPerson);applyFoodShortage(food,days);
-  if(refreshWeather)game.weather=weatherForSeason();
+function consumeDelay(days,perPerson=dailyFoodPerPerson(),refreshClimate=true) {
+  const food={needed:0,consumed:0,missing:0};
+  for(let day=0;day<days;day++){
+    advanceDate(1);const daily=consumeFood(1,perPerson);
+    food.needed+=daily.needed;food.consumed+=daily.consumed;food.missing+=daily.missing;
+    if(refreshClimate)refreshWeather();
+  }
+  applyFoodShortage(food,days);
   return food;
 }
 function loadFood(amount){
@@ -171,6 +183,54 @@ function loadFood(amount){
   game.cart.vivres+=loaded;return loaded;
 }
 function travelWeatherFactor(weather) { return {Doux:1,Chaud:.85,Pluvieux:.8,Froid:.9,Neige:.65}[weather.name]??1; }
+function routeSegmentAt(km=game?.km??0){return ROUTE_SEGMENTS.find(segment=>km>=segment.start&&km<segment.end)||ROUTE_SEGMENTS.at(-1)}
+function routeTravelFactor(route=routeSegmentAt()){return route.speed}
+function plannedDailyDistance(pace,weather,route=routeSegmentAt(),oxen=game.cart.boeufs){
+  const oxFactor=clamp(.45+oxen*.075,.5,1.35);
+  return Math.max(1,Math.round(pace.km/5*oxFactor*travelWeatherFactor(weather)*routeTravelFactor(route)));
+}
+function daysInMonth(month,year=game?.year??1848){return month===1?(year%4===0?29:28):[3,5,8,10].includes(month)?30:31}
+function seasonalTemperature(month,day,year=1848){
+  const progress=(day-1)/daysInMonth(month,year),next=(month+1)%12;
+  return MONTHLY_BASE_TEMPERATURE[month]*(1-progress)+MONTHLY_BASE_TEMPERATURE[next]*progress;
+}
+function weatherTransitionAllowed(previous,next){
+  const allowed={Neige:["Neige","Froid"],Froid:["Neige","Froid","Pluvieux","Doux"],Pluvieux:["Froid","Pluvieux","Doux"],Doux:["Froid","Pluvieux","Doux","Chaud"],Chaud:["Doux","Chaud"]};
+  return !previous||allowed[previous]?.includes(next);
+}
+function weatherWeights(route,expected,history=[]){
+  const previous=history.at(-1);
+  const weights={
+    Doux:Math.max(.4,8-Math.abs(expected-18)*.55),
+    Chaud:route.allowHot?Math.max(0,(expected-20)*.85):0,
+    Pluvieux:Math.max(.08,route.rain*2.2)*(expected<=0?.2:1),
+    Froid:Math.max(0,(13-expected)*.6),
+    Neige:route.allowSnow&&expected<=5?Math.max(0,(6-expected)*.7):0
+  };
+  for(const name of Object.keys(weights)){
+    if(!weatherTransitionAllowed(previous,name))weights[name]=0;
+    if(name===previous)weights[name]*=4;
+    weights[name]*=1+history.filter(item=>item===name).length*.65;
+  }
+  if(Object.values(weights).every(weight=>weight<=0))weights[previous==="Neige"?"Froid":previous==="Chaud"?"Doux":"Doux"]=1;
+  return weights;
+}
+function weatherForPosition(month,day,year,km,history=[]){
+  const route=routeSegmentAt(km),expected=seasonalTemperature(month,day,year)+route.tempOffset;
+  const weights=weatherWeights(route,expected,history);
+  const name=weightedPick(Object.entries(weights).map(([value,weight])=>({value,weight})))||"Doux";
+  const temp={
+    Chaud:clamp(Math.round(expected+rand(-1,4)),27,38),
+    Doux:clamp(Math.round(expected+rand(-3,3)),10,25),
+    Pluvieux:clamp(Math.round(expected+rand(-4,1)),6,22),
+    Froid:clamp(Math.round(expected+rand(-4,1)),-2,9),
+    Neige:clamp(Math.round(expected+rand(-5,-1)),-10,1)
+  }[name];
+  return {name,temp,cls:name==="Pluvieux"?"rain":""};
+}
+function refreshWeather(){
+  game.weather=weatherForSeason();game.weatherHistory=[...(game.weatherHistory??[]),game.weather.name].slice(-3);return game.weather;
+}
 function formatDepth(depth) { return depth.toFixed(1).replace(".",currentLanguage==="en"?".":","); }
 function riverDepth(mark,previous=null) {
   const seasonal=RIVER_SEASON_LEVEL[game.month]*(mark.seasonalFlow??1);
@@ -231,7 +291,7 @@ function injuryCondition(value) {
 
 function weatherVisual() {
   if(game.weather.name==="Pluvieux")return {key:"rain",label:"temps pluvieux"};
-  if(game.weather.temp<=5)return {key:"cold",label:"temps froid et enneigé"};
+  if(game.weather.name==="Froid"||game.weather.name==="Neige")return {key:"cold",label:"temps froid"};
   if(game.weather.temp>=27)return {key:"hot",label:"temps chaud et aride"};
   return {key:"mild",label:"temps modéré"};
 }
@@ -289,8 +349,10 @@ function updateUI() {
   $("#liste-groupe").innerHTML=game.party.map(p=>{const [label,c]=healthLabel(p.health),state=p.state!=="En forme"?p.state:label;return `<li><span class="health-dot ${c}" aria-hidden="true"></span><b>${escapeHtml(p.name)}</b><span class="party-state">${escapeHtml(languageText(p.alive?state:label))}</span></li>`}).join("");
   $("#journal").innerHTML=journalItems(game.journal.slice(0,4));
   const next=LANDMARKS.find(l=>l.km>game.km);
+  const route=routeSegmentAt();
   $("#lieu").textContent=next?`${landmarkName(next)} · ${Math.max(0,Math.round(next.km-game.km))} km`:languageText("Vallée de Willamette");
   $("#meteo").textContent=`${languageText(game.weather.name)} · ${game.weather.temp} °C`;
+  $("#conditions-route").textContent=languageText(route.summary);
   $("#meteo-scene").className=`weather ${game.weather.cls}`;
   if(!$("#scene").matches(".landmark-scene"))setTrailScene();
   $("#titre-etape").textContent=currentLanguage==="en"?`Heading toward ${landmarkName(currentStage())}`:`En route vers ${currentStage().name}`;
@@ -321,14 +383,15 @@ function leaveTown(){
   if(cart.vivres<100){toast("Emportez au moins 100 kg de vivres.");return;}
   const spent=Object.entries(cart).reduce((sum,[k,q])=>sum+q/SHOP[k].step*SHOP[k].price,0);
   game.cart={...cart};game.money=game.initialMoney-spent;
+  game.weather=weatherForPosition(game.month,game.day,game.year,0,[]);game.weatherHistory=[game.weather.name];
   addJournal("Nous avons quitté Independence. La piste s’ouvre devant nous.");
   showScreen("ecran-voyage");updateUI();
 }
 
-function dailyIncidentChance(pace,weather){
+function dailyIncidentChance(pace,weather,route=routeSegmentAt()){
   const weatherRisk={Doux:0,Chaud:.04,Pluvieux:.08,Froid:.04,Neige:.1}[weather.name]||0;
   const equipmentRisk=(game.cart.pieces===0?.07:0)+(game.cart.boeufs<4?.06:0)+((weather.temp<=5||weather.name==="Pluvieux")&&game.cart.vetements<alive().length?.05:0);
-  const journeyChance=clamp(pace.incident+weatherRisk+equipmentRisk+game.oxStrain*.012,.24,.97);
+  const journeyChance=clamp(pace.incident+weatherRisk+equipmentRisk+route.risk+game.oxStrain*.012,.24,.97);
   return 1-Math.pow(1-journeyChance,1/5);
 }
 
@@ -351,7 +414,7 @@ function recordTravelWeather(breakdown,weather,distance){
   entry.distance+=distance;entry.days++;
 }
 
-function addTravelJournal(distance,days,weatherBreakdown=[]){
+function addTravelJournal(distance,days,weatherBreakdown=[],route=routeSegmentAt()){
   const breakdown=weatherBreakdown.length?weatherBreakdown:[{name:game.weather.name,distance,days}];
   const detailsFr=joinList(breakdown.map(item=>`${item.distance} km par ${travelWeatherLabel(item.name,"fr")}`),"fr");
   const detailsEn=joinList(breakdown.map(item=>`${item.distance} km in ${travelWeatherLabel(item.name,"en")}`),"en");
@@ -359,22 +422,23 @@ function addTravelJournal(distance,days,weatherBreakdown=[]){
   const paceJournalEn=game.pace==="epuisant"?" The grueling pace severely tested the wagon party.":"";
   const weatherTextFr=breakdown.length===1?`par ${travelWeatherLabel(breakdown[0].name,"fr")}`:`: ${detailsFr}`;
   const weatherTextEn=breakdown.length===1?`in ${travelWeatherLabel(breakdown[0].name,"en")}`:`: ${detailsEn}`;
-  addJournal(bilingual(`${distance} km parcourus en ${days} jour${days>1?"s":""} ${weatherTextFr}.${paceJournal}`,`${distance} km traveled in ${days} day${days===1?"":"s"} ${weatherTextEn}.${paceJournalEn}`));
+  const routeTextFr=` Terrain : ${route.terrain.fr} ; ${route.slope.fr} ; ${route.road.fr} ; climat ${route.climate.fr}.`;
+  const routeTextEn=` Terrain: ${route.terrain.en}; ${route.slope.en}; ${route.road.en}; ${route.climate.en} climate.`;
+  addJournal(bilingual(`${distance} km parcourus en ${days} jour${days>1?"s":""} ${weatherTextFr}.${routeTextFr}${paceJournal}`,`${distance} km traveled in ${days} day${days===1?"":"s"} ${weatherTextEn}.${routeTextEn}${paceJournalEn}`));
 }
 
 function travel(){
   if(game.finished)return;
   if(checkJourneyFailure())return;
   if(game.cart.vivres<=0){ resolveStarvation(); return; }
-  const pace=PACES[game.pace];
+  const pace=PACES[game.pace],travelRoute=routeSegmentAt();
   let distance=0,foodConsumed=0,travelDays=0;const travelWeatherBreakdown=[];
   for(let day=0;day<5;day++){
     if(game.cart.vivres<=0){
-      if(travelDays)addTravelJournal(distance,travelDays,travelWeatherBreakdown);
+      if(travelDays)addTravelJournal(distance,travelDays,travelWeatherBreakdown,travelRoute);
       resolveStarvation();updateUI();return;
     }
-    const travelWeather=game.weather,oxFactor=clamp(.45+game.cart.boeufs*.075,.5,1.35);
-    const plannedDistance=Math.max(1,Math.round(pace.km/5*oxFactor*travelWeatherFactor(travelWeather)));
+    const travelWeather=game.weather,plannedDistance=plannedDailyDistance(pace,travelWeather,travelRoute);
     const next=LANDMARKS[game.landmarkIndex];
     const remainingToStop=Math.min(next?next.km-game.km:Infinity,KM_TOTAL-game.km);
     const dayDistance=Math.max(0,Math.min(plannedDistance,remainingToStop));
@@ -392,12 +456,12 @@ function travel(){
     }
     updateDeaths();
     if(game.finished)return;
-    if(game.km>=KM_TOTAL){addTravelJournal(distance,travelDays,travelWeatherBreakdown);finish(true);return;}
-    if(next&&game.km>=next.km){addTravelJournal(distance,travelDays,travelWeatherBreakdown);game.landmarkIndex++;landmark(next);updateUI();return;}
-    if(dailyIncidentOccurs(pace,travelWeather)){addTravelJournal(distance,travelDays,travelWeatherBreakdown);randomEvent();updateUI();return;}
-    game.weather=weatherForSeason();
+    if(game.km>=KM_TOTAL){addTravelJournal(distance,travelDays,travelWeatherBreakdown,travelRoute);finish(true);return;}
+    if(next&&game.km>=next.km){addTravelJournal(distance,travelDays,travelWeatherBreakdown,travelRoute);game.landmarkIndex++;landmark(next);updateUI();return;}
+    if(dailyIncidentOccurs(pace,travelWeather)){addTravelJournal(distance,travelDays,travelWeatherBreakdown,travelRoute);randomEvent();updateUI();return;}
+    refreshWeather();
   }
-  addTravelJournal(distance,travelDays,travelWeatherBreakdown);quietTravelEvent(distance,Math.round(foodConsumed),travelDays);updateUI();
+  addTravelJournal(distance,travelDays,travelWeatherBreakdown,travelRoute);quietTravelEvent(distance,Math.round(foodConsumed),travelDays);updateUI();
 }
 
 function quietTravelEvent(distance,foodConsumed,travelDays=5){
@@ -409,12 +473,12 @@ function quietTravelEvent(distance,foodConsumed,travelDays=5){
 }
 
 function weatherForSeason(){
-  return WEATHER[pick(MONTHLY_WEATHER[game.month])];
+  return weatherForPosition(game.month,game.day,game.year,game.km,game.weatherHistory??[]);
 }
 
 function resolveStarvation(){
   for(const p of alive())p.health=clamp(p.health-18,0,100);
-  advanceDate(3);game.weather=weatherForSeason();addJournal("Les vivres sont épuisés. La faim affaiblit tout le monde.");updateDeaths();
+  for(let day=0;day<3;day++){advanceDate(1);refreshWeather()}addJournal("Les vivres sont épuisés. La faim affaiblit tout le monde.");updateDeaths();
   if(game.finished)return;
   updateUI();randomEvent();
 }
@@ -438,7 +502,7 @@ function taggedEvent(id,run){run.eventId=id;return run}
 
 function eventPool(){
   if(game.finished||!alive().length)return [];
-  const patients=eventEligibleTravelers();
+  const patients=eventEligibleTravelers(),route=routeSegmentAt();
   const wagonEvent=taggedEvent("wagon",()=>{
       const loss=Math.min(game.cart.vivres,rand(12,35));game.cart.vivres-=loss;
       const lossText=loss>0?`${loss} kg de vivres ${loss===1?"est perdu":"sont perdus"}.`:"Les réserves de vivres étaient déjà vides : rien n’a pu être perdu.";
@@ -495,6 +559,8 @@ function eventPool(){
     events.push(wagonEvent,wagonEvent,axleEvent,axleEvent,...(injuryEventChoice?[injuryEventChoice,injuryEventChoice]:[]));
     if(oxEventChoice)events.push(oxEventChoice,oxEventChoice,oxEventChoice);
   }
+  if(route.risk>=.06)events.push(wagonEvent);
+  if(route.risk>=.1)events.push(axleEvent);
   if(oxEventChoice&&game.oxStrain>=6)events.push(oxEventChoice,oxEventChoice,oxEventChoice);
   return events;
 }
@@ -898,7 +964,7 @@ function shoot(touchAssist=false){
 
 function endHunt(){
   if(!hunt?.running)return;
-  const result={shots:hunt.shots,remaining:game.cart.munitions,loot:hunt.loot,background:hunt.background};hunt.running=false;loadFood(result.loot);game.weather=weatherForSeason();
+  const result={shots:hunt.shots,remaining:game.cart.munitions,loot:hunt.loot,background:hunt.background};hunt.running=false;loadFood(result.loot);refreshWeather();
   addJournal(result.loot?bilingual(`La chasse rapporte ${result.loot} kg de viande pour ${result.shots} balle${result.shots>1?"s":""} tirée${result.shots>1?"s":""}.`,`The hunt yielded ${result.loot} kg of meat for ${result.shots} bullet${result.shots===1?"":"s"} fired.`):bilingual("La chasse ne rapporte rien cette fois.","The hunt yielded nothing this time."));
   $("#dialogue-chasse").close();updateUI();hunt=null;
   $("#dialogue-bilan-chasse .hunt-result-art").style.backgroundImage=`url('assets/${result.background}')`;

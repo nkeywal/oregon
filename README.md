@@ -4,6 +4,8 @@ Jeu de survie et de gestion inspiré du voyage historique vers l’Oregon. L’a
 
 L’interface est disponible en français et en anglais. Le sélecteur FR/EN adapte immédiatement les écrans, les événements et le journal de bord.
 
+Le voyage est découpé en portions géographiques : météo saisonnière avec inertie, climat local, relief et qualité de piste influencent quotidiennement la progression du convoi.
+
 ## Jouer en ligne
 
 Le jeu est publié sur GitHub Pages : **https://nkeywal.github.io/oregon/**

@@ -57,14 +57,66 @@ test("weather is refreshed after elapsed non-travel days",()=>{
   assert.equal(scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);weatherForSeason=()=>WEATHER[1];consumeDelay(2,2);game.weather.name`),"Chaud");
 });
 
+test("multi-day stops evolve weather once per elapsed day",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);let rolls=0;weatherForSeason=()=>{rolls++;return WEATHER[rolls%2?2:0]};consumeDelay(3,2);({rolls,days:game.days,history:game.weatherHistory})`);
+  assert.equal(result.rolls,3);assert.equal(result.days,3);assert.equal(result.history.length,3);
+});
+
 test("travel journal associates distance with each encountered weather",()=>{
   const text=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);addTravelJournal(25,2,[{name:"Neige",distance:12,days:1},{name:"Doux",distance:13,days:1}]);game.journal[0].text.fr`);
-  assert.equal(text,"25 km parcourus en 2 jours : 12 km par temps de neige et 13 km par temps modéré.");
+  assert.equal(text,"25 km parcourus en 2 jours : 12 km par temps de neige et 13 km par temps modéré. Terrain : Prairies du Kansas ; terrain ondulé ; piste bien marquée ; climat continental humide.");
 });
 
 test("weather directly changes travel distance",()=>{
   const factors=scenario(`Object.fromEntries(WEATHER.map(weather=>[weather.name,travelWeatherFactor(weather)]))`);
   assert.equal(factors.Doux,1);assert.ok(factors.Chaud<factors.Doux);assert.ok(factors.Pluvieux<factors.Doux);assert.ok(factors.Neige<factors.Pluvieux);
+});
+
+test("route geography covers the entire trail without gaps",()=>{
+  const result=scenario(`({covered:Array.from({length:KM_TOTAL},(_,km)=>routeSegmentAt(km)).every(Boolean),starts:ROUTE_SEGMENTS.map(segment=>segment.start),ends:ROUTE_SEGMENTS.map(segment=>segment.end)})`);
+  assert.equal(result.covered,true);assert.equal(result.starts[0],0);assert.equal(result.ends.at(-1),3200);
+  for(let i=1;i<result.starts.length;i++)assert.equal(result.starts[i],result.ends[i-1]);
+});
+
+test("terrain and trail quality change travel speed",()=>{
+  const result=scenario(`({plains:routeTravelFactor(routeSegmentAt(500)),pass:routeTravelFactor(routeSegmentAt(1600)),desert:routeTravelFactor(routeSegmentAt(2000)),mountains:routeTravelFactor(routeSegmentAt(2700))})`);
+  assert.ok(result.pass<result.plains);assert.ok(result.mountains<result.desert);assert.ok(result.plains<=1);
+});
+
+test("daily distance combines oxen, weather, and route difficulty",()=>{
+  const result=scenario(`({plain:plannedDailyDistance(PACES.soutenu,WEATHER[0],routeSegmentAt(500),6),snow:plannedDailyDistance(PACES.soutenu,WEATHER[4],routeSegmentAt(500),6),mountains:plannedDailyDistance(PACES.soutenu,WEATHER[0],routeSegmentAt(2700),6),fewOxen:plannedDailyDistance(PACES.soutenu,WEATHER[0],routeSegmentAt(500),3)})`);
+  assert.ok(result.plain>result.snow);assert.ok(result.plain>result.mountains);assert.ok(result.plain>result.fewOxen);
+});
+
+test("weather depends on the date and recent weather history",()=>{
+  const result=scenario(`const route=routeSegmentAt(500),expected=18;({winter:seasonalTemperature(0,15),summer:seasonalTemperature(6,15),fresh:weatherWeights(route,expected,[]).Doux,persistent:weatherWeights(route,expected,["Doux","Doux","Doux"]).Doux})`);
+  assert.ok(result.winter<result.summer);assert.ok(result.persistent>result.fresh*5);
+});
+
+test("weather cannot jump directly between snow and heat",()=>{
+  assert.equal(scenario(`weatherTransitionAllowed("Neige","Chaud")`),false);
+  assert.equal(scenario(`weatherTransitionAllowed("Chaud","Neige")`),false);
+  assert.equal(scenario(`weatherTransitionAllowed("Neige","Froid")`),true);
+});
+
+test("desert segments never generate snow",()=>{
+  const result=scenario(`let names=[];for(const km of [1900,2400])for(let month=0;month<12;month++)for(let i=0;i<30;i++)names.push(weatherForPosition(month,15,1848,km,["Neige"]).name);({snow:names.includes("Neige"),desert:routeSegmentAt(1900).allowSnow,snake:routeSegmentAt(2400).allowSnow})`);
+  assert.equal(result.snow,false);assert.equal(result.desert,false);assert.equal(result.snake,false);
+});
+
+test("generated daily weather always respects transition constraints",()=>{
+  const result=scenario(`let history=["Neige"],valid=true;for(let i=0;i<500;i++){const km=[500,1600,1900,2700,3000][i%5],next=weatherForPosition(i%12,15,1848,km,history);if(!weatherTransitionAllowed(history.at(-1),next.name))valid=false;history=[...history,next.name].slice(-3)}valid`);
+  assert.equal(result,true);
+});
+
+test("local geography changes temperature and rainfall tendencies",()=>{
+  const result=scenario(`const summer=seasonalTemperature(6,15);const pass=routeSegmentAt(1600),desert=routeSegmentAt(2000),columbia=routeSegmentAt(3000);({passTemp:summer+pass.tempOffset,desertTemp:summer+desert.tempOffset,desertRain:weatherWeights(desert,20,[]).Pluvieux,columbiaRain:weatherWeights(columbia,20,[]).Pluvieux})`);
+  assert.ok(result.desertTemp>result.passTemp);assert.ok(result.columbiaRain>result.desertRain*5);
+});
+
+test("cold weather always uses cold artwork without a snow overlay",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.weather={name:"Froid",temp:9,cls:""};({visual:weatherVisual().key,snowClass:WEATHER.find(weather=>weather.name==="Neige").cls})`);
+  assert.equal(result.visual,"cold");assert.equal(result.snowClass,"");
 });
 
 test("event pool excludes new illnesses for already affected travelers",()=>{
@@ -73,7 +125,7 @@ test("event pool excludes new illnesses for already affected travelers",()=>{
 });
 
 test("five-day incident settings are converted into daily probabilities",()=>{
-  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);const daily=dailyIncidentChance(PACES.prudent,WEATHER[0]);({daily,five:1-Math.pow(1-daily,5)})`);
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);const daily=dailyIncidentChance(PACES.prudent,WEATHER[0],{risk:0});({daily,five:1-Math.pow(1-daily,5)})`);
   assert.ok(result.daily>0&&result.daily<.38);assert.ok(Math.abs(result.five-.38)<1e-12);
 });
 
@@ -119,17 +171,17 @@ test("one resolution kills at most one traveler",()=>{
 
 test("travel stops on the exact incident day",()=>{
   const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.vivres=500;updateUI=()=>{};setTrailScene=()=>{};weatherForSeason=()=>WEATHER[0];let rolls=0;dailyIncidentOccurs=()=>++rolls===2;randomEvent=()=>{game.testEvent=true};travel();({days:game.days,km:game.km,food:game.cart.vivres,event:game.testEvent})`);
-  assert.equal(result.days,2);assert.equal(result.km,32);assert.equal(result.food,485);assert.equal(result.event,true);
+  assert.equal(result.days,2);assert.equal(result.km,48);assert.equal(result.food,485);assert.equal(result.event,true);
 });
 
 test("an uneventful travel command resolves five daily simulations",()=>{
   const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.vivres=500;updateUI=()=>{};setTrailScene=()=>{};dailyIncidentOccurs=()=>false;weatherForSeason=()=>WEATHER[0];quietTravelEvent=(distance,food,days)=>{game.report={distance,food,days}};travel();({days:game.days,km:game.km,food:game.cart.vivres,report:game.report})`);
-  assert.equal(result.days,5);assert.equal(result.km,80);assert.equal(result.food,462.5);assert.equal(result.report.days,5);assert.equal(result.report.food,38);
+  assert.equal(result.days,5);assert.equal(result.km,120);assert.equal(result.food,462.5);assert.equal(result.report.days,5);assert.equal(result.report.food,38);
 });
 
 test("a changing forecast affects each day and is detailed in the journal",()=>{
   const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.vivres=500;updateUI=()=>{};setTrailScene=()=>{};dailyIncidentOccurs=()=>false;const forecast=[WEATHER[4],WEATHER[1],WEATHER[2],WEATHER[0]];weatherForSeason=()=>forecast.shift()??WEATHER[0];quietTravelEvent=()=>{};travel();({km:game.km,text:game.journal[0].text.fr})`);
-  assert.equal(result.km,70);assert.equal(result.text,"70 km parcourus en 5 jours : 32 km par temps modéré, 11 km par temps de neige, 14 km par temps très chaud et 13 km par temps pluvieux.");
+  assert.equal(result.km,105);assert.equal(result.text,"105 km parcourus en 5 jours : 48 km par temps modéré, 16 km par temps de neige, 21 km par temps très chaud et 20 km par temps pluvieux. Terrain : Prairies du Kansas ; terrain ondulé ; piste bien marquée ; climat continental humide.");
 });
 
 test("river depth stays physical across seasonal and weather variation",()=>{

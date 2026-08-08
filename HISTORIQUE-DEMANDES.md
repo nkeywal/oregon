@@ -14,21 +14,21 @@ La demande initiale contenait cinq grandes exigences :
 4. Produire de meilleures illustrations avec une direction artistique homogène.
 5. Utiliser plusieurs agents pour le code et les images.
 
-Ensuite, il y a eu 32 messages substantiels de spécification, en excluant les simples messages opérationnels comme « j’ai fait ssh-add », « GitHub Pages est configuré » ou « continue ».
+Ensuite, il y a eu 34 messages substantiels de spécification, en excluant les simples messages opérationnels comme « j’ai fait ssh-add », « GitHub Pages est configuré » ou « continue ».
 
-Avec un découpage où chaque comportement vérifiable explicitement demandé compte comme une demande, on obtient environ 82 exigences supplémentaires :
+Avec un découpage où chaque comportement vérifiable explicitement demandé compte comme une demande, on obtient environ 88 exigences supplémentaires :
 
 | Domaine ajouté après la demande initiale | Nombre approximatif |
 |---|---:|
 | Images, interface et mobile | 18 |
-| Gameplay, économie et équilibrage | 26 |
+| Gameplay, économie et équilibrage | 32 |
 | Incidents, maladies et santé | 14 |
 | Terminologie, textes et traduction | 11 |
 | Aide, publication et préproduction | 10 |
 | Documentation de l’expérience | 3 |
-| **Total** | **≈ 82** |
+| **Total** | **≈ 88** |
 
-Ainsi, environ 94 % des exigences détaillées ont été formulées après la demande initiale. Le projet final est sensiblement plus large qu’un simple Oregon Trail classique illustré.
+Ainsi, environ 95 % des exigences détaillées ont été formulées après la demande initiale. Le projet final est sensiblement plus large qu’un simple Oregon Trail classique illustré.
 
 ### Comment lire ce document
 
@@ -163,6 +163,12 @@ La logique initiale a été largement étendue :
 - L’allure épuisante augmente réellement consommation, fatigue, avaries et incidents.
 - Le mois d’août ne produit plus de froid incohérent.
 - La météo suit une distribution saisonnière.
+- Le journal associe les kilomètres parcourus aux conditions météo rencontrées.
+- La météo dépend du jour, des trois journées précédentes et de la géographie traversée.
+- Les transitions brutales, notamment entre neige et forte chaleur, sont interdites.
+- Les bassins désertiques ne produisent jamais de neige.
+- Le relief, la pente et l’état réel de la piste modifient la vitesse et le risque d’incident.
+- Les conditions de chaque portion de piste sont affichées dans le paysage et consignées dans le journal.
 - Une nouvelle passe complète doit contrôler la logique générale, la sélection des événements et toute incohérence résiduelle.
 
 ## Fleuves

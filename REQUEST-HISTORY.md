@@ -2,7 +2,7 @@
 
 ## Purpose of the experiment
 
-To test what a software-development AI produces when asked to code a complete game. For this project, the AI used was Codex with the SOL 5.6 model and the “medium” reasoning level.
+To test what a software-development AI produces when asked, from a very general request, to code a complete game while leaving design and implementation choices to the AI, without reusing existing code or assets. For this experiment, the AI used was Codex with the SOL 5.6 model and the “medium” reasoning level.
 
 ## Scope quantification
 
@@ -14,9 +14,9 @@ The initial request contained five broad requirements:
 4. Produce better illustrations with a consistent art direction.
 5. Use multiple agents for the code and images.
 
-This was followed by 29 substantial specification messages, excluding purely operational messages such as “I ran ssh-add,” “GitHub Pages is configured,” or “continue.”
+This was followed by 30 substantial specification messages, excluding purely operational messages such as “I ran ssh-add,” “GitHub Pages is configured,” or “continue.”
 
-Using a breakdown in which each independently verifiable behavior counts as one request, this amounts to approximately 77 additional requirements:
+Using a breakdown in which each explicitly requested, independently verifiable behavior counts as one request, this amounts to approximately 80 additional requirements:
 
 | Area added after the initial request | Approximate number |
 |---|---:|
@@ -25,9 +25,16 @@ Using a breakdown in which each independently verifiable behavior counts as one 
 | Incidents, illnesses, and health | 14 |
 | Terminology, copy, and translation | 11 |
 | Help, publishing, and launch preparation | 10 |
-| **Total** | **≈ 77** |
+| Experiment documentation | 3 |
+| **Total** | **≈ 80** |
 
 Approximately 94% of the detailed requirements were therefore specified after the initial request. The finished project is substantially broader than a simply illustrated version of the classic Oregon Trail.
+
+### How to read this document
+
+The sections from “Illustrations and interface” through “Experiment documentation” list requests made by the user. They describe what was requested, not necessarily how the AI chose to implement it.
+
+The “Decisions and work added by the AI” section instead isolates design choices, numerical values, optimizations, and technical work selected by the AI in response to broader requests. Those elements should not be counted as detailed user instructions.
 
 ## Illustrations and interface
 
@@ -218,7 +225,7 @@ Later requests also included:
 - A complete French and English interface.
 - Dynamic translation of events, journals, maps, reports, and scores.
 
-## Help, saving, and publishing
+## Help, saving, and publishing requested by the user
 
 Finally, the scope added:
 
@@ -230,12 +237,30 @@ Finally, the scope added:
 - A full balancing review.
 - A consistency review of unavailable actions.
 - A complete launch-readiness pass.
+
+## Experiment documentation requested by the user
+
+The final requests concern documentation of the project itself:
+
+- Preserve a file summarizing all requests and their scale compared with the initial prompt.
+- Provide the document in French and English, with a discreet homepage link to the version matching the selected language.
+- State the purpose of the experiment explicitly: begin with a very general prompt, leave the design and implementation of a complete game to the AI, reuse no existing code or assets, and identify the system used—Codex, SOL 5.6 model, “medium” reasoning.
+
+## Decisions and work added by the AI
+
+The following elements were decided or specified by the AI. They answered broader requests but were not individually prescribed by the user:
+
+- Choosing a strictly defensive attack mini-game based on evasion rather than shooting.
+- Choosing the specific art direction inspired by WPA posters and screen-printed gouache.
+- Choosing the exact numerical values for probabilities, consumption, damage, capacities, and score thresholds.
+- Technically separating ranks available after defeat from ranks reserved for reaching Oregon.
 - Image compression.
 - A favicon and social sharing image.
 - Social and indexing metadata.
 - A sitemap and `robots.txt`.
 - Automated GitHub checks for the code and resources.
+- Automated scripts and scenarios used to test journeys, mobile layouts, and public resources.
 
 ## Conclusion
 
-The initial request defined the platform, game genre, and visual identity. The later requests determined almost all of the detailed design: survival rules, mobile interface, historical vocabulary, incidents, mini-games, weather, economy, reports, translation, publishing, and sensitive editorial decisions.
+The initial request defined the platform, game genre, and visual ambition. The user’s later requests determined much of the survival rules, mobile interface, historical vocabulary, incidents, weather, economy, reports, and translation. The AI then selected the implementation details, balancing values, part of the staging, and the technical optimizations listed separately above.

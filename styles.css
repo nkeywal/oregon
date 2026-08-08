@@ -40,3 +40,24 @@ dialog{border:0;padding:0;color:var(--ink);background:var(--paper);box-shadow:0 
   .scene-caption{left:.35rem;right:.35rem;bottom:.35rem;padding:.45rem .6rem}
   .dialog-art,.hunt-result-art,.river-result-art{height:auto;aspect-ratio:16/9}
 }
+
+/* Le lien éditorial reste secondaire face au départ, dans le langage visuel du jeu. */
+.project-info-row{display:flex;align-items:center;gap:.65rem;flex-wrap:wrap}
+.info-separator{color:var(--gold);font-size:.55rem}
+.project-info-link{display:inline-flex;align-items:center;gap:.35rem;color:var(--rust-dark);font-weight:800;text-decoration:none;border-bottom:1px solid rgba(118,48,31,.45);padding:.15rem 0;transition:color .18s,border-color .18s}
+.project-info-link:hover{color:var(--rust);border-color:var(--rust)}
+.project-info-link:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+
+/* Les illustrations dominent la piste et les fenêtres narratives. */
+@media(min-width:851px){
+  .game-layout{max-width:1540px;grid-template-columns:minmax(0,3fr) minmax(270px,.78fr);gap:1rem}
+  .sidebar .stats-grid{grid-template-columns:repeat(2,1fr)}
+}
+.scene{border-width:4px;box-shadow:0 14px 34px rgba(15,12,8,.22)}
+.scene-caption{background:linear-gradient(90deg,rgba(25,24,18,.92),rgba(25,24,18,.72));border-top:1px solid rgba(217,164,65,.55);backdrop-filter:blur(2px)}
+.game-dialog{width:min(760px,calc(100% - 1rem));max-width:min(760px,calc(100% - 1rem))}
+
+@media(max-width:560px){
+  .project-info-row{gap:.45rem}.info-separator{display:none}.project-info-link{width:max-content}
+  .game-layout{margin:.75rem auto;padding-inline:.2rem}.scene{border-width:2px}
+}

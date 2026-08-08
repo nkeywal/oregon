@@ -5,7 +5,7 @@ const ENGLISH_TEXT = {
   "Deux mille miles de poussière, de rivières et de choix difficiles. Conduirez-vous votre famille jusqu’à la vallée de Willamette ?":"Two thousand miles of dust, rivers, and difficult choices. Can you lead your family to the Willamette Valley?",
   "Prendre la piste":"Hit the trail",
   "Lire le guide du pionnier":"Read the pioneer guide",
-  "Infos":"Info",
+  "Infos sur le projet":"About this project",
   "La piste ne vous attendra pas : préparez-vous avant de partir.":"The trail will not wait: prepare before you leave.",
   "Independence, Missouri · Printemps 1848":"Independence, Missouri · Spring 1848",
   "Pionnier, ce que tu sais avant le départ":"Pioneer, what you know before leaving",

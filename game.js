@@ -55,9 +55,9 @@ const WEATHER = [
   {name:"Froid",temp:4,cls:""},{name:"Neige",temp:-4,cls:"snow"}
 ];
 const PACES = {
-  prudent:{km:65,health:1,food:.8,incident:.32,strain:-1},
-  soutenu:{km:90,health:-1,food:1,incident:.52,strain:1},
-  epuisant:{km:115,health:-7,food:1.45,incident:.88,strain:3}
+  prudent:{km:65,health:1,food:.8,incident:.38,strain:-1},
+  soutenu:{km:90,health:-1,food:1,incident:.62,strain:1},
+  epuisant:{km:115,health:-7,food:1.45,incident:.92,strain:3}
 };
 const MONTHLY_WEATHER = [
   [3,4,4],       // janvier
@@ -68,7 +68,7 @@ const MONTHLY_WEATHER = [
   [0,0,1,1,2],   // juin
   [1,1,1,0,2],   // juillet
   [1,1,0,0,2],   // août
-  [0,0,0,1,2],   // septembre
+  [0,0,1,2,3],   // septembre
   [0,0,2,3,3],   // octobre
   [3,3,4,2],     // novembre
   [3,4,4,2]      // décembre
@@ -285,7 +285,8 @@ function leaveTown(){
 
 function dailyIncidentChance(pace,weather){
   const weatherRisk={Doux:0,Chaud:.04,Pluvieux:.08,Froid:.04,Neige:.1}[weather.name]||0;
-  const journeyChance=clamp(pace.incident+weatherRisk+game.oxStrain*.01,.2,.96);
+  const equipmentRisk=(game.cart.pieces===0?.07:0)+(game.cart.boeufs<4?.06:0)+((weather.temp<=5||weather.name==="Pluvieux")&&game.cart.vetements<alive().length?.05:0);
+  const journeyChance=clamp(pace.incident+weatherRisk+equipmentRisk+game.oxStrain*.012,.24,.97);
   return 1-Math.pow(1-journeyChance,1/5);
 }
 
@@ -308,19 +309,21 @@ function travel(){
       if(travelDays)addTravelJournal(distance,travelDays);
       resolveStarvation();updateUI();return;
     }
-    const travelWeather=game.weather,oxFactor=clamp(game.cart.boeufs/6,.25,1.15);
+    const travelWeather=game.weather,oxFactor=clamp(.45+game.cart.boeufs*.075,.5,1.35);
     const plannedDistance=Math.max(1,Math.round(pace.km/5*oxFactor*travelWeatherFactor(travelWeather)));
     const next=LANDMARKS[game.landmarkIndex];
     const remainingToStop=Math.min(next?next.km-game.km:Infinity,KM_TOTAL-game.km);
     const dayDistance=Math.max(0,Math.min(plannedDistance,remainingToStop));
     game.km+=dayDistance;distance+=dayDistance;advanceDate(1);travelDays++;
     const food=consumeFood(1,dailyFoodPerPerson()*pace.food),foodShortage=food.consumed<food.needed;
-    foodConsumed+=food.consumed;game.oxStrain=clamp((game.oxStrain||0)+pace.strain/5,0,10);
+    foodConsumed+=food.consumed;game.oxStrain=clamp((game.oxStrain||0)+pace.strain/5+Math.max(0,6-game.cart.boeufs)*.04,0,10);
     for(const p of alive()){
-      const rationHealth={copieuses:2,normales:0,maigres:-4}[game.rations];
+      const rationHealth={copieuses:1,normales:-1,maigres:-5}[game.rations];
       const coldPenalty=travelWeather.temp<=5&&game.cart.vetements<alive().length?(travelWeather.temp<0?-6:-3):0;
+      const rainPenalty=travelWeather.name==="Pluvieux"&&game.cart.vetements<alive().length?-2:0;
       const heatPenalty=travelWeather.temp>=27?-2:0;
-      p.health=clamp(p.health+(pace.health+rationHealth+coldPenalty+heatPenalty)/5+(foodShortage?-8:0),0,100);
+      const strainPenalty=game.oxStrain>=7?-2:game.oxStrain>=4?-1:0;
+      p.health=clamp(p.health+(pace.health+rationHealth+coldPenalty+rainPenalty+heatPenalty+strainPenalty)/5+(foodShortage?-8:0),0,100);
     }
     updateDeaths();
     if(game.finished)return;
@@ -422,7 +425,7 @@ function randomEvent(){
       {label:"Attendre l’éclaircie",action:()=>{advanceDate(days);consumeFood(days);addJournal(bilingual(`${days} jours perdus dans les pluies diluviennes.`,`${days} days lost in torrential rain.`))}}
     ],"incident-rain.webp");
   });
-  if(game.cart.vetements>0&&game.weather.temp<=5)events.push(()=>blanketLossEvent());
+  if(game.cart.vetements>0&&(game.weather.temp<=5||game.weather.name==="Pluvieux"))events.push(()=>blanketLossEvent());
   if(game.weather.temp<=5||game.weather.temp>=27)events.push(()=>climateInjuryEvent());
   if(game.cart.boeufs>0)events.push(()=>oxInjuryEvent());
   if(game.pace==="soutenu")events.push(events[0],()=>injuryEvent());
@@ -488,10 +491,11 @@ function contagiousDiseaseEvent(){
 }
 
 function blanketLossEvent(){
-  const loss=Math.min(game.cart.vetements,rand(1,2));game.cart.vetements-=loss;
+  const cold=game.weather.temp<=5,loss=Math.min(game.cart.vetements,rand(1,2));game.cart.vetements-=loss;
   const blankets=`${loss} couverture${loss>1?"s":""}`;
-  eventModal("Couvertures hors d’usage","Une nuit glaciale et humide détrempe les couvertures les plus exposées.",bilingual(`${blankets} ${loss===1?"est devenue":"sont devenues"} inutilisable${loss>1?"s":""}.`,`${loss} blanket${loss===1?" has":"s have"} become unusable.`),[
-    {label:"Réorganiser le chargement",action:()=>addJournal(bilingual(`${blankets} perdue${loss>1?"s":""} pendant une nuit de grand froid.`,`${loss} blanket${loss===1?" was":"s were"} lost during a bitterly cold night.`))}
+  const cause=cold?bilingual("Une nuit glaciale et humide détrempe les couvertures les plus exposées.","A freezing, damp night soaks the most exposed blankets."):bilingual("La pluie s’est infiltrée dans le chariot pendant la nuit.","Rain leaked into the wagon during the night.");
+  eventModal("Couvertures hors d’usage",cause,bilingual(`${blankets} ${loss===1?"est devenue":"sont devenues"} inutilisable${loss>1?"s":""}.`,`${loss} blanket${loss===1?" has":"s have"} become unusable.`),[
+    {label:"Réorganiser le chargement",action:()=>addJournal(cold?bilingual(`${blankets} perdue${loss>1?"s":""} pendant une nuit de grand froid.`,`${loss} blanket${loss===1?" was":"s were"} lost during a bitterly cold night.`):bilingual(`${blankets} perdue${loss>1?"s":""} après une nuit de pluie.`,`${loss} blanket${loss===1?" was":"s were"} lost after a rainy night.`))}
   ],"incident-blankets.webp");
 }
 
@@ -556,7 +560,7 @@ function landmark(mark){
 
 function riverEvent(mark,art=stageAsset(mark),depth=null,observation=""){
   const measured=depth??riverDepth(mark),shown=formatDepth(measured);
-  const cost=35+Math.round(measured*15);
+  const cost=55+Math.round(measured*25+game.km/KM_TOTAL*30);
   const shownEn=measured.toFixed(1);
   const details=observation?bilingual(`${languageText(observation,"fr")} Comment ferez-vous traverser le chariot ?`,`${languageText(observation,"en")} How will you get the wagon across?`):"Comment ferez-vous traverser le chariot ?";
   eventModal(bilingual(mark.name,landmarkName(mark)),bilingual(`Le courant est rapide et la profondeur mesurée atteint environ ${shown} mètre${measured>=2?"s":""}.`,`The current is swift and the measured depth is about ${shownEn} meter${measured===1?"":"s"}.`),details,[
@@ -586,7 +590,7 @@ function showRiverOutcome(mark,outcome,{method,days,food,text,result}){
 function riverRisk(mark,depth){
   advanceDate(1);const travelFood=consumeFood(1);
   game.oxStrain=clamp(game.oxStrain+1,0,10);
-  const risk=clamp(depth*.14+(game.cart.boeufs<4?.1:0)+(game.cart.pieces===0?.05:0),.05,.5);
+  const risk=clamp(depth*.17+(game.cart.boeufs<4?.14:0)+(game.cart.pieces===0?.09:0),.08,.65);
   if(Math.random()<risk){
     const cargoLosses=[
       {key:"vivres",amount:Math.min(game.cart.vivres,rand(25,70))},
@@ -623,7 +627,7 @@ function fortEvent(mark,art=stageAsset(mark)){
     {label:bilingual(`Acheter 50 kg de vivres (${foodCost} $)`,`Buy 50 kg of food ($${foodCost})`),keepOpen:true,disabled:()=>game.money<foodCost||game.cart.vivres+50>SHOP.vivres.max,action:()=>{game.money-=foodCost;loadFood(50);addJournal(bilingual(`Ravitaillement à ${mark.name}.`,`Resupplied at ${landmarkName(mark)}.`))}},
     {label:bilingual(`Acheter 40 balles (${ammoCost} $)`,`Buy 40 bullets ($${ammoCost})`),keepOpen:true,disabled:()=>game.money<ammoCost||game.cart.munitions+40>SHOP.munitions.max,action:()=>{game.money-=ammoCost;game.cart.munitions+=40;addJournal(bilingual(`Achat de munitions à ${mark.name}.`,`Bought ammunition at ${landmarkName(mark)}.`))}},
     ...equipment.map(item=>({label:bilingual(`Acheter ${item.label} (${item.cost} $)`,`Buy ${item.labelEn} ($${item.cost})`),keepOpen:true,disabled:()=>game.money<item.cost||game.cart[item.key]+item.qty>SHOP[item.key].max,action:()=>{game.money-=item.cost;game.cart[item.key]+=item.qty;addJournal(bilingual(`Achat de ${item.label} à ${mark.name}.`,`Bought ${item.labelEn} at ${landmarkName(mark)}.`))}})),
-    {label:"Se reposer 2 jours",keepOpen:true,disabled:()=>game.cart.vivres<restFood,action:()=>{advanceDate(2);consumeFood(2,2);game.oxStrain=clamp(game.oxStrain-3,0,10);alive().forEach(p=>p.health=clamp(p.health+8,0,100));addJournal(bilingual(`Halte réparatrice à ${mark.name}.`,`A restorative stop at ${landmarkName(mark)}.`))}},
+    {label:"Se reposer 2 jours",keepOpen:true,disabled:()=>game.cart.vivres<restFood,action:()=>{advanceDate(2);consumeFood(2,2);game.oxStrain=clamp(game.oxStrain-3,0,10);alive().forEach(p=>p.health=clamp(p.health+6,0,100));addJournal(bilingual(`Halte réparatrice à ${mark.name}.`,`A restorative stop at ${landmarkName(mark)}.`))}},
     {label:"Repartir",primary:true,action:()=>addJournal(bilingual(`Passage à ${mark.name}.`,`Passed through ${landmarkName(mark)}.`))}
   ];
   eventModal(bilingual(mark.name,landmarkName(mark)),"Palissades, forge et odeur de pain frais : une halte bienvenue.","Le stock d’équipement varie à chaque fort. Vous pouvez effectuer plusieurs achats avant de repartir.",actions,art);
@@ -660,7 +664,7 @@ function eventModal(title,text,details,actions,art="trail"){
 function rest(){
   if(checkJourneyFailure())return;
   if(game.cart.vivres<alive().length*4){toast("Pas assez de vivres pour camper deux jours.");return;}
-  advanceDate(2);consumeFood(2,2);game.oxStrain=clamp(game.oxStrain-3,0,10);alive().forEach(p=>{p.health=clamp(p.health+9,0,100);if(p.health>60&&p.sickDays<=0&&!p.needsRemedy)p.state="En forme"});addJournal("Deux jours de repos ont remonté le moral du groupe et soulagé l’attelage.");updateDeaths();if(!game.finished)updateUI();returnToTrailTop();
+  advanceDate(2);consumeFood(2,2);game.oxStrain=clamp(game.oxStrain-3,0,10);alive().forEach(p=>{p.health=clamp(p.health+7,0,100);if(p.health>60&&p.sickDays<=0&&!p.needsRemedy)p.state="En forme"});addJournal("Deux jours de repos ont remonté le moral du groupe et soulagé l’attelage.");updateDeaths();if(!game.finished)updateUI();returnToTrailTop();
 }
 
 function renderTrailMap(){
@@ -692,7 +696,8 @@ function showHelp(){
 
 function finish(win,message=""){
   game.finished=true;const avg=alive().length?alive().reduce((n,p)=>n+p.health,0)/alive().length:0;
-  const assets=Math.max(0,game.money+game.cart.vivres*2+alive().length*250+avg*10+(game.profession==="fermier"?1200:game.profession==="charpentier"?600:0));
+  const equipment=game.cart.munitions*.2+game.cart.vetements*12+game.cart.pieces*20+game.cart.medicaments*14+game.cart.boeufs*30;
+  const assets=Math.max(0,game.money+game.cart.vivres*2+equipment+alive().length*250+avg*10+(game.profession==="fermier"?1200:game.profession==="charpentier"?600:0));
   // L'arrivée compte davantage que les économies laissées dans un chariot abandonné.
   const progress=clamp(game.km/KM_TOTAL,0,1);
   const score=win?Math.max(2250,Math.round(assets+1000)):Math.min(2249,Math.round(assets*progress*.45));

@@ -2,7 +2,7 @@
 
 ## Objectif de l’expérience
 
-Tester ce que produit une IA de développement logiciel lorsqu’on lui demande de coder un jeu complet. Pour ce projet, l’IA utilisée était Codex avec le modèle SOL 5.6 et un niveau de raisonnement « medium ».
+Tester ce que produit une IA de développement logiciel lorsqu’on lui demande, à partir d’une demande très générale, de coder un jeu complet en lui laissant les choix de conception et d’implémentation, sans reprendre de code ni d’assets existants. Pour cette expérience, l’IA utilisée était Codex avec le modèle SOL 5.6 et un niveau de raisonnement « medium ».
 
 ## Quantification du périmètre
 
@@ -14,9 +14,9 @@ La demande initiale contenait cinq grandes exigences :
 4. Produire de meilleures illustrations avec une direction artistique homogène.
 5. Utiliser plusieurs agents pour le code et les images.
 
-Ensuite, il y a eu 29 messages substantiels de spécification, en excluant les simples messages opérationnels comme « j’ai fait ssh-add », « GitHub Pages est configuré » ou « continue ».
+Ensuite, il y a eu 30 messages substantiels de spécification, en excluant les simples messages opérationnels comme « j’ai fait ssh-add », « GitHub Pages est configuré » ou « continue ».
 
-Avec un découpage où chaque comportement vérifiable compte comme une demande, on obtient environ 77 exigences supplémentaires :
+Avec un découpage où chaque comportement vérifiable explicitement demandé compte comme une demande, on obtient environ 80 exigences supplémentaires :
 
 | Domaine ajouté après la demande initiale | Nombre approximatif |
 |---|---:|
@@ -25,9 +25,16 @@ Avec un découpage où chaque comportement vérifiable compte comme une demande,
 | Incidents, maladies et santé | 14 |
 | Terminologie, textes et traduction | 11 |
 | Aide, publication et préproduction | 10 |
-| **Total** | **≈ 77** |
+| Documentation de l’expérience | 3 |
+| **Total** | **≈ 80** |
 
 Ainsi, environ 94 % des exigences détaillées ont été formulées après la demande initiale. Le projet final est sensiblement plus large qu’un simple Oregon Trail classique illustré.
+
+### Comment lire ce document
+
+Les sections allant d’« Illustrations et interface » à « Documentation de l’expérience » recensent les demandes formulées par l’utilisateur. Elles décrivent ce qui a été demandé, pas nécessairement la manière dont l’IA a choisi de le réaliser.
+
+La section « Décisions et travaux ajoutés par l’IA » isole au contraire les choix de conception, valeurs numériques, optimisations et travaux techniques décidés par l’IA pour répondre aux demandes générales. Ces éléments ne doivent pas être comptés comme des instructions détaillées de l’utilisateur.
 
 ## Illustrations et interface
 
@@ -218,7 +225,7 @@ Les demandes ultérieures comprennent également :
 - Interface complète en français et en anglais.
 - Traduction dynamique des événements, journaux, cartes, bilans et scores.
 
-## Aide, sauvegarde et publication
+## Aide, sauvegarde et publication demandées par l’utilisateur
 
 Enfin, le périmètre a ajouté :
 
@@ -230,12 +237,30 @@ Enfin, le périmètre a ajouté :
 - Une revue globale d’équilibrage.
 - Une revue de cohérence des actions indisponibles.
 - Une passe complète de préproduction.
+
+## Documentation de l’expérience demandée par l’utilisateur
+
+Les dernières demandes portent sur la documentation du projet lui-même :
+
+- Conserver dans un fichier le récapitulatif de toutes les demandes et leur ampleur par rapport à la requête initiale.
+- Fournir ce document en français et en anglais, avec un lien discret depuis la page d’accueil vers la version correspondant à la langue choisie.
+- Présenter explicitement l’objectif de l’expérience : partir d’une consigne très générale, laisser l’IA choisir la conception et l’implémentation d’un jeu complet, sans réutiliser de code ni d’assets existants, et identifier le système employé — Codex, modèle SOL 5.6, raisonnement « medium ».
+
+## Décisions et travaux ajoutés par l’IA
+
+Les éléments suivants ont été décidés ou précisés par l’IA. Ils répondaient à des demandes plus générales, mais n’ont pas été prescrits individuellement par l’utilisateur :
+
+- Le choix d’un mini-jeu d’attaque strictement défensif, fondé sur l’esquive plutôt que sur le tir.
+- Le choix précis de la direction artistique inspirée des affiches WPA et de la gouache sérigraphiée.
+- Les valeurs numériques exactes des probabilités, consommations, dégâts, capacités et seuils de score.
+- La séparation technique entre rangs accessibles après une défaite et rangs réservés à une arrivée en Oregon.
 - La compression des images.
 - Un favicon et une image de partage social.
 - Les métadonnées sociales et d’indexation.
 - Un sitemap et un `robots.txt`.
 - Un contrôle GitHub automatique du code et des ressources.
+- Les scripts et scénarios automatisés utilisés pour tester les parcours, le mobile et les ressources publiques.
 
 ## Conclusion
 
-La demande initiale définissait la plateforme, le genre du jeu et son identité visuelle. Les demandes suivantes ont déterminé presque toute la conception détaillée : règles de survie, interface mobile, vocabulaire historique, incidents, mini-jeux, météo, économie, bilans, traduction, publication et décisions éditoriales sensibles.
+La demande initiale définissait la plateforme, le genre du jeu et l’ambition visuelle. Les demandes suivantes de l’utilisateur ont déterminé une grande partie des règles de survie, de l’interface mobile, du vocabulaire historique, des incidents, de la météo, de l’économie, des bilans et de la traduction. L’IA a ensuite choisi les détails d’implémentation, les valeurs d’équilibrage, une partie de la mise en scène et les optimisations techniques recensées séparément ci-dessus.

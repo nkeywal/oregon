@@ -774,10 +774,10 @@ function fortEvent(mark,art=fortArrivalAsset(mark)){
     {key:"medicaments",qty:2,cost:28*price,label:"2 remèdes",labelEn:"2 doses of medicine"}
   ]).slice(0,2);
   const actions=[
-    {label:bilingual(`Acheter 50 kg de vivres (${foodCost} $)`,`Buy 50 kg of food ($${foodCost})`),keepOpen:true,disabled:()=>game.money<foodCost||game.cart.vivres+50>SHOP.vivres.max,action:()=>{game.money-=foodCost;loadFood(50);addJournal(bilingual(`Ravitaillement à ${mark.name}.`,`Resupplied at ${landmarkName(mark)}.`))}},
-    {label:bilingual(`Acheter 40 balles (${ammoCost} $)`,`Buy 40 bullets ($${ammoCost})`),keepOpen:true,disabled:()=>game.money<ammoCost||game.cart.munitions+40>SHOP.munitions.max,action:()=>{game.money-=ammoCost;game.cart.munitions+=40;addJournal(bilingual(`Achat de munitions à ${mark.name}.`,`Bought ammunition at ${landmarkName(mark)}.`))}},
-    ...equipment.map(item=>({label:bilingual(`Acheter ${item.label} (${item.cost} $)`,`Buy ${item.labelEn} ($${item.cost})`),keepOpen:true,disabled:()=>game.money<item.cost||game.cart[item.key]+item.qty>SHOP[item.key].max,action:()=>{game.money-=item.cost;game.cart[item.key]+=item.qty;addJournal(bilingual(`Achat de ${item.label} à ${mark.name}.`,`Bought ${item.labelEn} at ${landmarkName(mark)}.`))}})),
-    {label:"Se reposer 2 jours",keepOpen:true,disabled:()=>game.cart.vivres<alive().length*4,action:()=>{consumeDelay(2,2);game.oxStrain=clamp(game.oxStrain-3,0,10);alive().forEach(p=>p.health=clamp(p.health+6,0,100));refreshFortArrivalArt(mark);addJournal(bilingual(`Halte réparatrice à ${mark.name}.`,`A restorative stop at ${landmarkName(mark)}.`))}},
+    {label:bilingual(`Acheter 50 kg de vivres (${foodCost} $)`,`Buy 50 kg of food ($${foodCost})`),keepOpen:true,disabled:()=>game.money<foodCost||game.cart.vivres+50>SHOP.vivres.max,action:()=>{game.money-=foodCost;loadFood(50);addJournal(bilingual(`Ravitaillement à ${mark.name}.`,`Resupplied at ${landmarkName(mark)}.`))},feedback:()=>bilingual(`Achat effectué : 50 kg de vivres. Vous avez maintenant ${itemQuantityFor("vivres",Math.round(game.cart.vivres),"fr")}.`,`Purchase complete: 50 kg of food. You now have ${itemQuantityFor("vivres",Math.round(game.cart.vivres),"en")}.`)},
+    {label:bilingual(`Acheter 40 balles (${ammoCost} $)`,`Buy 40 bullets ($${ammoCost})`),keepOpen:true,disabled:()=>game.money<ammoCost||game.cart.munitions+40>SHOP.munitions.max,action:()=>{game.money-=ammoCost;game.cart.munitions+=40;addJournal(bilingual(`Achat de munitions à ${mark.name}.`,`Bought ammunition at ${landmarkName(mark)}.`))},feedback:()=>bilingual(`Achat effectué : 40 balles. Vous avez maintenant ${itemQuantityFor("munitions",game.cart.munitions,"fr")}.`,`Purchase complete: 40 bullets. You now have ${itemQuantityFor("munitions",game.cart.munitions,"en")}.`)},
+    ...equipment.map(item=>({label:bilingual(`Acheter ${item.label} (${item.cost} $)`,`Buy ${item.labelEn} ($${item.cost})`),keepOpen:true,disabled:()=>game.money<item.cost||game.cart[item.key]+item.qty>SHOP[item.key].max,action:()=>{game.money-=item.cost;game.cart[item.key]+=item.qty;addJournal(bilingual(`Achat de ${item.label} à ${mark.name}.`,`Bought ${item.labelEn} at ${landmarkName(mark)}.`))},feedback:()=>bilingual(`Achat effectué : ${item.label}. Vous avez maintenant ${itemQuantityFor(item.key,game.cart[item.key],"fr")}.`,`Purchase complete: ${item.labelEn}. You now have ${itemQuantityFor(item.key,game.cart[item.key],"en")}.`)})),
+    {label:"Se reposer 2 jours",keepOpen:true,disabled:()=>game.cart.vivres<alive().length*4,action:()=>{consumeDelay(2,2);game.oxStrain=clamp(game.oxStrain-3,0,10);alive().forEach(p=>p.health=clamp(p.health+6,0,100));refreshFortArrivalArt(mark);addJournal(bilingual(`Halte réparatrice à ${mark.name}.`,`A restorative stop at ${landmarkName(mark)}.`))},feedback:()=>bilingual("Repos terminé : deux jours se sont écoulés.","Rest complete: two days have passed.")},
     {label:"Repartir",primary:true,action:()=>addJournal(bilingual(`Passage à ${mark.name}.`,`Passed through ${landmarkName(mark)}.`))}
   ];
   eventModal(bilingual(mark.name,landmarkName(mark)),"Palissades, forge et odeur de pain frais : une halte bienvenue.","Le stock d’équipement varie à chaque fort. Vous pouvez effectuer plusieurs achats avant de repartir.",actions,art);
@@ -799,14 +799,14 @@ function eventModal(title,text,details,actions,art="trail"){
       if(game.finished||checkJourneyFailure()){d.close();return;}
       updateUI();
       if(a.keepOpen){
-        activeEventModal.withInventory=true;refreshEventModalLanguage();
+        activeEventModal.withInventory=true;activeEventModal.feedback=a.feedback??null;refreshEventModalLanguage();
         return;
       }
       d.close();setTrailScene();returnToTrailTop();
     });
     buttons.push({action:a,button:b});box.appendChild(b);
   });
-  activeEventModal={title,text,details,buttons,withInventory:false};refreshEventModalLanguage();
+  activeEventModal={title,text,details,buttons,withInventory:false,feedback:null};refreshEventModalLanguage();
   if(!d.open)d.showModal();
 }
 
@@ -814,10 +814,12 @@ function actionDisabled(action){return typeof action.disabled==="function"?actio
 
 function refreshEventModalLanguage(){
   if(!activeEventModal)return;
-  const {title,text,details,buttons,withInventory}=activeEventModal;
+  const {title,text,details,buttons,withInventory,feedback}=activeEventModal;
   $("#event-title").textContent=languageText(title);$("#event-text").textContent=languageText(text);
   const base=languageText(details);
   $("#event-details").textContent=withInventory?(currentLanguage==="en"?`${base} You have ${money(game.money)}, ${itemQuantity("vivres",Math.round(game.cart.vivres))}, and ${itemQuantity("munitions",game.cart.munitions)} left.`:`${base} Il vous reste ${money(game.money)}, ${itemQuantity("vivres",Math.round(game.cart.vivres))} et ${itemQuantity("munitions",game.cart.munitions)}.`):base;
+  const feedbackElement=$("#event-feedback"),feedbackText=typeof feedback==="function"?feedback():feedback;
+  feedbackElement.hidden=!feedbackText;feedbackElement.textContent=feedbackText?languageText(feedbackText):"";
   buttons.forEach(({action,button})=>{button.textContent=languageText(action.label);button.disabled=actionDisabled(action)});
 }
 

@@ -14,19 +14,19 @@ The initial request contained five broad requirements:
 4. Produce better illustrations with a consistent art direction.
 5. Use multiple agents for the code and images.
 
-This was followed by 35 substantial specification messages, excluding purely operational messages such as “I ran ssh-add,” “GitHub Pages is configured,” or “continue.”
+This was followed by 36 substantial specification messages, excluding purely operational messages such as “I ran ssh-add,” “GitHub Pages is configured,” or “continue.”
 
-Using a breakdown in which each explicitly requested, independently verifiable behavior counts as one request, this amounts to approximately 89 additional requirements:
+Using a breakdown in which each explicitly requested, independently verifiable behavior counts as one request, this amounts to approximately 90 additional requirements:
 
 | Area added after the initial request | Approximate number |
 |---|---:|
-| Images, interface, and mobile | 18 |
+| Images, interface, and mobile | 19 |
 | Gameplay, economy, and balancing | 33 |
 | Incidents, illnesses, and health | 14 |
 | Terminology, copy, and translation | 11 |
 | Help, publishing, and launch preparation | 10 |
 | Experiment documentation | 3 |
-| **Total** | **≈ 89** |
+| **Total** | **≈ 90** |
 
 Approximately 95% of the detailed requirements were therefore specified after the initial request. The finished project is substantially broader than a simply illustrated version of the classic Oregon Trail.
 
@@ -84,6 +84,7 @@ The requests included:
 - A fixed item, price, and quantity for each encounter.
 - Limiting the player’s choice to accepting or declining the offer.
 - Clearly disabling purchases that are unaffordable or exceed capacity.
+- Immediately showing the purchased item and its updated stock after every purchase.
 
 ## Added incidents
 

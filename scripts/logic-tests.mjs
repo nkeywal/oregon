@@ -215,6 +215,13 @@ test("fort rest cost follows the current party size",()=>{
   assert.equal(result.before,true);assert.equal(result.after,false);
 });
 
+test("fort purchases confirm the item and updated stock",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.money=1000;shuffled=items=>[items[3],...items.slice(0,3)];eventModal=(title,text,details,actions)=>{game.actions=actions};fortEvent(LANDMARKS.find(m=>m.kind==="fort"));const medicine=game.actions.find(action=>languageText(action.label,"fr").includes("remèdes"));const before=game.cart.medicaments;medicine.action();const confirmation=medicine.feedback();({before,after:game.cart.medicaments,fr:confirmation.fr,en:confirmation.en})`);
+  assert.equal(result.after,result.before+2);
+  assert.match(result.fr,/Achat effectué : 2 remèdes/);assert.match(result.fr,new RegExp(`maintenant ${result.after} doses`));
+  assert.match(result.en,/Purchase complete: 2 doses of medicine/);assert.match(result.en,new RegExp(`now have ${result.after} doses of medicine`));
+});
+
 let passed=0;
 for(const {name,run} of tests){try{run();passed++}catch(error){console.error(`FAIL: ${name}`);throw error}}
 console.log(`Passed ${passed} logic tests.`);

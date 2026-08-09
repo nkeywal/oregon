@@ -222,12 +222,40 @@ test("event pool excludes new illnesses for already affected travelers",()=>{
 
 test("treated dysentery still lasts well beyond two days of rest",()=>{
   const result=scenario(`game=baseGame(["Alice","B","C","D","E"],"fermier",3);game.cart.medicaments=1;const patient=game.party[0];eventModal=(title,text,details,actions)=>actions[0].action();dysenteryEvent(patient);consumeDelay(2,2,false);({state:patient.state,sickDays:patient.sickDays,treated:patient.treated})`);
-  assert.equal(result.state,"Dysenterie");assert.equal(result.sickDays,8);assert.equal(result.treated,true);
+  assert.equal(result.state,"Dysenterie");assert.equal(result.sickDays,11);assert.equal(result.treated,true);
 });
 
 test("two days of rest alone do not cure dysentery",()=>{
   const result=scenario(`game=baseGame(["Alice","B","C","D","E"],"fermier",3);const patient=game.party[0];eventModal=(title,text,details,actions)=>actions[1].action();dysenteryEvent(patient);({state:patient.state,sickDays:patient.sickDays})`);
-  assert.equal(result.state,"Dysenterie");assert.ok(result.sickDays>=12);
+  assert.equal(result.state,"Dysenterie");assert.ok(result.sickDays>=17);
+});
+
+test("all medical conditions use the longer recovery schedule",()=>{
+  const result=scenario(`const durations={};let actions;eventModal=(title,text,details,value)=>actions=value;const fresh=()=>{game=baseGame(["Alice","B","C","D","E"],"fermier",3);game.cart.medicaments=10;return game.party[0]};let p=fresh();feverEvent(p);durations.fever=[p.sickDays,(actions[0].action(),p.sickDays)];p=fresh();dysenteryEvent(p);durations.dysentery=[p.sickDays,(actions[0].action(),p.sickDays)];p=fresh();injuryEvent(p);durations.injury=[p.sickDays,(actions[0].action(),p.sickDays)];p=fresh();game.weather=WEATHER.find(weather=>weather.name==="Froid");climateInjuryEvent(p);durations.frostbite=[p.sickDays,(actions[0].action(),p.sickDays)];p=fresh();game.weather=WEATHER.find(weather=>weather.name==="Chaud");climateInjuryEvent(p);durations.bites=[p.sickDays,(actions[0].action(),p.sickDays)];p=fresh();contagiousDiseaseEvent(game.party);const patient=game.party.find(traveler=>traveler.sickDays>0);durations.contagious=[patient.sickDays,(actions[0].action(),patient.sickDays)];durations`);
+  assert.deepEqual([...result.fever],[14,10]);assert.deepEqual([...result.dysentery],[19,13]);assert.deepEqual([...result.contagious],[17,11]);
+  assert.deepEqual([...result.injury],[10,4]);assert.deepEqual([...result.frostbite],[11,4]);assert.deepEqual([...result.bites],[7,4]);
+});
+
+test("medicine reduces but no longer cancels daily illness damage",()=>{
+  const result=scenario(`game=baseGame(["Alice"],"fermier",3);const patient=game.party[0];Object.assign(patient,{health:100,state:"Dysenterie",sickDays:3,treated:true});advanceDate(1);({health:patient.health,days:patient.sickDays,state:patient.state})`);
+  assert.equal(result.health,99);assert.equal(result.days,2);assert.equal(result.state,"Dysenterie");
+});
+
+test("rest cannot improve health during untreated dysentery",()=>{
+  const result=scenario(`game=baseGame(["Alice"],"fermier",3);game.cart.vivres=20;const patient=game.party[0];Object.assign(patient,{health:100,state:"Dysenterie",sickDays:10,treated:false});consumeDelay(2,2,false);patient.health=clamp(patient.health+restRecovery(patient),0,100);({health:patient.health,days:patient.sickDays})`);
+  assert.ok(result.health<100);assert.equal(result.days,8);
+});
+
+test("an attack wound evolves alongside rather than replacing dysentery",()=>{
+  const result=scenario(`game=baseGame(["Alice"],"fermier",3);const patient=game.party[0];Object.assign(patient,{health:90,state:"Dysenterie",sickDays:13,treated:true});applyAttackWound(patient,20);const wounded={state:patient.state,sickDays:patient.sickDays,woundDays:patient.woundDays,needsRemedy:patient.needsRemedy};treatAttackWound(patient);const treated={state:patient.state,sickDays:patient.sickDays,woundDays:patient.woundDays,needsRemedy:patient.needsRemedy};advanceDate(5);({wounded,treated,after:{state:patient.state,sickDays:patient.sickDays,woundDays:patient.woundDays,needsRemedy:patient.needsRemedy}})`);
+  assert.equal(result.wounded.state,"Dysenterie");assert.equal(result.wounded.sickDays,13);assert.equal(result.wounded.woundDays,10);
+  assert.equal(result.treated.state,"Dysenterie");assert.equal(result.treated.sickDays,13);assert.equal(result.treated.woundDays,5);assert.equal(result.treated.needsRemedy,false);
+  assert.equal(result.after.state,"Dysenterie");assert.equal(result.after.sickDays,8);assert.equal(result.after.woundDays,0);
+});
+
+test("an untreated attack wound eventually clears its remedy flag",()=>{
+  const result=scenario(`game=baseGame(["Alice"],"fermier",3);const patient=game.party[0];applyAttackWound(patient,10);advanceDate(10);({state:patient.state,woundDays:patient.woundDays,needsRemedy:patient.needsRemedy,eligible:eventEligibleTravelers().includes(patient)})`);
+  assert.equal(result.state,"En forme");assert.equal(result.woundDays,0);assert.equal(result.needsRemedy,false);assert.equal(result.eligible,true);
 });
 
 test("five-day incident settings are converted into daily probabilities",()=>{
@@ -393,8 +421,8 @@ test("food loading never exceeds capacity",()=>{
 test("prepared complete journeys stay in the historical four-to-six-month window",()=>{
   const result=scenario(`let seed=1848;Math.random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296};finish=win=>{game.finished=true;game.testWin=win};updateUI=()=>{};setTrailScene=()=>{};showLandmarkArt=()=>{};toast=()=>{};returnToTrailTop=()=>{};refreshFortArrivalArt=()=>{};queueRiverOutcome=()=>{};startAttack=()=>{};eventModal=(title,text,details,actions)=>{let action=actions.find(candidate=>!actionDisabled(candidate));if(String(languageText(title)).includes("Fort"))action=actions.find(candidate=>languageText(candidate.label)==="Repartir")||action;if(!action)throw new Error("No playable event action");action.action();updateDeaths();checkJourneyFailure()};const runs={prudent:[],soutenu:[],epuisant:[]};for(const pace of Object.keys(runs))for(let attempt=0;attempt<40;attempt++){game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{boeufs:8,vivres:700,munitions:300,vetements:8,pieces:5,medicaments:8});game.money=300;game.pace=pace;game.weather=weatherForPosition(game.month,game.day,game.year,0,[]);game.weatherHistory=[game.weather.name];let turns=0;while(!game.finished&&turns++<500){if(game.cart.vivres<100&&game.cart.munitions>=5){game.cart.munitions-=5;loadFood(55)}const average=alive().reduce((sum,traveler)=>sum+traveler.health,0)/alive().length;if(average<48&&game.cart.vivres>=alive().length*4)rest();else travel()}if(game.testWin)runs[pace].push(game.days)}for(const values of Object.values(runs))values.sort((a,b)=>a-b);const percentile=(values,p)=>values[Math.floor((values.length-1)*p)];({wins:Object.fromEntries(Object.entries(runs).map(([pace,values])=>[pace,values.length])),prudent:{p10:percentile(runs.prudent,.1),p90:percentile(runs.prudent,.9)},soutenu:{p10:percentile(runs.soutenu,.1),p90:percentile(runs.soutenu,.9)}})`);
   assert.ok(result.wins.prudent>=35);assert.ok(result.wins.soutenu>=35);
-  assert.ok(result.wins.epuisant<result.wins.soutenu,JSON.stringify(result));
-  assert.ok(result.prudent.p10>=120&&result.prudent.p90<=183,JSON.stringify(result));assert.ok(result.soutenu.p10>=120&&result.soutenu.p90<=183,JSON.stringify(result));
+  assert.ok(result.wins.epuisant<=25&&result.wins.epuisant<result.wins.soutenu,JSON.stringify(result));
+  assert.ok(result.prudent.p10>=120&&result.prudent.p90<=190,JSON.stringify(result));assert.ok(result.soutenu.p10>=120&&result.soutenu.p90<=190,JSON.stringify(result));
 });
 
 test("fort rest cost follows the current party size",()=>{

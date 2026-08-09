@@ -95,7 +95,7 @@ function baseGame(names, profession, month) {
   const money = {fermier:800,charpentier:1000,banquier:1600}[profession];
   return {
     version:1, profession, money, initialMoney:money, cart:{...cart},
-    party:names.map(name => ({name,health:100,state:"En forme",alive:true,sickDays:0,treated:false})),
+    party:names.map(name => ({name,health:100,state:"En forme",alive:true,sickDays:0,treated:false,woundDays:0,needsRemedy:false})),
     day:1, month:Number(month), year:1848, km:0, days:0, pace:"soutenu", rations:"normales",
     weather:{...WEATHER[0]}, weatherHistory:["Doux"], landmarkIndex:0, oxStrain:0, lastEvent:null, journal:[], finished:false, score:0,
     pendingDeath:null, deathEventOpen:false, pendingRiverOutcome:null
@@ -288,12 +288,28 @@ function advanceDate(days) {
     const lengths=[31,(game.year%4===0?29:28),31,30,31,30,31,31,30,31,30,31];
     if(game.day>lengths[game.month]){game.day=1;game.month++;if(game.month>11){game.month=0;game.year++;}}
     for(const p of alive()){
-      if(p.sickDays<=0)continue;
-      const dailyLoss=p.treated?0:({Dysenterie:3,Fièvre:2,Malade:2,Blessé:2,Engelures:2,Piqûres:1,Convalescent:1}[p.state]??(p.needsRemedy?3:1));
-      p.sickDays--;p.health=clamp(p.health-dailyLoss,0,100);
-      if(p.sickDays<=0){p.state="En forme";p.treated=false}
+      let dailyLoss=0;
+      if(p.sickDays>0){
+        const untreatedLoss=({Dysenterie:3,Fièvre:2,Malade:2,Blessé:2,Engelures:2,Piqûres:1,Convalescent:1}[p.state]??1);
+        dailyLoss+=p.treated?Math.max(1,Math.floor(untreatedLoss/2)):untreatedLoss;
+        p.sickDays--;
+      }
+      if((p.woundDays??0)>0){
+        dailyLoss+=p.needsRemedy?2:1;p.woundDays--;
+        if(p.woundDays<=0)p.needsRemedy=false;
+      }
+      p.health=clamp(p.health-dailyLoss,0,100);
+      if(p.sickDays<=0){
+        p.treated=false;
+        p.state=(p.woundDays??0)>0?(p.needsRemedy?"Blessé":"Convalescent"):"En forme";
+      }
     }
   }
+}
+
+function restRecovery(traveler,atFort=false){
+  if(traveler.sickDays>0||(traveler.woundDays??0)>0)return 5.5;
+  return atFort?6:7;
 }
 
 function healthLabel(value) {
@@ -581,7 +597,7 @@ function showPendingDeathEvent(){
   return true;
 }
 
-function eventEligibleTravelers(){return alive().filter(p=>p.sickDays<=0&&!p.needsRemedy)}
+function eventEligibleTravelers(){return alive().filter(p=>p.sickDays<=0&&(p.woundDays??0)<=0&&!p.needsRemedy)}
 function taggedEvent(id,run){run.eventId=id;return run}
 
 function eventPool(){
@@ -657,9 +673,9 @@ function randomEvent(){
 
 function feverEvent(p){
   if(!p)return;
-  p.health=clamp(p.health-rand(16,28),0,100);p.state="Fièvre";p.sickDays=12;p.treated=false;
+  p.health=clamp(p.health-rand(16,28),0,100);p.state="Fièvre";p.sickDays=14;p.treated=false;
   eventModal("La fièvre",bilingual(`${p.name} souffre d’une forte fièvre.`,`${p.name} is suffering from a high fever.`),"Un remède améliore nettement ses chances.",[
-    {label:remedyLabel("Utiliser un remède"),disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+18,1,100);p.sickDays=8;p.treated=true;addJournal(bilingual(`${p.name} a reçu un remède. La fièvre demandera encore plusieurs jours de convalescence.`,`${p.name} received medicine. The fever will still require several days of recovery.`))}},
+    {label:remedyLabel("Utiliser un remède"),disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+18,1,100);p.sickDays=10;p.treated=true;addJournal(bilingual(`${p.name} a reçu un remède. La fièvre demandera encore plusieurs jours de convalescence.`,`${p.name} received medicine. The fever will still require several days of recovery.`))}},
     {label:"Continuer prudemment",action:()=>{p.health=clamp(p.health-5,0,100);addJournal(bilingual(`${p.name} reste fiévreux.`,`${p.name} remains feverish.`))}}
   ],"incident-fever.webp");
 }
@@ -679,19 +695,19 @@ function oxInjuryEvent(){
 
 function injuryEvent(p=pick(eventEligibleTravelers())){
   if(!p)return;
-  const damage=rand(18,30);p.health=clamp(p.health-damage,0,100);p.state="Blessé";p.sickDays=8;
+  const damage=rand(18,30);p.health=clamp(p.health-damage,0,100);p.state="Blessé";p.sickDays=10;
   eventModal("Blessure sur la piste",bilingual(`${p.name} a fait une mauvaise chute près du chariot.`,`${p.name} took a bad fall near the wagon.`),bilingual(`Sa blessure l’a fortement affaibli. Un remède et des bandages accéléreraient sa guérison.`,`The injury has left ${p.name} badly weakened. Medicine and bandages would speed recovery.`),[
-    {label:remedyLabel("Utiliser un remède"),disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+16,1,100);p.sickDays=3;p.state="Convalescent";addJournal(bilingual(`${p.name} a été soigné après sa chute.`,`${p.name} was treated after the fall.`))}},
-    {label:"Poser une attelle",action:()=>{consumeDelay(1);p.sickDays=6;addJournal(bilingual(`${p.name} voyage avec une attelle improvisée.`,`${p.name} travels with an improvised splint.`))}}
+    {label:remedyLabel("Utiliser un remède"),disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+16,1,100);p.sickDays=4;p.state="Convalescent";addJournal(bilingual(`${p.name} a été soigné après sa chute.`,`${p.name} was treated after the fall.`))}},
+    {label:"Poser une attelle",action:()=>{consumeDelay(1);p.sickDays=8;addJournal(bilingual(`${p.name} voyage avec une attelle improvisée.`,`${p.name} travels with an improvised splint.`))}}
   ],"incident-injury.webp");
 }
 
 function dysenteryEvent(p=pick(eventEligibleTravelers())){
   if(!p)return;
-  const damage=rand(24,36);p.health=clamp(p.health-damage,0,100);p.state="Dysenterie";p.sickDays=16;p.treated=false;
+  const damage=rand(24,36);p.health=clamp(p.health-damage,0,100);p.state="Dysenterie";p.sickDays=19;p.treated=false;
   eventModal("Dysenterie",bilingual(`${p.name} est pris de violentes douleurs et se déshydrate rapidement.`,`${p.name} suffers violent pain and is rapidly becoming dehydrated.`),bilingual(`Son état s’est sérieusement dégradé. Du repos, de l’eau bouillie et un remède peuvent éviter le pire.`,`${p.name}’s condition has seriously deteriorated. Rest, boiled water, and medicine may prevent the worst.`),[
-    {label:remedyLabel("Donner un remède"),disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+18,1,100);p.sickDays=10;p.treated=true;addJournal(bilingual(`${p.name} a reçu un remède contre la dysenterie, mais restera malade plusieurs jours.`,`${p.name} received medicine for dysentery but will remain ill for several days.`))}},
-    {label:"Faire halte 2 jours",action:()=>{consumeDelay(2);if(p.health>0)p.health=clamp(p.health+6,1,100);p.sickDays=Math.max(p.sickDays,12);addJournal(bilingual(`Le convoi s’est arrêté pour soigner la dysenterie de ${p.name}. Deux jours ne suffisent pas à la faire disparaître.`,`The wagon party stopped to treat ${p.name}’s dysentery. Two days are not enough for it to pass.`))}},
+    {label:remedyLabel("Donner un remède"),disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+18,1,100);p.sickDays=13;p.treated=true;addJournal(bilingual(`${p.name} a reçu un remède contre la dysenterie, mais restera malade plusieurs jours.`,`${p.name} received medicine for dysentery but will remain ill for several days.`))}},
+    {label:"Faire halte 2 jours",action:()=>{consumeDelay(2);if(p.health>0)p.health=clamp(p.health+2,1,100);p.sickDays=Math.max(p.sickDays,15);addJournal(bilingual(`Le convoi s’est arrêté pour soigner la dysenterie de ${p.name}. Deux jours ne suffisent pas à la faire disparaître.`,`The wagon party stopped to treat ${p.name}’s dysentery. Two days are not enough for it to pass.`))}},
     {label:"Continuer",action:()=>{p.health=clamp(p.health-8,0,100);addJournal(bilingual(`${p.name} reste gravement atteint de dysenterie.`,`${p.name} remains seriously ill with dysentery.`))}}
   ],"incident-dysentery.webp");
 }
@@ -699,23 +715,23 @@ function dysenteryEvent(p=pick(eventEligibleTravelers())){
 function climateInjuryEvent(p=pick(eventEligibleTravelers())){
   if(!p)return;
   const cold=game.weather.temp<=5,damage=cold?rand(14,23):rand(8,16);
-  p.health=clamp(p.health-damage,0,100);p.state=cold?"Engelures":"Piqûres";p.sickDays=cold?9:6;
+  p.health=clamp(p.health-damage,0,100);p.state=cold?"Engelures":"Piqûres";p.sickDays=cold?11:7;
   const title=cold?"Engelures":"Piqûres d’insectes";
   const text=bilingual(cold?`${p.name} souffre d’engelures après une longue exposition au froid.`:`${p.name} est couvert de piqûres douloureuses après une halte sous une chaleur étouffante.`,cold?`${p.name} suffers from frostbite after prolonged exposure to the cold.`:`${p.name} is covered in painful insect bites after a stop in oppressive heat.`);
   const details=cold?"Il faut réchauffer progressivement les zones atteintes.":"Les piqûres se sont infectées et doivent être nettoyées.";
   eventModal(title,text,bilingual(`${details} ${p.name} en ressort affaibli.`,`${languageText(details,"en")} ${p.name} is left weakened.`),[
-    {label:remedyLabel("Utiliser un remède"),disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+(cold?17:12),1,100);p.sickDays=3;p.state="Convalescent";addJournal(bilingual(`${p.name} a été soigné pour ${cold?"des engelures":"des piqûres d’insectes"}.`,`${p.name} was treated for ${cold?"frostbite":"insect bites"}.`))}},
-    {label:cold?"Réchauffer et attendre":"Nettoyer et repartir",action:()=>{if(cold)consumeDelay(1);p.sickDays=cold?6:4;addJournal(bilingual(`${p.name} récupère lentement après ${cold?"ses engelures":"ses piqûres"}.`,`${p.name} is recovering slowly from ${cold?"frostbite":"the bites"}.`))}}
+    {label:remedyLabel("Utiliser un remède"),disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+(cold?17:12),1,100);p.sickDays=4;p.state="Convalescent";addJournal(bilingual(`${p.name} a été soigné pour ${cold?"des engelures":"des piqûres d’insectes"}.`,`${p.name} was treated for ${cold?"frostbite":"insect bites"}.`))}},
+    {label:cold?"Réchauffer et attendre":"Nettoyer et repartir",action:()=>{if(cold)consumeDelay(1);p.sickDays=cold?8:5;addJournal(bilingual(`${p.name} récupère lentement après ${cold?"ses engelures":"ses piqûres"}.`,`${p.name} is recovering slowly from ${cold?"frostbite":"the bites"}.`))}}
   ],cold?"incident-frostbite.webp":"incident-bites.webp");
 }
 
 function contagiousDiseaseEvent(candidates=eventEligibleTravelers()){
   const patients=shuffled(candidates).slice(0,Math.min(candidates.length,rand(2,3)));if(!patients.length)return;
-  patients.forEach(p=>{p.health=clamp(p.health-rand(12,22),0,100);p.state="Malade";p.sickDays=Math.max(p.sickDays,14);p.treated=false});
+  patients.forEach(p=>{p.health=clamp(p.health-rand(12,22),0,100);p.state="Malade";p.sickDays=Math.max(p.sickDays,17);p.treated=false});
   const count=patients.length,namesFr=joinList(patients.map(p=>p.name),"fr"),namesEn=joinList(patients.map(p=>p.name),"en");
   eventModal("Maladie contagieuse",bilingual(`${count} voyageur${count>1?"s":""} présente${count>1?"nt":""} les mêmes symptômes : ${namesFr}.`,`${count} traveler${count===1?"":"s"} ${count===1?"shows":"show"} the same symptoms: ${namesEn}.`),bilingual(`La maladie risque d’épuiser rapidement le groupe. Vous avez ${itemQuantityFor("medicaments",game.cart.medicaments,"fr")}.`,`The disease may quickly exhaust the party. You have ${itemQuantityFor("medicaments",game.cart.medicaments,"en")}.`),[
-    {label:remedyLabel(bilingual(`Distribuer ${count} remède${count>1?"s":""}`,`Give ${count} dose${count===1?"":"s"}`),count),disabled:game.cart.medicaments<count,action:()=>{game.cart.medicaments-=count;patients.forEach(p=>{p.health=clamp(p.health+14,1,100);p.sickDays=8;p.treated=true});addJournal(bilingual(`${count} malade${count>1?"s ont":" a"} reçu un remède, mais la maladie suivra encore son cours.`,`${count} sick traveler${count===1?"":"s"} received medicine, but the illness will still run its course.`))}},
-    {label:"Isoler les malades 2 jours",action:()=>{consumeDelay(2);patients.forEach(p=>p.sickDays=Math.max(p.sickDays,10));addJournal("Le convoi s’est arrêté pour isoler les malades.")}},
+    {label:remedyLabel(bilingual(`Distribuer ${count} remède${count>1?"s":""}`,`Give ${count} dose${count===1?"":"s"}`),count),disabled:game.cart.medicaments<count,action:()=>{game.cart.medicaments-=count;patients.forEach(p=>{p.health=clamp(p.health+14,1,100);p.sickDays=11;p.treated=true});addJournal(bilingual(`${count} malade${count>1?"s ont":" a"} reçu un remède, mais la maladie suivra encore son cours.`,`${count} sick traveler${count===1?"":"s"} received medicine, but the illness will still run its course.`))}},
+    {label:"Isoler les malades 2 jours",action:()=>{consumeDelay(2);patients.forEach(p=>p.sickDays=Math.max(p.sickDays,13));addJournal("Le convoi s’est arrêté pour isoler les malades.")}},
     {label:"Continuer la route",action:()=>{patients.forEach(p=>p.health=clamp(p.health-5,0,100));addJournal("La maladie contagieuse affaiblit le groupe.")}}
   ],"incident-contagious.webp");
 }
@@ -839,7 +855,7 @@ function travelerFatigueRisk(){
   const travelers=alive();if(!travelers.length)return 1;
   const average=travelers.reduce((sum,p)=>sum+p.health,0)/travelers.length;
   const weakened=travelers.filter(p=>p.health<45).length/travelers.length;
-  const unwell=travelers.filter(p=>p.sickDays>0||p.needsRemedy).length/travelers.length;
+  const unwell=travelers.filter(p=>p.sickDays>0||(p.woundDays??0)>0||p.needsRemedy).length/travelers.length;
   return clamp(clamp((78-average)/58,0,1)*.6+weakened*.25+unwell*.15,0,1);
 }
 
@@ -910,7 +926,7 @@ function fortEvent(mark,art=fortArrivalAsset(mark)){
     {label:bilingual(`Acheter 50 kg de vivres (${foodCost} $)`,`Buy 50 kg of food ($${foodCost})`),keepOpen:true,disabled:()=>game.money<foodCost||game.cart.vivres+50>SHOP.vivres.max,action:()=>{game.money-=foodCost;loadFood(50);addJournal(bilingual(`Ravitaillement à ${mark.name}.`,`Resupplied at ${landmarkName(mark)}.`))},feedback:()=>bilingual(`Achat effectué : 50 kg de vivres. Vous avez maintenant ${itemQuantityFor("vivres",Math.round(game.cart.vivres),"fr")}.`,`Purchase complete: 50 kg of food. You now have ${itemQuantityFor("vivres",Math.round(game.cart.vivres),"en")}.`)},
     {label:bilingual(`Acheter 40 balles (${ammoCost} $)`,`Buy 40 bullets ($${ammoCost})`),keepOpen:true,disabled:()=>game.money<ammoCost||game.cart.munitions+40>SHOP.munitions.max,action:()=>{game.money-=ammoCost;game.cart.munitions+=40;addJournal(bilingual(`Achat de munitions à ${mark.name}.`,`Bought ammunition at ${landmarkName(mark)}.`))},feedback:()=>bilingual(`Achat effectué : 40 balles. Vous avez maintenant ${itemQuantityFor("munitions",game.cart.munitions,"fr")}.`,`Purchase complete: 40 bullets. You now have ${itemQuantityFor("munitions",game.cart.munitions,"en")}.`)},
     ...equipment.map(item=>({label:bilingual(`Acheter ${item.label} (${item.cost} $)`,`Buy ${item.labelEn} ($${item.cost})`),keepOpen:true,disabled:()=>game.money<item.cost||game.cart[item.key]+item.qty>SHOP[item.key].max,action:()=>{game.money-=item.cost;game.cart[item.key]+=item.qty;addJournal(bilingual(`Achat de ${item.label} à ${mark.name}.`,`Bought ${item.labelEn} at ${landmarkName(mark)}.`))},feedback:()=>bilingual(`Achat effectué : ${item.label}. Vous avez maintenant ${itemQuantityFor(item.key,game.cart[item.key],"fr")}.`,`Purchase complete: ${item.labelEn}. You now have ${itemQuantityFor(item.key,game.cart[item.key],"en")}.`)})),
-    {label:"Se reposer 2 jours",keepOpen:true,disabled:()=>game.cart.vivres<alive().length*4,action:()=>{consumeDelay(2,2);game.oxStrain=clamp(game.oxStrain-3,0,10);alive().forEach(p=>p.health=clamp(p.health+6,0,100));refreshFortArrivalArt(mark);addJournal(bilingual(`Halte réparatrice à ${mark.name}.`,`A restorative stop at ${landmarkName(mark)}.`))},feedback:()=>bilingual("Repos terminé : deux jours se sont écoulés.","Rest complete: two days have passed.")},
+    {label:"Se reposer 2 jours",keepOpen:true,disabled:()=>game.cart.vivres<alive().length*4,action:()=>{consumeDelay(2,2);game.oxStrain=clamp(game.oxStrain-3,0,10);alive().forEach(p=>p.health=clamp(p.health+restRecovery(p,true),0,100));refreshFortArrivalArt(mark);addJournal(bilingual(`Halte réparatrice à ${mark.name}.`,`A restorative stop at ${landmarkName(mark)}.`))},feedback:()=>bilingual("Repos terminé : deux jours se sont écoulés.","Rest complete: two days have passed.")},
     {label:"Inventaire",keepOpen:true,withInventory:false,action:showInventory},
     {label:"Repartir",primary:true,action:()=>addJournal(bilingual(`Passage à ${mark.name}.`,`Passed through ${landmarkName(mark)}.`))}
   ];
@@ -963,7 +979,7 @@ function refreshEventModalLanguage(){
 function rest(){
   if(checkJourneyFailure())return;
   if(game.cart.vivres<alive().length*4){toast("Pas assez de vivres pour camper deux jours.");return;}
-  consumeDelay(2,2);game.oxStrain=clamp(game.oxStrain-3,0,10);alive().forEach(p=>{p.health=clamp(p.health+7,0,100);if(p.health>60&&p.sickDays<=0&&!p.needsRemedy)p.state="En forme"});addJournal("Deux jours de repos ont remonté le moral du groupe et soulagé l’attelage.");updateDeaths();if(showPendingDeathEvent())updateUI();else if(!game.finished)updateUI();returnToTrailTop();
+  consumeDelay(2,2);game.oxStrain=clamp(game.oxStrain-3,0,10);alive().forEach(p=>{p.health=clamp(p.health+restRecovery(p),0,100);if(p.health>60&&p.sickDays<=0&&(p.woundDays??0)<=0&&!p.needsRemedy)p.state="En forme"});addJournal("Deux jours de repos ont remonté le moral du groupe et soulagé l’attelage.");updateDeaths();if(showPendingDeathEvent())updateUI();else if(!game.finished)updateUI();returnToTrailTop();
 }
 
 function routeSpeedDescription(route,language=currentLanguage){
@@ -1191,6 +1207,18 @@ function startAttack(journalEntry=null){
 
 function moveAttack(direction){if(attack?.running)attack.x=clamp(attack.x+direction*42,20,640);}
 
+function applyAttackWound(traveler,damage){
+  traveler.health=clamp(traveler.health-damage,1,100);
+  traveler.needsRemedy=true;traveler.woundDays=Math.max(traveler.woundDays??0,10);
+  if(traveler.sickDays<=0)traveler.state="Blessé";
+}
+
+function treatAttackWound(traveler){
+  traveler.health=clamp(traveler.health+24,1,100);
+  traveler.needsRemedy=false;traveler.woundDays=Math.min(traveler.woundDays??5,5);
+  if(traveler.sickDays<=0)traveler.state="Convalescent";
+}
+
 function attackLoop(now){
   if(!attack?.running)return;const dt=Math.min(.04,(now-attack.last)/1000);attack.last=now;attack.time-=dt;attack.spawnIn-=dt;
   const c=$("#canvas-attaque"),ctx=c.getContext("2d");ctx.clearRect(0,0,c.width,c.height);
@@ -1209,7 +1237,7 @@ function endAttack(){
   for(const p of candidates.slice(0,affected)){
     const lethalChance=Math.max(0,(hits-4)*.07);
     if(dead.length===0&&Math.random()<lethalChance){p.health=0;p.alive=false;p.state="Décédé";game.pendingDeath=p;dead.push(p);}
-    else{p.health=clamp(p.health-rand(18,32)-Math.floor(hits/3),1,100);p.state="Blessé";p.needsRemedy=true;p.sickDays=Math.max(p.sickDays,8);wounded.push(p);}
+    else{applyAttackWound(p,rand(18,32)+Math.floor(hits/3));wounded.push(p);}
   }
   attackOutcome={hits,wounded,dead,journalEntry};showAttackOutcome();
 }
@@ -1226,7 +1254,7 @@ function showAttackOutcome(){
 
 function treatAttackWounds(){
   if(!attackOutcome)return;const patients=attackOutcome.wounded.filter(p=>p.needsRemedy).slice(0,game.cart.medicaments);
-  for(const p of patients){game.cart.medicaments--;p.health=clamp(p.health+24,1,100);p.needsRemedy=false;p.sickDays=3;p.state="Convalescent";}
+  for(const p of patients){game.cart.medicaments--;treatAttackWound(p);}
   showAttackOutcome();
 }
 

@@ -662,18 +662,19 @@ function weatherForSeason(){
   return weatherForPosition(game.month,game.day,game.year,game.km,game.weatherHistory??[]);
 }
 
-function slaughterOxForFood(){
-  if(game.cart.boeufs<=1||game.cart.vivres>0)return 0;
+function slaughterOxForFood(requiredFood=1){
+  if(game.cart.boeufs<=1||game.cart.vivres>=requiredFood)return 0;
   const meat=rand(42,58);game.cart.boeufs--;const loaded=loadFood(meat);
-  addJournal(bilingual(`Les vivres étaient épuisés : un bœuf a été abattu et a fourni ${loaded} kg de viande. ${oxenJournalStatus("fr")}`,`With the food stores empty, an ox was slaughtered for ${loaded} kg of meat. ${oxenJournalStatus("en")}`));
+  addJournal(bilingual(`Les vivres ne suffisaient plus : un bœuf a été abattu et a fourni ${loaded} kg de viande. ${oxenJournalStatus("fr")}`,`The food stores were no longer sufficient: an ox was slaughtered for ${loaded} kg of meat. ${oxenJournalStatus("en")}`));
   return loaded;
 }
 
-function offerOxForFood(afterFeeding=null){
-  if(game.cart.vivres>0||game.cart.boeufs<=1)return false;
-  eventModal(bilingual("Les vivres sont épuisés","The food stores are empty"),bilingual("Le groupe n’a plus rien à manger. Un bœuf pourrait être abattu pour nourrir le convoi.","The party has nothing left to eat. An ox could be slaughtered to feed the wagon party."),bilingual(`Il resterait ${game.cart.boeufs-1} bœuf${game.cart.boeufs-1>1?"s":""} pour tirer le chariot.`,`There would be ${game.cart.boeufs-1} ${game.cart.boeufs-1===1?"ox":"oxen"} left to pull the wagon.`),[
-    {label:bilingual("Abattre un bœuf","Slaughter an ox"),action:slaughterOxForFood,afterClose:afterFeeding},
-    {label:bilingual("Conserver l’attelage","Keep the team"),action:()=>addJournal(bilingual("Le convoi a conservé son dernier attelage et affronte désormais la faim.","The wagon party kept its remaining team and now faces starvation.")),afterClose:()=>resolveStarvation(false)}
+function offerOxForFood(afterFeeding=null,requiredFood=1,afterRefusal=null){
+  if(game.cart.vivres>=requiredFood||game.cart.boeufs<=1)return false;
+  const missing=Math.max(0,Math.ceil(requiredFood-game.cart.vivres)),empty=game.cart.vivres<=0;
+  eventModal(bilingual(empty?"Les vivres sont épuisés":"Les vivres ne suffisent pas",empty?"The food stores are empty":"The food stores are insufficient"),bilingual(empty?"Le groupe n’a plus rien à manger. Un bœuf pourrait être abattu pour nourrir le convoi.":`Il manque ${missing} kg de vivres pour la halte prévue. Un bœuf pourrait compléter les réserves.`,empty?"The party has nothing left to eat. An ox could be slaughtered to feed the wagon party.":`${missing} kg of food are missing for the planned halt. An ox could replenish the stores.`),bilingual(`Il resterait ${game.cart.boeufs-1} bœuf${game.cart.boeufs-1>1?"s":""} pour tirer le chariot.`,`There would be ${game.cart.boeufs-1} ${game.cart.boeufs-1===1?"ox":"oxen"} left to pull the wagon.`),[
+    {label:bilingual("Abattre un bœuf","Slaughter an ox"),action:()=>slaughterOxForFood(requiredFood),afterClose:afterFeeding},
+    {label:bilingual("Conserver l’attelage","Keep the team"),action:()=>addJournal(bilingual(empty?"Le convoi a conservé son attelage et affronte désormais la faim.":"Le convoi a conservé son attelage et renoncé à se reposer.",empty?"The wagon party kept its team and now faces starvation.":"The wagon party kept its team and gave up the planned rest.")),afterClose:afterRefusal??(()=>resolveStarvation(false))}
   ],"incident-ox-slaughter.webp");
   return true;
 }
@@ -1119,8 +1120,21 @@ function riverRisk(mark,depth,crossingWeather=weatherVisual()){
   setTrailScene();updateDeaths(bilingual(`pendant la traversée de ${mark.name}`,`during the crossing of ${landmarkName(mark)}`));
 }
 
-function fortEvent(mark,art=fortArrivalAsset(mark)){
-  addJournal(bilingual(`Arrivée à ${mark.name}.`,`Arrived at ${landmarkName(mark)}.`));
+function reopenFort(mark){
+  fortEvent(mark,fortArrivalAsset(mark),false);
+}
+
+function restAtFort(mark){
+  const required=alive().length*4;
+  if(game.cart.vivres<required){
+    setTimeout(()=>offerOxForFood(()=>{performRest(2,true);reopenFort(mark)},required,()=>reopenFort(mark)),0);
+    return;
+  }
+  performRest(2,true);refreshFortArrivalArt(mark);
+}
+
+function fortEvent(mark,art=fortArrivalAsset(mark),recordArrival=true){
+  if(recordArrival)addJournal(bilingual(`Arrivée à ${mark.name}.`,`Arrived at ${landmarkName(mark)}.`));
   const price=Math.round(1.3+game.km/KM_TOTAL*.7);
   const foodCost=20*price, ammoCost=ammoPrice(6)*price;
   const equipment=shuffled([
@@ -1133,7 +1147,7 @@ function fortEvent(mark,art=fortArrivalAsset(mark)){
     {label:bilingual(`Acheter 50 kg de vivres (${foodCost} $)`,`Buy 50 kg of food ($${foodCost})`),keepOpen:true,disabled:()=>game.money<foodCost||game.cart.vivres+50>SHOP.vivres.max,action:()=>{game.money-=foodCost;loadFood(50);addJournal(bilingual(`Ravitaillement à ${mark.name}.`,`Resupplied at ${landmarkName(mark)}.`))},feedback:()=>bilingual(`Achat effectué : 50 kg de vivres. Vous avez maintenant ${itemQuantityFor("vivres",Math.round(game.cart.vivres),"fr")}.`,`Purchase complete: 50 kg of food. You now have ${itemQuantityFor("vivres",Math.round(game.cart.vivres),"en")}.`)},
     {label:bilingual(`Acheter 40 balles (${ammoCost} $)`,`Buy 40 bullets ($${ammoCost})`),keepOpen:true,disabled:()=>game.money<ammoCost||game.cart.munitions+40>SHOP.munitions.max,action:()=>{game.money-=ammoCost;game.cart.munitions+=40;addJournal(bilingual(`Achat de munitions à ${mark.name}.`,`Bought ammunition at ${landmarkName(mark)}.`))},feedback:()=>bilingual(`Achat effectué : 40 balles. Vous avez maintenant ${itemQuantityFor("munitions",game.cart.munitions,"fr")}.`,`Purchase complete: 40 bullets. You now have ${itemQuantityFor("munitions",game.cart.munitions,"en")}.`)},
     ...equipment.map(item=>({label:bilingual(`Acheter ${item.label} (${item.cost} $)`,`Buy ${item.labelEn} ($${item.cost})`),keepOpen:true,disabled:()=>game.money<item.cost||game.cart[item.key]+item.qty>SHOP[item.key].max,action:()=>{game.money-=item.cost;game.cart[item.key]+=item.qty;addJournal(bilingual(`Achat de ${item.label} à ${mark.name}.`,`Bought ${item.labelEn} at ${landmarkName(mark)}.`))},feedback:()=>bilingual(`Achat effectué : ${item.label}. Vous avez maintenant ${itemQuantityFor(item.key,game.cart[item.key],"fr")}.`,`Purchase complete: ${item.labelEn}. You now have ${itemQuantityFor(item.key,game.cart[item.key],"en")}.`)})),
-    {label:"Se reposer 2 jours",keepOpen:true,disabled:()=>game.cart.vivres<alive().length*4,action:()=>{performRest(2,true);refreshFortArrivalArt(mark)},feedback:fortRestFeedback},
+    {label:"Se reposer 2 jours",keepOpen:true,disabled:()=>game.cart.vivres<alive().length*4&&game.cart.boeufs<=1,action:()=>restAtFort(mark),feedback:fortRestFeedback},
     {label:"Inventaire",keepOpen:true,withInventory:false,action:showInventory},
     {label:"Repartir",primary:true,action:()=>addJournal(bilingual(`Départ de ${mark.name} : le convoi reprend la piste.`,`Departed ${landmarkName(mark)}: the wagon party returns to the trail.`))}
   ];
@@ -1190,7 +1204,11 @@ function refreshEventModalLanguage(){
 
 function rest(){
   if(checkJourneyFailure())return;
-  if(game.cart.vivres<alive().length*4){toast("Pas assez de vivres pour camper deux jours.");return;}
+  const required=alive().length*4;
+  if(game.cart.vivres<required){
+    if(!offerOxForFood(()=>rest(),required,()=>{updateUI();returnToTrailTop()}))toast("Pas assez de vivres pour camper deux jours.");
+    return;
+  }
   const outcome=performRest();
   if(showPendingDeathEvent()){updateUI();return;}
   if(game.finished||checkJourneyFailure()){updateUI();return;}
@@ -1462,14 +1480,14 @@ function continueAfterHuntReport(){
 // Mini-jeu d'attaque : esquive et mise à couvert, sans tir.
 function attackDifficultyAt(km=game.km){
   const progress=clamp(km/KM_TOTAL,0,1);
-  return {progress,duration:16+Math.round(progress*5),speed:1+progress*.55,spawnBase:.48-progress*.16,minSpawn:.09};
+  return {progress,duration:16+Math.round(progress*2),speed:1+progress*.25,spawnBase:.48-progress*.07,minSpawn:.16,spawnDecay:.012};
 }
 
 function attackOutcomeRisk(hits,progress=clamp(game.km/KM_TOTAL,0,1)){
   return {
     affected:Math.ceil(hits/1.5),
-    lethalChance:clamp(Math.max(0,hits-2)*.085+progress*.1,0,.72),
-    damageBonus:Math.floor(hits/2)+Math.round(progress*9)
+    lethalChance:clamp(Math.max(0,hits-2)*.075+progress*.04,0,.58),
+    damageBonus:Math.floor(hits/2)+Math.round(progress*4)
   };
 }
 
@@ -1498,7 +1516,7 @@ function treatAttackWound(traveler){
 function attackLoop(now){
   if(!attack?.running)return;const dt=Math.min(.04,(now-attack.last)/1000);attack.last=now;attack.time-=dt;attack.spawnIn-=dt;
   const c=$("#canvas-attaque"),ctx=c.getContext("2d");ctx.clearRect(0,0,c.width,c.height);
-  if(attack.spawnIn<=0){const elapsed=attack.duration-attack.time;attack.projectiles.push({x:rand(20,740),y:-20,vx:rand(-35,35)*attack.speed,vy:rand(180,260)*attack.speed});attack.spawnIn=Math.max(attack.minSpawn,attack.spawnBase-elapsed*.02);}
+  if(attack.spawnIn<=0){const elapsed=attack.duration-attack.time;attack.projectiles.push({x:rand(20,740),y:-20,vx:rand(-35,35)*attack.speed,vy:rand(180,260)*attack.speed});attack.spawnIn=Math.max(attack.minSpawn,attack.spawnBase-elapsed*attack.spawnDecay);}
   ctx.strokeStyle="#ead8ad";ctx.lineWidth=3;
   attack.projectiles.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x-p.vx*.06,p.y-18);ctx.stroke();if(!p.hit&&p.y>345&&p.y<410&&p.x>attack.x&&p.x<attack.x+100){p.hit=true;attack.hits++;$("#attaque-impacts").textContent=attack.hits;}});
   attack.projectiles=attack.projectiles.filter(p=>p.y<440&&!p.hit);

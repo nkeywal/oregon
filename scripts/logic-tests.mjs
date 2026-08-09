@@ -351,12 +351,15 @@ test("losing an ox records the remaining team and its effect on pace",()=>{
 
 test("attacks become longer, faster, and denser farther west",()=>{
   const result=scenario(`game=baseGame(["A"],"fermier",3);({east:attackDifficultyAt(0),west:attackDifficultyAt(KM_TOTAL)})`);
-  assert.ok(result.west.duration>=result.east.duration+5);assert.ok(result.west.speed>=result.east.speed*1.5);assert.ok(result.west.spawnBase<result.east.spawnBase);assert.ok(result.west.minSpawn<=.09);
+  assert.ok(result.west.duration>result.east.duration);assert.ok(result.west.duration<=result.east.duration+2);
+  assert.ok(result.west.speed>result.east.speed&&result.west.speed<=result.east.speed*1.25);
+  assert.ok(result.west.spawnBase<result.east.spawnBase&&result.west.spawnBase>=.4);assert.ok(result.west.minSpawn>=.15);
 });
 
 test("later attacks cause more casualties and more severe wounds",()=>{
   const result=scenario(`game=baseGame(["A"],"fermier",3);({light:attackOutcomeRisk(3,0),heavy:attackOutcomeRisk(8,0),late:attackOutcomeRisk(8,1)})`);
   assert.ok(result.heavy.affected>result.light.affected);assert.ok(result.heavy.lethalChance>result.light.lethalChance);assert.ok(result.late.lethalChance>result.heavy.lethalChance);assert.ok(result.late.damageBonus>result.heavy.damageBonus);
+  assert.ok(result.late.lethalChance-result.heavy.lethalChance<=.04);assert.ok(result.late.damageBonus-result.heavy.damageBonus<=4);
 });
 
 test("five-day incident settings are converted into daily probabilities",()=>{
@@ -483,6 +486,16 @@ test("a hunting-day death is queued only after the meat has been added",()=>{
 test("an ox can feed an empty wagon only when another ox remains",()=>{
   const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.boeufs=2;game.cart.vivres=0;Math.random=()=>0;eventModal=()=>{};const offered=offerOxForFood();const loaded=slaughterOxForFood();const after={oxen:game.cart.boeufs,food:game.cart.vivres,text:game.journal[0].text.fr};game.cart.vivres=0;const refused=slaughterOxForFood();({offered,loaded,after,refused})`);
   assert.equal(result.offered,true);assert.ok(result.loaded>=42);assert.equal(result.after.oxen,1);assert.match(result.after.text,/Il ne reste qu’un bœuf/);assert.equal(result.refused,0);
+});
+
+test("an ox can complete insufficient food stores before resting",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.boeufs=2;game.cart.vivres=5;dailyIncidentOccurs=()=>false;updateUI=()=>{};returnToTrailTop=()=>{};let actions;eventModal=(title,text,details,value)=>actions=value;rest();const choice=actions[0];choice.action();choice.afterClose();({days:game.days,oxen:game.cart.boeufs,food:game.cart.vivres,journal:game.journal.map(entry=>entry.text.fr)})`);
+  assert.equal(result.days,2);assert.equal(result.oxen,1);assert.ok(result.food>0);assert.ok(result.journal.some(text=>/vivres ne suffisaient plus/.test(text)));
+});
+
+test("a fort offers ox meat when provisions are insufficient for rest",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.boeufs=3;game.cart.vivres=5;dailyIncidentOccurs=()=>false;refreshFortArrivalArt=()=>{};const dialogs=[];eventModal=(title,text,details,actions)=>dialogs.push({title,actions});const mark=LANDMARKS.find(item=>item.name==="Fort Boise");fortEvent(mark);const restAction=dialogs[0].actions.find(action=>String(languageText(action.label,"fr")).includes("reposer"));const initiallyDisabled=actionDisabled(restAction);restAction.action();const oxChoice=dialogs[1].actions[0];oxChoice.action();oxChoice.afterClose();({initiallyDisabled,days:game.days,oxen:game.cart.boeufs,dialogs:dialogs.length})`);
+  assert.equal(result.initiallyDisabled,false);assert.equal(result.days,2);assert.equal(result.oxen,2);assert.equal(result.dialogs,3);
 });
 
 test("the starvation choice uses its dedicated illustration",()=>{

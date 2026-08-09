@@ -353,7 +353,7 @@ function showLandmarkArt(mark,art,weather=weatherVisual()) {
 
 function refreshFortArrivalArt(mark) {
   const weather=weatherVisual(),art=fortArrivalAsset(mark,weather);showLandmarkArt(mark,art,weather);
-  $("#event-art").style.backgroundImage=`url('assets/${art}')`;
+  applyStageArt($("#event-art"),art,weather);
 }
 
 function setTrailScene() {
@@ -855,7 +855,7 @@ function eventModal(title,text,details,actions,art="trail"){
   const d=$("#dialogue-evenement");$("#event-title").textContent=languageText(title);$("#event-text").textContent=languageText(text);$("#event-details").textContent=languageText(details);
   const artFile=art.includes(".")?art:`${art}.webp`;
   const incidentEntry=artFile.startsWith("incident-")?addJournal(bilingualJoin(title," — ",text)):null;
-  $("#event-art").style.backgroundImage=`url('assets/${artFile}')`;
+  applyStageArt($("#event-art"),artFile,weatherVisual());
   const box=$("#event-actions");box.innerHTML="";
   const hasExplicitPrimary=actions.some(a=>a.primary),defaultPrimary=hasExplicitPrimary?-1:actions.findIndex(a=>!actionDisabled(a));
   const buttons=[];

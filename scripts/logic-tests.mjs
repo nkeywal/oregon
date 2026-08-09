@@ -170,6 +170,8 @@ test("progress sprite quadrants map all four weather variants",()=>{
   const styleFor=key=>scenario(`const element={style:{}};applyStageArt(element,"progress-kansas-far.webp",{key:"${key}"});element.style`);
   assert.equal(styleFor("mild").backgroundPosition,"0% 0%");assert.equal(styleFor("cold").backgroundPosition,"100% 0%");
   assert.equal(styleFor("hot").backgroundPosition,"0% 100%");assert.equal(styleFor("rain").backgroundPosition,"100% 100%");
+  const reset=scenario(`const element={style:{}};applyStageArt(element,"progress-kansas-far.webp",{key:"rain"});applyStageArt(element,"incident-fever.webp",{key:"rain"});element.style`);
+  assert.equal(reset.backgroundSize,"cover");assert.equal(reset.backgroundPosition,"center");
 });
 
 test("event pool excludes new illnesses for already affected travelers",()=>{

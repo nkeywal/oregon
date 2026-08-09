@@ -94,10 +94,20 @@ test("incident outcomes merge into their original dated journal entry",()=>{
   assert.equal(result.count,1);assert.equal(result.day,1);assert.match(result.text.fr,/accident\. Le bœuf a été abattu/);assert.match(result.text.en,/accident\. The ox was slaughtered/);
 });
 
+test("resolved incident entries keep the outcome without repeating the introduction",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.vivres=0;game.cart.boeufs=4;const elements={};document.querySelector=selector=>elements[selector]??=(selector==="#dialogue-evenement"?{open:false,showModal(){this.open=true},close(){this.open=false}}:selector==="#event-actions"?{innerHTML:"",appendChild(button){game.button=button}}:{textContent:"",style:{},classList:{add(){},remove(){},toggle(){}},setAttribute(){}});document.createElement=()=>({type:"",className:"",textContent:"",disabled:false,addEventListener(type,fn){this.click=fn}});updateUI=()=>{};setTrailScene=()=>{};returnToTrailTop=()=>{};Math.random=()=>0;const event=eventPool().find(candidate=>candidate.eventId==="encounter");event();game.button.click();({count:game.journal.length,text:languageText(game.journal[0].text)})`);
+  assert.equal(result.count,1);assert.equal(result.text,"Une famille généreuse nous a ravitaillés.");assert.doesNotMatch(result.text,/bonne rencontre|partagent/i);
+});
+
 test("contagious disease identifies every affected traveler",()=>{
   const result=scenario(`game=baseGame(["Alice","Benoît","Clara"],"fermier",3);Math.random=()=>.999;let notice;eventModal=(title,text)=>notice=text;contagiousDiseaseEvent(game.party);notice`);
   assert.match(result.fr,/3 voyageurs/);for(const name of ["Alice","Benoît","Clara"])assert.match(result.fr,new RegExp(name));
   for(const name of ["Alice","Benoît","Clara"])assert.match(result.en,new RegExp(name));
+});
+
+test("contagious-disease outcomes retain the travelers' names",()=>{
+  const text=scenario(`game=baseGame(["Alice","Benoît","Clara"],"fermier",3);game.cart.vivres=100;Math.random=()=>.999;let actions;eventModal=(title,body,details,value)=>actions=value;contagiousDiseaseEvent(game.party);actions[1].action();game.journal[0].text.fr`);
+  for(const name of ["Alice","Benoît","Clara"])assert.match(text,new RegExp(name));
 });
 
 test("weather directly changes travel distance",()=>{
@@ -281,6 +291,11 @@ test("rest days use daily incident rolls but exclude trail accidents",()=>{
   for(const id of ["attack","theft"])assert.ok(result.allowed.includes(id));
 });
 
+test("resting at a fort is safe from every incident",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.vivres=100;let rolls=0;dailyIncidentOccurs=()=>{rolls++;return true};const outcome=performRest(2,true);({rolls,days:outcome.days,event:outcome.event})`);
+  assert.equal(result.rolls,0);assert.equal(result.days,2);assert.equal(result.event,null);
+});
+
 test("losing an ox records the remaining team and its effect on pace",()=>{
   const text=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.boeufs=5;game.cart.vivres=0;eventModal=(title,body,details,actions)=>actions[1].action();oxInjuryEvent();game.journal[0].text.fr`);
   assert.match(text,/Il reste 4 bœufs/);assert.match(text,/plus lentement/);
@@ -389,15 +404,30 @@ test("a hunting-day death is queued only after the meat has been added",()=>{
   assert.equal(result.loaded,20);assert.equal(result.food,10);assert.equal(result.pending,"Lou");assert.equal(result.alive,false);
 });
 
+test("an ox can feed an empty wagon only when another ox remains",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.boeufs=2;game.cart.vivres=0;Math.random=()=>0;eventModal=()=>{};const offered=offerOxForFood();const loaded=slaughterOxForFood();const after={oxen:game.cart.boeufs,food:game.cart.vivres,text:game.journal[0].text.fr};game.cart.vivres=0;const refused=slaughterOxForFood();({offered,loaded,after,refused})`);
+  assert.equal(result.offered,true);assert.ok(result.loaded>=42);assert.equal(result.after.oxen,1);assert.match(result.after.text,/Il ne reste qu’un bœuf/);assert.equal(result.refused,0);
+});
+
+test("trying to travel hungry offers an ox before starvation",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.boeufs=2;game.cart.vivres=0;let title;eventModal=value=>title=value;travel();({days:game.days,title:title.fr})`);
+  assert.equal(result.days,0);assert.equal(result.title,"Les vivres sont épuisés");
+});
+
+test("an empty wagon is offered an ox after a fruitless hunt",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.boeufs=2;game.cart.vivres=0;let offered=0;offerOxForFood=()=>{offered++;return true};showPendingDeathEvent=()=>false;checkJourneyFailure=()=>false;continueAfterHuntReport();offered`);
+  assert.equal(result,1);
+});
+
 test("each death applies an explicit final score penalty",()=>{
   const result=scenario(`renderFinish=()=>{};const scoreFor=dead=>{game=baseGame(["A","B","C","D","E"],"charpentier",3);game.km=KM_TOTAL;game.money=200;for(const key of Object.keys(game.cart))game.cart[key]=0;if(dead)game.party[4].alive=false;finish(true);return {score:game.score,rank:endingRank(game.score),penalty:game.finishState.deathPenalty}};({intact:scoreFor(false),loss:scoreFor(true)})`);
-  assert.equal(result.intact.penalty,0);assert.equal(result.loss.penalty,540);assert.equal(result.intact.score-result.loss.score,540);
+  assert.equal(result.intact.penalty,0);assert.equal(result.loss.penalty,525);assert.equal(result.intact.score-result.loss.score,525);
   assert.notEqual(result.loss.rank,result.intact.rank);
 });
 
 test("profession level strongly scales the final score",()=>{
   const result=scenario(`renderFinish=()=>{};const scoreFor=profession=>{game=baseGame(["A","B","C","D","E"],profession,3);game.km=KM_TOTAL;game.money=0;for(const key of Object.keys(game.cart))game.cart[key]=0;finish(true);return game.score};({farmer:scoreFor("fermier"),carpenter:scoreFor("charpentier"),banker:scoreFor("banquier")})`);
-  assert.ok(result.farmer<result.carpenter*.6,JSON.stringify(result));assert.ok(result.carpenter<result.banker*.75,JSON.stringify(result));
+  assert.ok(result.farmer>result.carpenter*1.4,JSON.stringify(result));assert.ok(result.carpenter>result.banker*1.7,JSON.stringify(result));
 });
 
 test("travel stops on the exact incident day",()=>{
@@ -423,7 +453,7 @@ test("river depth stays physical across seasonal and weather variation",()=>{
 test("floating cargo-loss probability rises exponentially with water depth",()=>{
   const result=scenario(`const low=floatCargoLossChance(.6),middle=floatCargoLossChance(1.2),high=floatCargoLossChance(1.8),extreme=floatCargoLossChance(2.5);({low,middle,high,extreme,first:middle-low,second:high-middle})`);
   assert.ok(result.low<result.middle&&result.middle<result.high&&result.high<result.extreme);
-  assert.ok(result.second>result.first*2);assert.equal(result.extreme,.94);
+  assert.ok(result.second>result.first*2);assert.equal(result.extreme,.97);
 });
 
 test("traveler fatigue materially raises river-crossing failure risk",()=>{
@@ -433,7 +463,7 @@ test("traveler fatigue materially raises river-crossing failure risk",()=>{
 
 test("deep water can truly fail while shallow water remains relatively safe",()=>{
   const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{boeufs:6,pieces:2});({shallow:floatCrossingFailureChance(.8,0),middle:floatCrossingFailureChance(1.8,0),deep:floatCrossingFailureChance(2.5,0)})`);
-  assert.ok(result.shallow<.03);assert.ok(result.middle>.22&&result.middle<.35);assert.ok(result.deep>.7);
+  assert.ok(result.shallow<.03);assert.ok(result.middle>.38&&result.middle<.48);assert.ok(result.deep>.8);
 });
 
 test("a dangerous river crossing can take the last ox and still queue its report",()=>{

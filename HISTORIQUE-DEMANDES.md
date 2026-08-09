@@ -14,19 +14,19 @@ La demande initiale contenait cinq grandes exigences :
 4. Produire de meilleures illustrations avec une direction artistique homogène.
 5. Utiliser plusieurs agents pour le code et les images.
 
-Ensuite, il y a eu 43 messages substantiels de spécification, en excluant les simples messages opérationnels comme « j’ai fait ssh-add », « GitHub Pages est configuré » ou « continue ».
+Ensuite, il y a eu 45 messages substantiels de spécification, en excluant les simples messages opérationnels comme « j’ai fait ssh-add », « GitHub Pages est configuré » ou « continue ».
 
-Avec un découpage où chaque comportement vérifiable explicitement demandé compte comme une demande, on obtient environ 106 exigences supplémentaires :
+Avec un découpage où chaque comportement vérifiable explicitement demandé compte comme une demande, on obtient environ 110 exigences supplémentaires :
 
 | Domaine ajouté après la demande initiale | Nombre approximatif |
 |---|---:|
-| Images, interface et mobile | 22 |
-| Gameplay, économie et équilibrage | 42 |
+| Images, interface et mobile | 23 |
+| Gameplay, économie et équilibrage | 43 |
 | Incidents, maladies et santé | 18 |
-| Terminologie, textes et traduction | 11 |
-| Aide, publication et préproduction | 10 |
+| Terminologie, textes et traduction | 12 |
+| Aide, publication et préproduction | 11 |
 | Documentation de l’expérience | 3 |
-| **Total** | **≈ 106** |
+| **Total** | **≈ 110** |
 
 Ainsi, environ 95 % des exigences détaillées ont été formulées après la demande initiale. Le projet final est sensiblement plus large qu’un simple Oregon Trail classique illustré.
 
@@ -57,6 +57,7 @@ Les demandes successives ont ajouté :
 - Deux boutons distincts pour la carte et l’inventaire.
 - Une carte indiquant toutes les étapes et la position actuelle.
 - Sur la carte, un aperçu des 150 km à venir : terrain, qualité de la piste, vitesse probable et gibier présent.
+- Une illustration de disparition totale du convoi, distincte de l’image de victoire.
 
 ## Chasse
 
@@ -90,6 +91,7 @@ Il a été demandé :
 - De rendre clairement indisponibles les achats impossibles ou dépassant la capacité.
 - D’afficher immédiatement après chaque achat l’article acquis et le nouveau stock correspondant.
 - De tripler le prix des balles, au départ comme sur la piste.
+- De pouvoir consulter l’inventaire sans quitter une halte dans un fort.
 
 ## Incidents ajoutés
 
@@ -251,6 +253,7 @@ Les demandes ultérieures comprennent également :
 - Renommage du jeu en « Oregon Vibe » en français et en anglais.
 - Interface complète en français et en anglais.
 - Traduction dynamique des événements, journaux, cartes, bilans et scores.
+- Raccourcissement du lien d’accueil en « Infos » et « About ».
 
 ## Aide, sauvegarde et publication demandées par l’utilisateur
 
@@ -259,6 +262,7 @@ Enfin, le périmètre a ajouté :
 - La suppression complète de la sauvegarde de partie.
 - Une page immersive « Pionnier, ce que tu sais avant le départ ».
 - Une aide expliquant les ressources sans révéler les valeurs internes.
+- Une explication indiquant que la carte permet d’anticiper les 150 km suivants.
 - La publication du dépôt sur GitHub.
 - Le déploiement GitHub Pages.
 - Une revue globale d’équilibrage.

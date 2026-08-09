@@ -886,6 +886,7 @@ function fortEvent(mark,art=fortArrivalAsset(mark)){
     {label:bilingual(`Acheter 40 balles (${ammoCost} $)`,`Buy 40 bullets ($${ammoCost})`),keepOpen:true,disabled:()=>game.money<ammoCost||game.cart.munitions+40>SHOP.munitions.max,action:()=>{game.money-=ammoCost;game.cart.munitions+=40;addJournal(bilingual(`Achat de munitions à ${mark.name}.`,`Bought ammunition at ${landmarkName(mark)}.`))},feedback:()=>bilingual(`Achat effectué : 40 balles. Vous avez maintenant ${itemQuantityFor("munitions",game.cart.munitions,"fr")}.`,`Purchase complete: 40 bullets. You now have ${itemQuantityFor("munitions",game.cart.munitions,"en")}.`)},
     ...equipment.map(item=>({label:bilingual(`Acheter ${item.label} (${item.cost} $)`,`Buy ${item.labelEn} ($${item.cost})`),keepOpen:true,disabled:()=>game.money<item.cost||game.cart[item.key]+item.qty>SHOP[item.key].max,action:()=>{game.money-=item.cost;game.cart[item.key]+=item.qty;addJournal(bilingual(`Achat de ${item.label} à ${mark.name}.`,`Bought ${item.labelEn} at ${landmarkName(mark)}.`))},feedback:()=>bilingual(`Achat effectué : ${item.label}. Vous avez maintenant ${itemQuantityFor(item.key,game.cart[item.key],"fr")}.`,`Purchase complete: ${item.labelEn}. You now have ${itemQuantityFor(item.key,game.cart[item.key],"en")}.`)})),
     {label:"Se reposer 2 jours",keepOpen:true,disabled:()=>game.cart.vivres<alive().length*4,action:()=>{consumeDelay(2,2);game.oxStrain=clamp(game.oxStrain-3,0,10);alive().forEach(p=>p.health=clamp(p.health+6,0,100));refreshFortArrivalArt(mark);addJournal(bilingual(`Halte réparatrice à ${mark.name}.`,`A restorative stop at ${landmarkName(mark)}.`))},feedback:()=>bilingual("Repos terminé : deux jours se sont écoulés.","Rest complete: two days have passed.")},
+    {label:"Inventaire",keepOpen:true,withInventory:false,action:showInventory},
     {label:"Repartir",primary:true,action:()=>addJournal(bilingual(`Passage à ${mark.name}.`,`Passed through ${landmarkName(mark)}.`))}
   ];
   eventModal(bilingual(mark.name,landmarkName(mark)),"Palissades, forge et odeur de pain frais : une halte bienvenue.","Le stock d’équipement varie à chaque fort. Vous pouvez effectuer plusieurs achats avant de repartir.",actions,art);
@@ -910,7 +911,7 @@ function eventModal(title,text,details,actions,art="trail"){
       if(game.finished||checkJourneyFailure()){d.close();return;}
       updateUI();
       if(a.keepOpen){
-        activeEventModal.withInventory=true;activeEventModal.feedback=a.feedback??null;refreshEventModalLanguage();
+        activeEventModal.withInventory=a.withInventory??true;activeEventModal.feedback=a.feedback??null;refreshEventModalLanguage();
         return;
       }
       d.close();setTrailScene();returnToTrailTop();
@@ -1012,9 +1013,14 @@ function finish(win,message=""){
   game.score=score;game.finishState={win,message,deaths,deathPenalty};renderFinish();
 }
 
+function endingArtAsset(win,survivors=alive().length){return win?"victory.webp":survivors===0?"defeat.webp":"trail.webp"}
+
 function renderFinish(){
   const {win,message,deaths=0,deathPenalty=0}=game.finishState,score=game.score;
-  $("#ecran-fin").classList.toggle("defeat",!win);
+  const totalLoss=!win&&alive().length===0;
+  $("#ecran-fin").classList.toggle("defeat",!win);$("#ecran-fin").classList.toggle("total-loss",totalLoss);
+  $("#fin-art").style.backgroundImage=`url('assets/${endingArtAsset(win)}')`;
+  $("#fin-art").setAttribute("aria-label",currentLanguage==="en"?(win?"The wagon party reaches Oregon":totalLoss?"The abandoned wagon and the graves of the lost wagon party":"The wagon party can go no farther"):(win?"Le convoi atteint l’Oregon":totalLoss?"Le chariot abandonné et les tombes du convoi disparu":"Le convoi ne peut plus poursuivre sa route"));
   $("#fin-kicker").textContent=languageText(win?"Vallée de Willamette · Oregon":"La piste s’arrête ici");
   $("#titre-fin").textContent=languageText(win?"Vous avez atteint l’Oregon":"Le convoi n’ira pas plus loin");
   $("#texte-fin").textContent=message?languageText(message):(win?(currentLanguage==="en"?`${alive().length} traveler${alive().length===1?"":"s"} finally ${alive().length===1?"looks":"look"} upon the valley. After ${game.days} days on the trail, a new life begins.`:`${alive().length} voyageur${alive().length>1?"s":""} contemple${alive().length>1?"nt":""} enfin la vallée. Après ${game.days} jours sur la piste, une nouvelle vie commence.`):languageText("La faim, la maladie et la route ont eu raison de votre expédition."));

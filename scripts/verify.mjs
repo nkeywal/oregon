@@ -24,7 +24,7 @@ const rivers=["kansas","snake","dalles"];
 const forts=["fort-kearny","fort-laramie","fort-boise"];
 const riverOutcomes=["ferry","float-accident","float-success","wait"];
 const requiredAssets=[
-  "favicon.svg","social.jpg","hero.webp","trail.webp","fort.webp","river.webp","victory.webp","hunt.webp",
+  "favicon.svg","social.jpg","hero.webp","trail.webp","fort.webp","river.webp","victory.webp","defeat.webp","hunt.webp",
   "hunt-cold.webp","hunt-hot.webp","hunt-rain.webp","weather-cold.webp","weather-hot.webp",
   ...stages.flatMap(stage=>climates.map(climate=>`stage-${stage}-${climate}.webp`)),
   ...stages.flatMap(stage=>["far","mid"].map(distance=>`progress-${stage}-${distance}.webp`)),

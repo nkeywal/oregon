@@ -36,6 +36,11 @@ test("all ammunition prices use the tripled price scale",()=>{
   assert.equal(scenario(`ammoPrice(18)`),54);
 });
 
+test("complete party loss uses art distinct from victory",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);const victory=endingArtAsset(true);const stopped=endingArtAsset(false);game.party.forEach(p=>p.alive=false);const totalLoss=endingArtAsset(false);({victory,stopped,totalLoss})`);
+  assert.equal(result.victory,"victory.webp");assert.equal(result.stopped,"trail.webp");assert.equal(result.totalLoss,"defeat.webp");assert.notEqual(result.totalLoss,result.victory);
+});
+
 test("calendar handles the 1848 leap day",()=>{
   assert.equal(scenario(`game=baseGame(["A","B","C","D","E"],"fermier",1);game.day=28;advanceDate(1);game.day+":"+game.month`),"29:1");
   assert.equal(scenario(`game=baseGame(["A","B","C","D","E"],"fermier",1);game.day=29;advanceDate(1);game.day+":"+game.month`),"1:2");
@@ -319,6 +324,11 @@ test("a dangerous river crossing can take the last ox and still queue its report
 test("river report is shown before a crossing loss can end the journey",()=>{
   const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.boeufs=0;game.pendingRiverOutcome={};let reason=null;finish=(win,text)=>reason=text;const before=checkJourneyFailure();game.pendingRiverOutcome=null;const after=checkJourneyFailure();({before,after,reason})`);
   assert.equal(result.before,false);assert.equal(result.after,true);assert.match(result.reason,/dernier bœuf/);
+});
+
+test("fort stops expose the wagon inventory without forcing departure",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{boeufs:6,vivres:500});let actions;eventModal=(title,text,details,value)=>actions=value;fortEvent(LANDMARKS.find(mark=>mark.kind==="fort"));const inventory=actions.find(action=>languageText(action.label)==="Inventaire");({present:!!inventory,keepOpen:inventory?.keepOpen,withInventory:inventory?.withInventory})`);
+  assert.equal(result.present,true);assert.equal(result.keepOpen,true);assert.equal(result.withInventory,false);
 });
 
 test("food loading never exceeds capacity",()=>{

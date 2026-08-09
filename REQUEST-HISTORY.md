@@ -14,19 +14,19 @@ The initial request contained five broad requirements:
 4. Produce better illustrations with a consistent art direction.
 5. Use multiple agents for the code and images.
 
-This was followed by 43 substantial specification messages, excluding purely operational messages such as “I ran ssh-add,” “GitHub Pages is configured,” or “continue.”
+This was followed by 45 substantial specification messages, excluding purely operational messages such as “I ran ssh-add,” “GitHub Pages is configured,” or “continue.”
 
-Using a breakdown in which each explicitly requested, independently verifiable behavior counts as one request, this amounts to approximately 106 additional requirements:
+Using a breakdown in which each explicitly requested, independently verifiable behavior counts as one request, this amounts to approximately 110 additional requirements:
 
 | Area added after the initial request | Approximate number |
 |---|---:|
-| Images, interface, and mobile | 22 |
-| Gameplay, economy, and balancing | 42 |
+| Images, interface, and mobile | 23 |
+| Gameplay, economy, and balancing | 43 |
 | Incidents, illnesses, and health | 18 |
-| Terminology, copy, and translation | 11 |
-| Help, publishing, and launch preparation | 10 |
+| Terminology, copy, and translation | 12 |
+| Help, publishing, and launch preparation | 11 |
 | Experiment documentation | 3 |
-| **Total** | **≈ 106** |
+| **Total** | **≈ 110** |
 
 Approximately 95% of the detailed requirements were therefore specified after the initial request. The finished project is substantially broader than a simply illustrated version of the classic Oregon Trail.
 
@@ -57,6 +57,7 @@ The successive requests added:
 - Separate buttons for the map and inventory.
 - A map showing every stage and the party’s current position.
 - On the map, a preview of the next 150 km: terrain, trail quality, likely speed, and available game.
+- A total-party-loss illustration distinct from the victory image.
 
 ## Hunting
 
@@ -90,6 +91,7 @@ The requests included:
 - Clearly disabling purchases that are unaffordable or exceed capacity.
 - Immediately showing the purchased item and its updated stock after every purchase.
 - Tripling ammunition prices, both before departure and along the trail.
+- Accessing the inventory without leaving a fort stop.
 
 ## Added incidents
 
@@ -251,6 +253,7 @@ Later requests also included:
 - Renaming the game “Oregon Vibe” in both French and English.
 - A complete French and English interface.
 - Dynamic translation of events, journals, maps, reports, and scores.
+- Shortening the homepage link to “Infos” and “About.”
 
 ## Help, saving, and publishing requested by the user
 
@@ -259,6 +262,7 @@ Finally, the scope added:
 - Complete removal of game saving.
 - An immersive “Pioneer, what you know before leaving” page.
 - Help explaining resources without revealing internal values.
+- An explanation that the map helps anticipate the next 150 km.
 - Publishing the repository on GitHub.
 - Deployment through GitHub Pages.
 - A full balancing review.

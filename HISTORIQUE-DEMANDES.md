@@ -14,19 +14,19 @@ La demande initiale contenait cinq grandes exigences :
 4. Produire de meilleures illustrations avec une direction artistique homogène.
 5. Utiliser plusieurs agents pour le code et les images.
 
-Ensuite, il y a eu 39 messages substantiels de spécification, en excluant les simples messages opérationnels comme « j’ai fait ssh-add », « GitHub Pages est configuré » ou « continue ».
+Ensuite, il y a eu 40 messages substantiels de spécification, en excluant les simples messages opérationnels comme « j’ai fait ssh-add », « GitHub Pages est configuré » ou « continue ».
 
-Avec un découpage où chaque comportement vérifiable explicitement demandé compte comme une demande, on obtient environ 96 exigences supplémentaires :
+Avec un découpage où chaque comportement vérifiable explicitement demandé compte comme une demande, on obtient environ 98 exigences supplémentaires :
 
 | Domaine ajouté après la demande initiale | Nombre approximatif |
 |---|---:|
-| Images, interface et mobile | 19 |
-| Gameplay, économie et équilibrage | 37 |
+| Images, interface et mobile | 20 |
+| Gameplay, économie et équilibrage | 38 |
 | Incidents, maladies et santé | 16 |
 | Terminologie, textes et traduction | 11 |
 | Aide, publication et préproduction | 10 |
 | Documentation de l’expérience | 3 |
-| **Total** | **≈ 96** |
+| **Total** | **≈ 98** |
 
 Ainsi, environ 95 % des exigences détaillées ont été formulées après la demande initiale. Le projet final est sensiblement plus large qu’un simple Oregon Trail classique illustré.
 
@@ -44,6 +44,7 @@ Les demandes successives ont ajouté :
 - Quatre variantes climatiques par étape : doux, chaud, froid et pluie.
 - Des paysages propres à Chimney Rock, Fort Laramie, Independence Rock, South Pass, Fort Boise, The Dalles, etc.
 - Pour chaque fort, une vue d’approche où la destination reste lointaine, puis une image d’arrivée distincte à la porte ou dans l’enceinte.
+- Plusieurs plans de rapprochement pour chaque étape : le repère est minuscule au loin, devient identifiable en chemin, puis apparaît proche à l’arrivée.
 - Des images particulières pour chaque incident.
 - Des images de chasse adaptées au climat.
 - La même illustration pendant la chasse et dans son bilan.
@@ -186,6 +187,7 @@ Les franchissements ont reçu un système complet :
 - Influence de la pluie, de la chaleur et de la fonte des neiges.
 - Choix entre bac, attente et traversée à flot.
 - Risque de perte de vivres, munitions, couvertures, pièces et remèdes.
+- Pour la traversée à flot, probabilité de perdre du matériel augmentant exponentiellement avec la hauteur de l’eau.
 - Risque de perte de bœufs.
 - Bilan illustré après chaque traversée.
 - Illustration différente selon le fleuve, la méthode et le résultat.

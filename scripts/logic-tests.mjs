@@ -136,6 +136,19 @@ test("cold weather always uses cold artwork without a snow overlay",()=>{
   assert.equal(result.visual,"cold");assert.equal(result.snowClass,"");
 });
 
+test("each stage advances through far, middle, and near artwork",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);const stage=LANDMARKS[1];const phaseAt=km=>{game.km=km;return {phase:stageApproachPhase(stage),asset:stageAsset(stage,{key:"mild"})}};({far:phaseAt(166),mid:phaseAt(340),near:phaseAt(460)})`);
+  assert.equal(result.far.phase,"far");assert.equal(result.far.asset,"progress-fort-kearny-far.webp");
+  assert.equal(result.mid.phase,"mid");assert.equal(result.mid.asset,"progress-fort-kearny-mid.webp");
+  assert.equal(result.near.phase,"near");assert.equal(result.near.asset,"stage-fort-kearny-mild.webp");
+});
+
+test("progress sprite quadrants map all four weather variants",()=>{
+  const styleFor=key=>scenario(`const element={style:{}};applyStageArt(element,"progress-kansas-far.webp",{key:"${key}"});element.style`);
+  assert.equal(styleFor("mild").backgroundPosition,"0% 0%");assert.equal(styleFor("cold").backgroundPosition,"100% 0%");
+  assert.equal(styleFor("hot").backgroundPosition,"0% 100%");assert.equal(styleFor("rain").backgroundPosition,"100% 100%");
+});
+
 test("event pool excludes new illnesses for already affected travelers",()=>{
   const ids=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.party.forEach(p=>{p.sickDays=5;p.state="Malade"});eventPool().map(e=>e.eventId).join(",")`);
   for(const id of ["fever","injury","dysentery","contagious","climate-injury"])assert.doesNotMatch(ids,new RegExp(`(^|,)${id}(,|$)`));
@@ -232,6 +245,12 @@ test("a changing forecast affects each day and is detailed in the journal",()=>{
 test("river depth stays physical across seasonal and weather variation",()=>{
   const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);const mark=LANDMARKS.find(m=>m.kind==="river");let min=10,max=0;for(const month of [0,3,7,10])for(const weather of WEATHER){game.month=month;game.weather=weather;for(let i=0;i<50;i++){const depth=riverDepth(mark);min=Math.min(min,depth);max=Math.max(max,depth)}}({min,max})`);
   assert.ok(result.min>=.3);assert.ok(result.max<=3.4);assert.ok(result.max>result.min);
+});
+
+test("floating cargo-loss probability rises exponentially with water depth",()=>{
+  const result=scenario(`const low=floatCargoLossChance(.6),middle=floatCargoLossChance(1.2),high=floatCargoLossChance(1.8),extreme=floatCargoLossChance(2.5);({low,middle,high,extreme,first:middle-low,second:high-middle})`);
+  assert.ok(result.low<result.middle&&result.middle<result.high&&result.high<result.extreme);
+  assert.ok(result.second>result.first*2);assert.equal(result.extreme,.9);
 });
 
 test("a dangerous river crossing can take the last ox and still queue its report",()=>{

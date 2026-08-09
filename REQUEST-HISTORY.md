@@ -14,19 +14,19 @@ The initial request contained five broad requirements:
 4. Produce better illustrations with a consistent art direction.
 5. Use multiple agents for the code and images.
 
-This was followed by 39 substantial specification messages, excluding purely operational messages such as “I ran ssh-add,” “GitHub Pages is configured,” or “continue.”
+This was followed by 40 substantial specification messages, excluding purely operational messages such as “I ran ssh-add,” “GitHub Pages is configured,” or “continue.”
 
-Using a breakdown in which each explicitly requested, independently verifiable behavior counts as one request, this amounts to approximately 96 additional requirements:
+Using a breakdown in which each explicitly requested, independently verifiable behavior counts as one request, this amounts to approximately 98 additional requirements:
 
 | Area added after the initial request | Approximate number |
 |---|---:|
-| Images, interface, and mobile | 19 |
-| Gameplay, economy, and balancing | 37 |
+| Images, interface, and mobile | 20 |
+| Gameplay, economy, and balancing | 38 |
 | Incidents, illnesses, and health | 16 |
 | Terminology, copy, and translation | 11 |
 | Help, publishing, and launch preparation | 10 |
 | Experiment documentation | 3 |
-| **Total** | **≈ 96** |
+| **Total** | **≈ 98** |
 
 Approximately 95% of the detailed requirements were therefore specified after the initial request. The finished project is substantially broader than a simply illustrated version of the classic Oregon Trail.
 
@@ -44,6 +44,7 @@ The successive requests added:
 - Four weather variants for each stage: mild, hot, cold, and rainy.
 - Dedicated landscapes for Chimney Rock, Fort Laramie, Independence Rock, South Pass, Fort Boise, The Dalles, and others.
 - For every fort, an approach view in which the destination remains distant, followed by a distinct arrival image at the gate or inside the enclosure.
+- Multiple approach views for every stage: the landmark is tiny at long range, becomes identifiable along the way, and appears close upon arrival.
 - A specific image for every incident.
 - Hunting images adapted to the weather.
 - The same illustration during a hunt and in its outcome report.
@@ -186,6 +187,7 @@ River crossings received a complete system:
 - Influence from rain, heat, and snowmelt.
 - A choice between ferrying, waiting, and floating the wagon.
 - Risk of losing food, bullets, blankets, spare parts, and medicine.
+- When floating the wagon, an exponentially increasing chance of losing cargo as water depth rises.
 - Risk of losing oxen.
 - An illustrated report after every crossing.
 - A different illustration for each river, method, and outcome.

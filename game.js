@@ -314,8 +314,22 @@ function currentStage() {
   return LANDMARKS[game.landmarkIndex]||FINAL_STAGE;
 }
 
+function stageApproachPhase(stage=currentStage()){
+  const index=LANDMARKS.indexOf(stage),start=index>0?LANDMARKS[index-1].km:index===0?0:LANDMARKS.at(-1).km;
+  const progress=clamp((game.km-start)/Math.max(1,stage.km-start),0,1);
+  return progress<.45?"far":progress<.78?"mid":"near";
+}
+
 function stageAsset(stage=currentStage(),weather=weatherVisual()) {
-  return `stage-${stage.visual}-${weather.key}.webp`;
+  const phase=stageApproachPhase(stage);
+  return phase==="near"?`stage-${stage.visual}-${weather.key}.webp`:`progress-${stage.visual}-${phase}.webp`;
+}
+
+function applyStageArt(element,file,weather=weatherVisual()){
+  const sprite=file.startsWith("progress-");
+  element.style.backgroundImage=`url('assets/${file}')`;
+  element.style.backgroundSize=sprite?"200% 200%":"cover";
+  element.style.backgroundPosition=sprite?({mild:"0% 0%",cold:"100% 0%",hot:"0% 100%",rain:"100% 100%"}[weather.key]):"center";
 }
 
 function fortArrivalAsset(fort,weather=weatherVisual()) {
@@ -323,7 +337,7 @@ function fortArrivalAsset(fort,weather=weatherVisual()) {
 }
 
 function showLandmarkArt(mark,art,weather=weatherVisual()) {
-  const scene=$("#scene");scene.className="scene landmark-scene";scene.style.backgroundImage=`url('assets/${art}')`;
+  const scene=$("#scene");scene.className="scene landmark-scene";applyStageArt(scene,art,weather);
   scene.setAttribute("aria-label",mark.kind==="fort"?(currentLanguage==="en"?`Arriving at the gate of ${landmarkName(mark)}, in ${languageText(weather.label)}`:`Arrivée à la porte de ${mark.name}, par ${weather.label}`):(currentLanguage==="en"?`${landmarkName(mark)}, in ${languageText(weather.label)}`:`${mark.name}, par ${weather.label}`));
 }
 
@@ -335,7 +349,7 @@ function refreshFortArrivalArt(mark) {
 function setTrailScene() {
   const weather=weatherVisual(),stage=currentStage(),scene=$("#scene");
   scene.className=`scene trail-scene stage-scene weather-${weather.key}`;
-  scene.style.backgroundImage=`url('assets/${stageAsset(stage,weather)}')`;
+  applyStageArt(scene,stageAsset(stage,weather),weather);
   scene.setAttribute("aria-label",currentLanguage==="en"?`The wagon travels toward ${landmarkName(stage)} in ${languageText(weather.label)}`:`Le chariot avance vers ${stage.name}, par ${weather.label}`);
 }
 
@@ -773,18 +787,26 @@ function renderRiverOutcome(){
   $("#bilan-riviere-duree").textContent=currentLanguage==="en"?`${days} day${days===1?"":"s"}`:`${days} jour${days>1?"s":""}`;$("#bilan-riviere-vivres").textContent=`${Math.round(food)} kg`;$("#bilan-riviere-resultat").textContent=languageText(result);
 }
 
+function floatCargoLossChance(depth){
+  // Une faible hausse du niveau devient très vite dangereuse : 6 % vers 0,6 m,
+  // 15 % vers 1,2 m, 37 % vers 1,8 m et près de 90 % au-delà de 2,4 m.
+  return clamp(.025*Math.exp(1.5*Math.max(0,depth)),.04,.9);
+}
+
 function riverRisk(mark,depth){
   const travelFood=consumeDelay(1);
   game.oxStrain=clamp(game.oxStrain+1,0,10);
-  const risk=clamp(depth*.17+(game.cart.boeufs<4?.14:0)+(game.cart.pieces===0?.09:0),.08,.65);
-  if(Math.random()<risk){
-    const cargoLosses=[
+  const cargoCandidates=[
       {key:"vivres",amount:Math.min(game.cart.vivres,rand(25,70))},
       {key:"munitions",amount:Math.min(game.cart.munitions,rand(5,20))},
-      {key:"vetements",amount:Math.random()<.45?Math.min(game.cart.vetements,rand(1,2)):0},
-      {key:"pieces",amount:Math.random()<.35?Math.min(game.cart.pieces,1):0},
-      {key:"medicaments",amount:Math.random()<.3?Math.min(game.cart.medicaments,rand(1,2)):0}
-    ];
+      {key:"vetements",amount:Math.min(game.cart.vetements,rand(1,2))},
+      {key:"pieces",amount:Math.min(game.cart.pieces,1)},
+      {key:"medicaments",amount:Math.min(game.cart.medicaments,rand(1,2))}
+    ].filter(loss=>loss.amount>0);
+  const cargoAccident=cargoCandidates.length>0&&Math.random()<floatCargoLossChance(depth);
+  const handlingAccident=Math.random()<clamp(.04+(game.cart.boeufs<4?.12:0)+(game.cart.pieces===0?.08:0)+depth*.025,.04,.32);
+  if(cargoAccident||handlingAccident){
+    const cargoLosses=cargoAccident?shuffled(cargoCandidates).slice(0,Math.min(cargoCandidates.length,depth>=2.2?rand(3,5):depth>=1.4?rand(2,3):1)):[];
     const losses=[],lossesEn=[];
     for(const loss of cargoLosses){
       if(!loss.amount)continue;

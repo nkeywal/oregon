@@ -27,6 +27,7 @@ const requiredAssets=[
   "favicon.svg","social.jpg","hero.webp","trail.webp","fort.webp","river.webp","victory.webp","hunt.webp",
   "hunt-cold.webp","hunt-hot.webp","hunt-rain.webp","weather-cold.webp","weather-hot.webp",
   ...stages.flatMap(stage=>climates.map(climate=>`stage-${stage}-${climate}.webp`)),
+  ...stages.flatMap(stage=>["far","mid"].map(distance=>`progress-${stage}-${distance}.webp`)),
   ...forts.flatMap(fort=>climates.map(climate=>`arrival-${fort}-${climate}.webp`)),
   ...incidents.map(name=>`incident-${name}.webp`),
   ...rivers.flatMap(river=>riverOutcomes.map(outcome=>`river-${river}-${outcome}.webp`))

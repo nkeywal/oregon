@@ -14,19 +14,19 @@ La demande initiale contenait cinq grandes exigences :
 4. Produire de meilleures illustrations avec une direction artistique homogène.
 5. Utiliser plusieurs agents pour le code et les images.
 
-Ensuite, il y a eu 42 messages substantiels de spécification, en excluant les simples messages opérationnels comme « j’ai fait ssh-add », « GitHub Pages est configuré » ou « continue ».
+Ensuite, il y a eu 43 messages substantiels de spécification, en excluant les simples messages opérationnels comme « j’ai fait ssh-add », « GitHub Pages est configuré » ou « continue ».
 
-Avec un découpage où chaque comportement vérifiable explicitement demandé compte comme une demande, on obtient environ 103 exigences supplémentaires :
+Avec un découpage où chaque comportement vérifiable explicitement demandé compte comme une demande, on obtient environ 106 exigences supplémentaires :
 
 | Domaine ajouté après la demande initiale | Nombre approximatif |
 |---|---:|
-| Images, interface et mobile | 21 |
-| Gameplay, économie et équilibrage | 41 |
-| Incidents, maladies et santé | 17 |
+| Images, interface et mobile | 22 |
+| Gameplay, économie et équilibrage | 42 |
+| Incidents, maladies et santé | 18 |
 | Terminologie, textes et traduction | 11 |
 | Aide, publication et préproduction | 10 |
 | Documentation de l’expérience | 3 |
-| **Total** | **≈ 103** |
+| **Total** | **≈ 106** |
 
 Ainsi, environ 95 % des exigences détaillées ont été formulées après la demande initiale. Le projet final est sensiblement plus large qu’un simple Oregon Trail classique illustré.
 
@@ -56,6 +56,7 @@ Les demandes successives ont ajouté :
 - Le retour automatique en haut de l’écran après un bilan.
 - Deux boutons distincts pour la carte et l’inventaire.
 - Une carte indiquant toutes les étapes et la position actuelle.
+- Sur la carte, un aperçu des 150 km à venir : terrain, qualité de la piste, vitesse probable et gibier présent.
 
 ## Chasse
 
@@ -69,6 +70,7 @@ La chasse a progressivement reçu :
 - Moins de bisons sous la pluie.
 - Moins de gibier dans la neige.
 - Des bisons et lapins nettement plus rares par temps froid ou neigeux, avec moins de cibles simultanées.
+- Une abondance et des espèces dépendant aussi du terrain, notamment sans bison dans les régions désertiques.
 - Une limite de 90 kg par chasse.
 - Le respect de la capacité maximale du chariot.
 - Le fonctionnement tactile sur mobile.
@@ -111,6 +113,7 @@ La demande initiale ne détaillait pas les incidents. Les ajouts ultérieurs com
 
 Chaque incident devait aussi être inscrit dans le journal et disposer de son illustration propre.
 Lors d’une maladie contagieuse, les noms de tous les voyageurs atteints doivent être indiqués.
+Les maladies doivent durer plusieurs jours : ni un remède ni deux jours de repos ne guérissent immédiatement une dysenterie.
 
 ## Point sensible : « autochtones » devenu « Indiens »
 

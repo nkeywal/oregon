@@ -14,19 +14,19 @@ The initial request contained five broad requirements:
 4. Produce better illustrations with a consistent art direction.
 5. Use multiple agents for the code and images.
 
-This was followed by 42 substantial specification messages, excluding purely operational messages such as “I ran ssh-add,” “GitHub Pages is configured,” or “continue.”
+This was followed by 43 substantial specification messages, excluding purely operational messages such as “I ran ssh-add,” “GitHub Pages is configured,” or “continue.”
 
-Using a breakdown in which each explicitly requested, independently verifiable behavior counts as one request, this amounts to approximately 103 additional requirements:
+Using a breakdown in which each explicitly requested, independently verifiable behavior counts as one request, this amounts to approximately 106 additional requirements:
 
 | Area added after the initial request | Approximate number |
 |---|---:|
-| Images, interface, and mobile | 21 |
-| Gameplay, economy, and balancing | 41 |
-| Incidents, illnesses, and health | 17 |
+| Images, interface, and mobile | 22 |
+| Gameplay, economy, and balancing | 42 |
+| Incidents, illnesses, and health | 18 |
 | Terminology, copy, and translation | 11 |
 | Help, publishing, and launch preparation | 10 |
 | Experiment documentation | 3 |
-| **Total** | **≈ 103** |
+| **Total** | **≈ 106** |
 
 Approximately 95% of the detailed requirements were therefore specified after the initial request. The finished project is substantially broader than a simply illustrated version of the classic Oregon Trail.
 
@@ -56,6 +56,7 @@ The successive requests added:
 - Automatic scrolling back to the top after a report.
 - Separate buttons for the map and inventory.
 - A map showing every stage and the party’s current position.
+- On the map, a preview of the next 150 km: terrain, trail quality, likely speed, and available game.
 
 ## Hunting
 
@@ -69,6 +70,7 @@ Hunting gradually received:
 - Fewer bison in rain.
 - Less game in snow.
 - Significantly rarer bison and rabbits in cold or snowy weather, with fewer simultaneous targets.
+- Abundance and species also depend on terrain, including no bison in desert regions.
 - A limit of 90 kg per hunt.
 - Enforcement of the wagon’s maximum capacity.
 - Working touch controls on mobile.
@@ -111,6 +113,7 @@ The initial request did not describe incidents in detail. Later additions includ
 
 Every incident also had to be recorded in the journal and have its own illustration.
 During a contagious disease outbreak, the names of every affected traveler must be shown.
+Illnesses must last several days: neither medicine nor two days of rest immediately cures dysentery.
 
 ## Sensitive point: “Native riders” changed to “Indians”
 

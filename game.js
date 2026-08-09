@@ -95,7 +95,7 @@ function baseGame(names, profession, month) {
   const money = {fermier:800,charpentier:1000,banquier:1600}[profession];
   return {
     version:1, profession, money, initialMoney:money, cart:{...cart},
-    party:names.map(name => ({name,health:100,state:"En forme",alive:true,sickDays:0})),
+    party:names.map(name => ({name,health:100,state:"En forme",alive:true,sickDays:0,treated:false})),
     day:1, month:Number(month), year:1848, km:0, days:0, pace:"soutenu", rations:"normales",
     weather:{...WEATHER[0]}, weatherHistory:["Doux"], landmarkIndex:0, oxStrain:0, lastEvent:null, journal:[], finished:false, score:0,
     pendingDeath:null, deathEventOpen:false, pendingRiverOutcome:null
@@ -289,9 +289,9 @@ function advanceDate(days) {
     if(game.day>lengths[game.month]){game.day=1;game.month++;if(game.month>11){game.month=0;game.year++;}}
     for(const p of alive()){
       if(p.sickDays<=0)continue;
-      const dailyLoss={Dysenterie:3,Fièvre:2,Malade:2,Blessé:2,Engelures:2,Piqûres:1,Convalescent:1}[p.state]??(p.needsRemedy?3:1);
+      const dailyLoss=p.treated?0:({Dysenterie:3,Fièvre:2,Malade:2,Blessé:2,Engelures:2,Piqûres:1,Convalescent:1}[p.state]??(p.needsRemedy?3:1));
       p.sickDays--;p.health=clamp(p.health-dailyLoss,0,100);
-      if(p.sickDays<=0)p.state="En forme";
+      if(p.sickDays<=0){p.state="En forme";p.treated=false}
     }
   }
 }
@@ -632,9 +632,9 @@ function randomEvent(){
 
 function feverEvent(p){
   if(!p)return;
-  p.health=clamp(p.health-rand(16,28),0,100);p.state="Fièvre";p.sickDays=10;
+  p.health=clamp(p.health-rand(16,28),0,100);p.state="Fièvre";p.sickDays=12;p.treated=false;
   eventModal("La fièvre",bilingual(`${p.name} souffre d’une forte fièvre.`,`${p.name} is suffering from a high fever.`),"Un remède améliore nettement ses chances.",[
-    {label:remedyLabel("Utiliser un remède"),disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+18,1,100);p.sickDays=4;p.state="Convalescent";addJournal(bilingual(`${p.name} a reçu un remède.`,`${p.name} received medicine.`))}},
+    {label:remedyLabel("Utiliser un remède"),disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+18,1,100);p.sickDays=8;p.treated=true;addJournal(bilingual(`${p.name} a reçu un remède. La fièvre demandera encore plusieurs jours de convalescence.`,`${p.name} received medicine. The fever will still require several days of recovery.`))}},
     {label:"Continuer prudemment",action:()=>{p.health=clamp(p.health-5,0,100);addJournal(bilingual(`${p.name} reste fiévreux.`,`${p.name} remains feverish.`))}}
   ],"incident-fever.webp");
 }
@@ -663,10 +663,10 @@ function injuryEvent(p=pick(eventEligibleTravelers())){
 
 function dysenteryEvent(p=pick(eventEligibleTravelers())){
   if(!p)return;
-  const damage=rand(24,36);p.health=clamp(p.health-damage,0,100);p.state="Dysenterie";p.sickDays=12;
+  const damage=rand(24,36);p.health=clamp(p.health-damage,0,100);p.state="Dysenterie";p.sickDays=16;p.treated=false;
   eventModal("Dysenterie",bilingual(`${p.name} est pris de violentes douleurs et se déshydrate rapidement.`,`${p.name} suffers violent pain and is rapidly becoming dehydrated.`),bilingual(`Son état s’est sérieusement dégradé. Du repos, de l’eau bouillie et un remède peuvent éviter le pire.`,`${p.name}’s condition has seriously deteriorated. Rest, boiled water, and medicine may prevent the worst.`),[
-    {label:remedyLabel("Donner un remède"),disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+18,1,100);p.sickDays=5;p.state="Convalescent";addJournal(bilingual(`${p.name} a reçu un remède contre la dysenterie.`,`${p.name} received medicine for dysentery.`))}},
-    {label:"Faire halte 2 jours",action:()=>{consumeDelay(2);if(p.health>0)p.health=clamp(p.health+6,1,100);p.sickDays=8;addJournal(bilingual(`Le convoi s’est arrêté pour soigner la dysenterie de ${p.name}.`,`The wagon party stopped to treat ${p.name}’s dysentery.`))}},
+    {label:remedyLabel("Donner un remède"),disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+18,1,100);p.sickDays=10;p.treated=true;addJournal(bilingual(`${p.name} a reçu un remède contre la dysenterie, mais restera malade plusieurs jours.`,`${p.name} received medicine for dysentery but will remain ill for several days.`))}},
+    {label:"Faire halte 2 jours",action:()=>{consumeDelay(2);if(p.health>0)p.health=clamp(p.health+6,1,100);p.sickDays=Math.max(p.sickDays,12);addJournal(bilingual(`Le convoi s’est arrêté pour soigner la dysenterie de ${p.name}. Deux jours ne suffisent pas à la faire disparaître.`,`The wagon party stopped to treat ${p.name}’s dysentery. Two days are not enough for it to pass.`))}},
     {label:"Continuer",action:()=>{p.health=clamp(p.health-8,0,100);addJournal(bilingual(`${p.name} reste gravement atteint de dysenterie.`,`${p.name} remains seriously ill with dysentery.`))}}
   ],"incident-dysentery.webp");
 }
@@ -686,11 +686,11 @@ function climateInjuryEvent(p=pick(eventEligibleTravelers())){
 
 function contagiousDiseaseEvent(candidates=eventEligibleTravelers()){
   const patients=shuffled(candidates).slice(0,Math.min(candidates.length,rand(2,3)));if(!patients.length)return;
-  patients.forEach(p=>{p.health=clamp(p.health-rand(12,22),0,100);p.state="Malade";p.sickDays=Math.max(p.sickDays,10)});
+  patients.forEach(p=>{p.health=clamp(p.health-rand(12,22),0,100);p.state="Malade";p.sickDays=Math.max(p.sickDays,14);p.treated=false});
   const count=patients.length,namesFr=joinList(patients.map(p=>p.name),"fr"),namesEn=joinList(patients.map(p=>p.name),"en");
   eventModal("Maladie contagieuse",bilingual(`${count} voyageur${count>1?"s":""} présente${count>1?"nt":""} les mêmes symptômes : ${namesFr}.`,`${count} traveler${count===1?"":"s"} ${count===1?"shows":"show"} the same symptoms: ${namesEn}.`),bilingual(`La maladie risque d’épuiser rapidement le groupe. Vous avez ${itemQuantityFor("medicaments",game.cart.medicaments,"fr")}.`,`The disease may quickly exhaust the party. You have ${itemQuantityFor("medicaments",game.cart.medicaments,"en")}.`),[
-    {label:remedyLabel(bilingual(`Distribuer ${count} remède${count>1?"s":""}`,`Give ${count} dose${count===1?"":"s"}`),count),disabled:game.cart.medicaments<count,action:()=>{game.cart.medicaments-=count;patients.forEach(p=>{p.health=clamp(p.health+14,1,100);p.sickDays=4;p.state="Convalescent"});addJournal(bilingual(`${count} malade${count>1?"s ont":" a"} reçu un remède.`,`${count} sick traveler${count===1?"":"s"} received medicine.`))}},
-    {label:"Isoler les malades 2 jours",action:()=>{consumeDelay(2);patients.forEach(p=>p.sickDays=7);addJournal("Le convoi s’est arrêté pour isoler les malades.")}},
+    {label:remedyLabel(bilingual(`Distribuer ${count} remède${count>1?"s":""}`,`Give ${count} dose${count===1?"":"s"}`),count),disabled:game.cart.medicaments<count,action:()=>{game.cart.medicaments-=count;patients.forEach(p=>{p.health=clamp(p.health+14,1,100);p.sickDays=8;p.treated=true});addJournal(bilingual(`${count} malade${count>1?"s ont":" a"} reçu un remède, mais la maladie suivra encore son cours.`,`${count} sick traveler${count===1?"":"s"} received medicine, but the illness will still run its course.`))}},
+    {label:"Isoler les malades 2 jours",action:()=>{consumeDelay(2);patients.forEach(p=>p.sickDays=Math.max(p.sickDays,10));addJournal("Le convoi s’est arrêté pour isoler les malades.")}},
     {label:"Continuer la route",action:()=>{patients.forEach(p=>p.health=clamp(p.health-5,0,100));addJournal("La maladie contagieuse affaiblit le groupe.")}}
   ],"incident-contagious.webp");
 }
@@ -940,10 +940,34 @@ function rest(){
   consumeDelay(2,2);game.oxStrain=clamp(game.oxStrain-3,0,10);alive().forEach(p=>{p.health=clamp(p.health+7,0,100);if(p.health>60&&p.sickDays<=0&&!p.needsRemedy)p.state="En forme"});addJournal("Deux jours de repos ont remonté le moral du groupe et soulagé l’attelage.");updateDeaths();if(showPendingDeathEvent())updateUI();else if(!game.finished)updateUI();returnToTrailTop();
 }
 
+function routeSpeedDescription(route,language=currentLanguage){
+  if(route.speed>=.93)return language==="en"?"generally quick progress":"progression généralement rapide";
+  if(route.speed>=.84)return language==="en"?"moderate progress":"progression modérée";
+  if(route.speed>=.75)return language==="en"?"slow progress":"progression lente";
+  return language==="en"?"very slow progress":"progression très lente";
+}
+
+function wildlifeDescription(route,language=currentLanguage){
+  const profile=huntTerrainProfile(route),names=Object.entries(profile.weights).filter(([,weight])=>weight>0).map(([species])=>HUNT_SPECIES_NAMES[species][language]);
+  const abundance=profile.abundance>=.85?(language==="en"?"plentiful":"abondant"):profile.abundance>=.6?(language==="en"?"scattered":"dispersé"):(language==="en"?"scarce":"rare");
+  return language==="en"?`${abundance} game: ${joinList(names,"en")}`:`gibier ${abundance} : ${joinList(names,"fr")}`;
+}
+
+function renderTrailOutlook(distance=150){
+  const start=Math.min(game.km,KM_TOTAL),end=Math.min(KM_TOTAL,start+distance),span=Math.max(0,Math.round(end-start));
+  if(!span)return `<div class="trail-outlook"><h4>${currentLanguage==="en"?"Ahead of the wagon":"Devant le convoi"}</h4><p>${currentLanguage==="en"?"The trail ends here.":"La piste s’achève ici."}</p></div>`;
+  const entries=ROUTE_SEGMENTS.filter(route=>route.end>start&&route.start<end).map(route=>{
+    const covered=Math.max(1,Math.round(Math.min(route.end,end)-Math.max(route.start,start))),terrain=route.terrain[currentLanguage]??route.terrain.fr,slope=route.slope[currentLanguage]??route.slope.fr,road=route.road[currentLanguage]??route.road.fr;
+    const text=currentLanguage==="en"?`${slope}; ${road}; ${routeSpeedDescription(route,"en")}; ${wildlifeDescription(route,"en")}.`:`${slope} ; ${road} ; ${routeSpeedDescription(route,"fr")} ; ${wildlifeDescription(route,"fr")}.`;
+    return `<li><strong>${covered} km · ${escapeHtml(terrain)}</strong><span>${escapeHtml(text)}</span></li>`;
+  }).join("");
+  return `<div class="trail-outlook"><h4>${currentLanguage==="en"?`The next ${span} km`:`Les ${span} prochains kilomètres`}</h4><ul>${entries}</ul></div>`;
+}
+
 function renderTrailMap(){
   const stops=[{km:0,name:"Independence"},...LANDMARKS,{km:KM_TOTAL,name:"Oregon"}],left=45,width=830;
   const x=km=>left+km/KM_TOTAL*width,current=x(game.km);
-  return `<section class="map-card" aria-labelledby="titre-carte"><h3 id="titre-carte">${languageText("Carte de la piste")}</h3><div class="trail-map-scroll"><svg class="trail-map" viewBox="0 0 920 210" role="img" aria-label="${currentLanguage==="en"?"Progress from Independence to the Willamette Valley":"Progression de Independence jusqu’à la vallée de Willamette"}"><path class="map-route" d="M ${left} 105 H ${left+width}"/><path class="map-progress" d="M ${left} 105 H ${current}"/>${stops.map((stop,i)=>{const px=x(stop.km),top=i%2===0;return `<g><circle class="map-stop" cx="${px}" cy="105" r="5"/><path class="map-tick" d="M ${px} 96 V ${top?70:140}"/><text x="${px}" y="${top?61:157}" text-anchor="middle">${escapeHtml(landmarkName(stop))}</text></g>`}).join("")}<g class="map-current"><path d="M ${current} 78 l 10 18 h -20 z"/><text x="${current}" y="72" text-anchor="middle">${languageText("Vous êtes ici")}</text></g></svg></div><p>${currentLanguage==="en"?`${Math.round(game.km).toLocaleString(currentLocale())} km traveled · ${Math.max(0,KM_TOTAL-Math.round(game.km)).toLocaleString(currentLocale())} km remaining`:`${Math.round(game.km).toLocaleString(currentLocale())} km parcourus · ${Math.max(0,KM_TOTAL-Math.round(game.km)).toLocaleString(currentLocale())} km restants`}</p></section>`;
+  return `<section class="map-card" aria-labelledby="titre-carte"><h3 id="titre-carte">${languageText("Carte de la piste")}</h3><div class="trail-map-scroll"><svg class="trail-map" viewBox="0 0 920 210" role="img" aria-label="${currentLanguage==="en"?"Progress from Independence to the Willamette Valley":"Progression de Independence jusqu’à la vallée de Willamette"}"><path class="map-route" d="M ${left} 105 H ${left+width}"/><path class="map-progress" d="M ${left} 105 H ${current}"/>${stops.map((stop,i)=>{const px=x(stop.km),top=i%2===0;return `<g><circle class="map-stop" cx="${px}" cy="105" r="5"/><path class="map-tick" d="M ${px} 96 V ${top?70:140}"/><text x="${px}" y="${top?61:157}" text-anchor="middle">${escapeHtml(landmarkName(stop))}</text></g>`}).join("")}<g class="map-current"><path d="M ${current} 78 l 10 18 h -20 z"/><text x="${current}" y="72" text-anchor="middle">${languageText("Vous êtes ici")}</text></g></svg></div><p>${currentLanguage==="en"?`${Math.round(game.km).toLocaleString(currentLocale())} km traveled · ${Math.max(0,KM_TOTAL-Math.round(game.km)).toLocaleString(currentLocale())} km remaining`:`${Math.round(game.km).toLocaleString(currentLocale())} km parcourus · ${Math.max(0,KM_TOTAL-Math.round(game.km)).toLocaleString(currentLocale())} km restants`}</p>${renderTrailOutlook()}</section>`;
 }
 
 function showInventory(){
@@ -1002,6 +1026,31 @@ function renderFinish(){
 }
 
 // Mini-jeu de chasse
+const HUNT_SPECIES_NAMES={
+  bison:{fr:"bisons",en:"bison"},deer:{fr:"cerfs",en:"deer"},rabbit:{fr:"lapins",en:"rabbits"},bird:{fr:"oiseaux",en:"birds"}
+};
+
+const HUNT_TERRAIN={
+  "kansas-prairie":{abundance:.95,weights:{bison:4,deer:3,rabbit:3,bird:3}},
+  "great-plains":{abundance:1,weights:{bison:4,deer:3,rabbit:3,bird:3}},
+  "platte-valley":{abundance:.9,weights:{bison:3,deer:3,rabbit:3,bird:3}},
+  "rockies-foothills":{abundance:.72,weights:{bison:.5,deer:4,rabbit:2,bird:3}},
+  "high-plains":{abundance:.75,weights:{bison:1,deer:4,rabbit:2,bird:3}},
+  "south-pass":{abundance:.5,weights:{bison:0,deer:3,rabbit:2,bird:3}},
+  "high-desert":{abundance:.42,weights:{bison:0,deer:.5,rabbit:5,bird:4}},
+  "snake-plain":{abundance:.48,weights:{bison:0,deer:.5,rabbit:5,bird:4}},
+  "blue-mountains":{abundance:.65,weights:{bison:0,deer:5,rabbit:2,bird:3}},
+  columbia:{abundance:.7,weights:{bison:0,deer:4,rabbit:3,bird:4}}
+};
+
+const HUNT_WEATHER={
+  Doux:{abundance:1,weights:{bison:1,deer:1,rabbit:1,bird:1}},
+  Chaud:{abundance:.82,weights:{bison:.55,deer:.75,rabbit:1,bird:1}},
+  Pluvieux:{abundance:.72,weights:{bison:.2,deer:.9,rabbit:.8,bird:1}},
+  Froid:{abundance:.58,weights:{bison:.2,deer:1,rabbit:.4,bird:.7}},
+  Neige:{abundance:.38,weights:{bison:.04,deer:.8,rabbit:.1,bird:.45}}
+};
+
 const HUNT_SPECIES={
   bison:{size:25,speed:[82,116],loot:[20,28],y:[205,330],hit:.86},
   deer:{size:18,speed:[115,158],loot:[11,17],y:[180,320],hit:.77},
@@ -1009,11 +1058,16 @@ const HUNT_SPECIES={
   bird:{size:9,speed:[180,245],loot:[2,4],y:[65,175],hit:.66}
 };
 
-function huntWildlife(){
-  if(game.weather.name==="Neige")return {count:2,pool:["bison","deer","deer","deer","deer","deer","deer","rabbit","bird","bird","bird","bird","bird","bird","bird","bird","bird","bird","bird","bird"]};
-  if(game.weather.name==="Froid")return {count:3,pool:["bison","deer","deer","deer","deer","rabbit","rabbit","bird","bird","bird","bird","bird","bird","bird"]};
-  if(game.weather.name==="Pluvieux")return {count:5,pool:["bison","deer","deer","deer","rabbit","rabbit","rabbit","bird","bird","bird","bird","bird","bird","bird"]};
-  return {count:5,pool:["bison","bison","deer","deer","rabbit","rabbit","rabbit","bird","bird","bird"]};
+function huntTerrainProfile(route=routeSegmentAt()){return HUNT_TERRAIN[route.key]??HUNT_TERRAIN["great-plains"]}
+
+function huntWildlife(route=routeSegmentAt(),weather=game.weather){
+  const terrain=huntTerrainProfile(route),climate=HUNT_WEATHER[weather.name]??HUNT_WEATHER.Doux,pool=[];
+  for(const species of Object.keys(HUNT_SPECIES)){
+    const tickets=Math.round((terrain.weights[species]??0)*(climate.weights[species]??0));
+    for(let i=0;i<tickets;i++)pool.push(species);
+  }
+  if(!pool.length)pool.push(Object.keys(terrain.weights).find(species=>terrain.weights[species]>0)??"bird");
+  return {count:clamp(Math.round(5*terrain.abundance*climate.abundance),1,5),pool};
 }
 
 function huntBackground(){

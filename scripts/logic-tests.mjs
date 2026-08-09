@@ -144,6 +144,19 @@ test("cold and snow make bison and rabbits rarer during hunts",()=>{
   assert.ok(result.cold.rabbit<result.mild.rabbit);assert.ok(result.snow.rabbit<result.cold.rabbit);
 });
 
+test("terrain controls both hunting abundance and available species",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.weather={...WEATHER[0]};const plains=huntWildlife(ROUTE_SEGMENTS.find(route=>route.key==="great-plains"));const desert=huntWildlife(ROUTE_SEGMENTS.find(route=>route.key==="high-desert"));const mountains=huntWildlife(ROUTE_SEGMENTS.find(route=>route.key==="blue-mountains"));({plains,desert,mountains})`);
+  assert.ok(result.desert.count<result.plains.count);assert.ok(result.plains.pool.includes("bison"));
+  assert.equal(result.desert.pool.includes("bison"),false);assert.equal(result.mountains.pool.includes("bison"),false);
+  assert.ok(result.desert.pool.includes("rabbit")&&result.desert.pool.includes("bird"));
+});
+
+test("the map describes terrain, pace, and game for the next 150 km",()=>{
+  const html=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.km=1900;escapeHtml=value=>String(value);renderTrailOutlook(150)`);
+  assert.match(html,/150 prochains kilomètres/);assert.match(html,/Bassin aride/);assert.match(html,/progression lente/);
+  assert.match(html,/lapins/);assert.match(html,/oiseaux/);assert.doesNotMatch(html,/bisons/);
+});
+
 test("generated daily weather always respects transition constraints",()=>{
   const result=scenario(`let history=["Neige"],valid=true;for(let i=0;i<500;i++){const km=[500,1600,1900,2700,3000][i%5],next=weatherForPosition(i%12,15,1848,km,history);if(!weatherTransitionAllowed(history.at(-1),next.name))valid=false;history=[...history,next.name].slice(-3)}valid`);
   assert.equal(result,true);
@@ -177,6 +190,16 @@ test("progress sprite quadrants map all four weather variants",()=>{
 test("event pool excludes new illnesses for already affected travelers",()=>{
   const ids=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.party.forEach(p=>{p.sickDays=5;p.state="Malade"});eventPool().map(e=>e.eventId).join(",")`);
   for(const id of ["fever","injury","dysentery","contagious","climate-injury"])assert.doesNotMatch(ids,new RegExp(`(^|,)${id}(,|$)`));
+});
+
+test("treated dysentery still lasts well beyond two days of rest",()=>{
+  const result=scenario(`game=baseGame(["Alice","B","C","D","E"],"fermier",3);game.cart.medicaments=1;const patient=game.party[0];eventModal=(title,text,details,actions)=>actions[0].action();dysenteryEvent(patient);consumeDelay(2,2,false);({state:patient.state,sickDays:patient.sickDays,treated:patient.treated})`);
+  assert.equal(result.state,"Dysenterie");assert.equal(result.sickDays,8);assert.equal(result.treated,true);
+});
+
+test("two days of rest alone do not cure dysentery",()=>{
+  const result=scenario(`game=baseGame(["Alice","B","C","D","E"],"fermier",3);const patient=game.party[0];eventModal=(title,text,details,actions)=>actions[1].action();dysenteryEvent(patient);({state:patient.state,sickDays:patient.sickDays})`);
+  assert.equal(result.state,"Dysenterie");assert.ok(result.sickDays>=12);
 });
 
 test("five-day incident settings are converted into daily probabilities",()=>{
@@ -306,7 +329,7 @@ test("food loading never exceeds capacity",()=>{
 test("prepared complete journeys stay in the historical four-to-six-month window",()=>{
   const result=scenario(`let seed=1848;Math.random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296};finish=win=>{game.finished=true;game.testWin=win};updateUI=()=>{};setTrailScene=()=>{};showLandmarkArt=()=>{};toast=()=>{};returnToTrailTop=()=>{};refreshFortArrivalArt=()=>{};queueRiverOutcome=()=>{};startAttack=()=>{};eventModal=(title,text,details,actions)=>{let action=actions.find(candidate=>!actionDisabled(candidate));if(String(languageText(title)).includes("Fort"))action=actions.find(candidate=>languageText(candidate.label)==="Repartir")||action;if(!action)throw new Error("No playable event action");action.action();updateDeaths();checkJourneyFailure()};const runs={prudent:[],soutenu:[]};for(const pace of Object.keys(runs))for(let attempt=0;attempt<40;attempt++){game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{boeufs:8,vivres:700,munitions:300,vetements:8,pieces:5,medicaments:8});game.money=300;game.pace=pace;game.weather=weatherForPosition(game.month,game.day,game.year,0,[]);game.weatherHistory=[game.weather.name];let turns=0;while(!game.finished&&turns++<500){if(game.cart.vivres<100&&game.cart.munitions>=5){game.cart.munitions-=5;loadFood(55)}const average=alive().reduce((sum,traveler)=>sum+traveler.health,0)/alive().length;if(average<48&&game.cart.vivres>=alive().length*4)rest();else travel()}if(game.testWin)runs[pace].push(game.days)}for(const values of Object.values(runs))values.sort((a,b)=>a-b);const percentile=(values,p)=>values[Math.floor((values.length-1)*p)];({wins:Object.fromEntries(Object.entries(runs).map(([pace,values])=>[pace,values.length])),prudent:{p10:percentile(runs.prudent,.1),p90:percentile(runs.prudent,.9)},soutenu:{p10:percentile(runs.soutenu,.1),p90:percentile(runs.soutenu,.9)}})`);
   assert.ok(result.wins.prudent>=35);assert.ok(result.wins.soutenu>=35);
-  assert.ok(result.prudent.p10>=120&&result.prudent.p90<=183);assert.ok(result.soutenu.p10>=120&&result.soutenu.p90<=183);
+  assert.ok(result.prudent.p10>=120&&result.prudent.p90<=183,JSON.stringify(result));assert.ok(result.soutenu.p10>=120&&result.soutenu.p90<=183,JSON.stringify(result));
 });
 
 test("fort rest cost follows the current party size",()=>{

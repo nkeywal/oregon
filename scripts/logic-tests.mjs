@@ -300,7 +300,32 @@ test("one resolution kills at most one traveler",()=>{
 
 test("a death opens a specific illustrated event",()=>{
   const result=scenario(`game=baseGame(["Lou","B","C","D","E"],"fermier",3);game.party[0].health=0;eventModal=(title,text,details,actions,art)=>{game.deathEvent={title,text,details,actions,art}};updateDeaths();const shown=showPendingDeathEvent();({shown,art:game.deathEvent.art,title:game.deathEvent.title.fr,text:game.deathEvent.text.en,open:game.deathEventOpen})`);
-  assert.equal(result.shown,true);assert.equal(result.art,"incident-death.webp");assert.equal(result.title,"Un compagnon est mort");assert.equal(result.text,"Lou died on the trail.");assert.equal(result.open,true);
+  assert.equal(result.shown,true);assert.equal(result.art,"incident-death-4.webp");assert.equal(result.title,"Un compagnon est mort");assert.equal(result.text,"Lou died on the trail.");assert.equal(result.open,true);
+});
+
+test("death artwork reflects every possible survivor count",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);const assets=[];for(let remaining=0;remaining<=4;remaining++){game.party.forEach((traveler,index)=>traveler.alive=index<remaining);assets.push(deathEventAsset())}assets`);
+  assert.deepEqual([...result],["incident-death-0.webp","incident-death-1.webp","incident-death-2.webp","incident-death-3.webp","incident-death-4.webp"]);
+});
+
+test("the last companion's death uses the empty-camp report",()=>{
+  const result=scenario(`game=baseGame(["Lou"],"fermier",3);game.party[0].health=0;eventModal=(title,text,details,actions,art)=>{game.deathEvent={details,action:actions[0],art}};updateDeaths();showPendingDeathEvent();({art:game.deathEvent.art,details:game.deathEvent.details.fr,label:game.deathEvent.action.label.fr})`);
+  assert.equal(result.art,"incident-death-0.webp");assert.match(result.details,/Plus personne/);assert.equal(result.label,"Voir le bilan du convoi");
+});
+
+test("clicking hunt starts the mini-game before a day elapses",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{munitions:20,vivres:100});document.querySelector=()=>({style:{},textContent:"",showModal(){},focus(){}});startHunt();({days:game.days,food:game.cart.vivres,running:hunt.running})`);
+  assert.equal(result.days,0);assert.equal(result.food,100);assert.equal(result.running,true);
+});
+
+test("hunted meat is loaded before the hunting day consumes food",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.vivres=0;weatherForSeason=()=>WEATHER[0];const outcome=resolveHuntDay(25);({days:game.days,loaded:outcome.loaded,consumed:outcome.food.consumed,missing:outcome.food.missing,food:game.cart.vivres,health:game.party[0].health})`);
+  assert.equal(result.days,1);assert.equal(result.loaded,25);assert.equal(result.consumed,10);assert.equal(result.missing,0);assert.equal(result.food,15);assert.equal(result.health,100);
+});
+
+test("a hunting-day death is queued only after the meat has been added",()=>{
+  const result=scenario(`game=baseGame(["Lou","B","C","D","E"],"fermier",3);game.cart.vivres=0;const patient=game.party[0];patient.health=2;patient.state="Dysenterie";patient.sickDays=2;weatherForSeason=()=>WEATHER[0];const outcome=resolveHuntDay(20);({loaded:outcome.loaded,food:game.cart.vivres,pending:game.pendingDeath?.name,alive:patient.alive})`);
+  assert.equal(result.loaded,20);assert.equal(result.food,10);assert.equal(result.pending,"Lou");assert.equal(result.alive,false);
 });
 
 test("each death applies an explicit final score penalty",()=>{

@@ -31,6 +31,7 @@ const requiredAssets=[
   ...stages.flatMap(stage=>["far","mid"].map(distance=>`progress-${stage}-${distance}.webp`)),
   ...forts.flatMap(fort=>climates.map(climate=>`arrival-${fort}-${climate}.webp`)),
   ...incidents.map(name=>`incident-${name}.webp`),
+  ...Array.from({length:5},(_,remaining)=>`incident-death-${remaining}.webp`),
   ...rivers.flatMap(river=>riverOutcomes.map(outcome=>`river-${river}-${outcome}.webp`)),
   ...rivers.flatMap(river=>weatherRiverOutcomes.map(outcome=>`river-weather-${river}-${outcome}.webp`))
 ].map(name=>`assets/${name}`);

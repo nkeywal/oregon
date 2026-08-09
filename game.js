@@ -566,13 +566,18 @@ function updateDeaths(){
   return deaths[0]??null;
 }
 
+function deathEventAsset(remaining=alive().length){
+  return `incident-death-${clamp(Math.round(remaining),0,4)}.webp`;
+}
+
 function showPendingDeathEvent(){
   const traveler=game.pendingDeath;
   if(!traveler)return false;
-  game.pendingDeath=null;game.deathEventOpen=true;
-  eventModal(bilingual("Un compagnon est mort","A companion has died"),bilingual(`${traveler.name} est mort sur la piste.`,`${traveler.name} died on the trail.`),bilingual("Le convoi s’arrête pour lui offrir une sépulture avant de reprendre la route.","The wagon party stops to give them a burial before returning to the trail."),[
-    {label:bilingual("Rendre un dernier hommage et repartir","Pay your last respects and leave"),action:()=>{game.deathEventOpen=false;if(alive().length===0){finish(false,"La piste a eu raison de tout le convoi.");return;}setTimeout(showPendingRiverOutcome,0)}}
-  ],"incident-death.webp");
+  game.pendingDeath=null;game.deathEventOpen=true;const remaining=alive().length;
+  const details=remaining?bilingual("Le convoi s’arrête pour lui offrir une sépulture avant de reprendre la route.","The wagon party stops to give them a burial before returning to the trail."):bilingual("Le chariot demeure seul près des tombes. Plus personne ne reprendra la piste.","The wagon stands alone beside the graves. No one remains to return to the trail.");
+  eventModal(bilingual("Un compagnon est mort","A companion has died"),bilingual(`${traveler.name} est mort sur la piste.`,`${traveler.name} died on the trail.`),details,[
+    {label:remaining?bilingual("Rendre un dernier hommage et repartir","Pay your last respects and leave"):bilingual("Voir le bilan du convoi","View the wagon party’s final report"),action:()=>{game.deathEventOpen=false;if(!remaining){finish(false,"La piste a eu raison de tout le convoi.");return;}setTimeout(showPendingRiverOutcome,0)}}
+  ],deathEventAsset());
   return true;
 }
 
@@ -1104,8 +1109,6 @@ function huntBackground(){
 function startHunt(){
   if(game.cart.munitions<=0){toast("Vous n’avez plus de munitions.");return;}
   if(game.cart.vivres>=SHOP.vivres.max){toast("Le chariot ne peut pas charger davantage de vivres.");return;}
-  consumeDelay(1,2,false);updateDeaths();
-  if(showPendingDeathEvent()||game.finished)return;
   const wildlife=huntWildlife();
   hunt={time:14,loot:0,limit:Math.min(90,SHOP.vivres.max-game.cart.vivres),shots:0,background:huntBackground(),cross:{x:380,y:210},animals:[],species:wildlife.pool,last:performance.now(),running:true};
   for(let i=0;i<wildlife.count;i++)spawnAnimal(i*145);
@@ -1113,6 +1116,14 @@ function startHunt(){
   $("#dialogue-chasse .eyebrow").textContent=languageText(regionVisual().title);
   $("#chasse-balles").textContent=game.cart.munitions;$("#chasse-butin").textContent=0;$("#chasse-temps").textContent=14;
   $("#dialogue-chasse").showModal();canvas.focus();requestAnimationFrame(huntLoop);
+}
+
+function resolveHuntDay(loot){
+  const loaded=loadFood(loot);
+  const food=consumeDelay(1,2,false);
+  refreshWeather();
+  const deceased=updateDeaths();
+  return {loaded,food,deceased};
 }
 
 function spawnAnimal(offset=0){
@@ -1161,7 +1172,8 @@ function shoot(touchAssist=false){
 
 function endHunt(){
   if(!hunt?.running)return;
-  const result={shots:hunt.shots,remaining:game.cart.munitions,loot:hunt.loot,background:hunt.background};hunt.running=false;loadFood(result.loot);refreshWeather();
+  const result={shots:hunt.shots,remaining:game.cart.munitions,loot:hunt.loot,background:hunt.background};hunt.running=false;
+  const consequences=resolveHuntDay(result.loot);result.loot=consequences.loaded;
   addJournal(result.loot?bilingual(`La chasse rapporte ${result.loot} kg de viande pour ${result.shots} balle${result.shots>1?"s":""} tirée${result.shots>1?"s":""}.`,`The hunt yielded ${result.loot} kg of meat for ${result.shots} bullet${result.shots===1?"":"s"} fired.`):bilingual("La chasse ne rapporte rien cette fois.","The hunt yielded nothing this time."));
   $("#dialogue-chasse").close();updateUI();hunt=null;
   $("#dialogue-bilan-chasse .hunt-result-art").style.backgroundImage=`url('assets/${result.background}')`;
@@ -1249,7 +1261,11 @@ function bindEvents(){
       setTimeout(()=>riverEvent(retry.mark,art,next,bilingual("Après l’échec, le niveau a été mesuré de nouveau.","After the failed attempt, the water level was measured again.")),0);
     }else returnToTrailTop();
   });
-  $("#dialogue-bilan-chasse").addEventListener("close",returnToTrailTop);
+  $("#dialogue-bilan-chasse").addEventListener("close",()=>{
+    if(showPendingDeathEvent()){updateUI();return;}
+    if(checkJourneyFailure())return;
+    returnToTrailTop();
+  });
   $("#dialogue-info").addEventListener("close",()=>{activeInfoView=null});
   $("#attaque-gauche").addEventListener("click",()=>moveAttack(-1));$("#attaque-droite").addEventListener("click",()=>moveAttack(1));$("#soigner-attaque").addEventListener("click",treatAttackWounds);$("#continuer-attaque").addEventListener("click",continueAfterAttack);
   const canvas=$("#canvas-chasse");canvas.addEventListener("pointermove",e=>{if(e.pointerType==="mouse")aimHuntAt(e)});canvas.addEventListener("pointerdown",e=>{if(!e.isPrimary||!hunt)return;e.preventDefault();aimHuntAt(e);shoot(e.pointerType!=="mouse")});canvas.addEventListener("keydown",e=>{if(!hunt)return;const step=18;if(e.key==="ArrowLeft")hunt.cross.x-=step;if(e.key==="ArrowRight")hunt.cross.x+=step;if(e.key==="ArrowUp")hunt.cross.y-=step;if(e.key==="ArrowDown")hunt.cross.y+=step;if(e.code==="Space"){e.preventDefault();shoot()}hunt.cross.x=clamp(hunt.cross.x,0,canvas.width);hunt.cross.y=clamp(hunt.cross.y,0,canvas.height)});

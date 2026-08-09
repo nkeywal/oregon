@@ -738,9 +738,16 @@ function randomEvent(){
   game.lastEvent=selected.eventId;selected();
 }
 
-function restEventPool(){
-  const allowed=new Set(["attack","theft","trade","encounter","fever","dysentery","contagious","climate-injury","blankets"]);
-  return eventPool().filter(event=>allowed.has(event.eventId));
+const REST_EVENT_IDS=new Set(["attack","theft","trade","encounter","fever","dysentery","contagious","climate-injury","blankets"]);
+
+function restEventPool(){return eventPool().filter(event=>REST_EVENT_IDS.has(event.eventId))}
+
+function selectRestEvent(){
+  // Le choix se fait dans le même ensemble pondéré qu'en voyage afin que la
+  // probabilité quotidienne de chaque événement reste identique. Un accident
+  // propre au déplacement devient simplement une journée calme au camp.
+  const selected=selectEvent(eventPool());
+  return selected&&REST_EVENT_IDS.has(selected.eventId)?selected:null;
 }
 
 function groupJournalSummary(){
@@ -761,7 +768,7 @@ function performRest(days=2,atFort=false){
   for(let day=0;day<days;day++){
     const restWeather=game.weather;consumeDelay(1,2);rested++;updateDeaths();
     if(game.pendingDeath||game.finished)break;
-    if(!atFort&&dailyIncidentOccurs(pace,restWeather)){selected=selectEvent(restEventPool());if(selected)break;}
+    if(!atFort&&dailyIncidentOccurs(pace,restWeather)){selected=selectRestEvent();if(selected)break;}
   }
   const portion=rested/Math.max(1,days);
   game.oxStrain=clamp(game.oxStrain-3*portion,0,10);

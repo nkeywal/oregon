@@ -101,7 +101,6 @@ const PACES = {
 // Fonte printanière, étiage estival et réaction aux conditions des derniers jours.
 const RIVER_SEASON_LEVEL = [-.15,-.1,.05,.25,.4,.3,.05,-.2,-.25,-.1,-.05,-.1];
 const RIVER_WEATHER_LEVEL = {Doux:0,Chaud:-.18,Pluvieux:.35,Froid:-.1,Neige:-.15};
-const RIVER_WAIT_VOLATILITY = {Doux:.3,Chaud:.38,Pluvieux:.5,Froid:.32,Neige:.34};
 
 let game = null;
 let cart = Object.fromEntries(Object.entries(SHOP).map(([k,v]) => [k,v.start]));
@@ -208,10 +207,10 @@ function applyFoodShortage(food,days) {
   addJournal(bilingual(`Les vivres n’ont pas suffi pendant ${days} jour${days>1?"s":""}. La faim a affaibli le groupe.`,`Food ran short for ${days} day${days===1?"":"s"}. Hunger weakened the party.`));
   return penalty;
 }
-function consumeDelay(days,perPerson=dailyFoodPerPerson(),refreshClimate=true) {
+function consumeDelay(days,perPerson=dailyFoodPerPerson(),refreshClimate=true,resting=false,atFort=false) {
   const food={needed:0,consumed:0,missing:0};
   for(let day=0;day<days;day++){
-    advanceDate(1);const daily=consumeFood(1,perPerson);
+    advanceDate(1,resting,atFort);const daily=consumeFood(1,perPerson);
     food.needed+=daily.needed;food.consumed+=daily.consumed;food.missing+=daily.missing;
     if(refreshClimate)refreshWeather();
   }
@@ -288,12 +287,13 @@ function riverDepth(mark,previous=null) {
   const localVariation=rand(-22,22)/100;
   const expected=mark.baseDepth+seasonal+weather+localVariation;
   if(previous===null)return clamp(expected,.3,3.4);
-  // En trois jours, le fleuve garde un peu d'inertie mais réagit franchement
-  // à la saison, aux trois derniers jours de météo et aux crues locales.
-  const volatility=RIVER_WAIT_VOLATILITY[game.weather.name]??.32;
-  const localShock=rand(-Math.round(volatility*100),Math.round(volatility*100))/100;
+  // Après trois jours, un grand fleuve peut varier d'environ un mètre autour
+  // de son niveau moyen. La saison et la météo déplacent le centre de cette
+  // plage, tandis que le bassin versant détermine son amplitude.
+  const variationRadius=clamp(mark.baseDepth*.5,.5,1.05);
+  const localShock=rand(-Math.round(variationRadius*100),Math.round(variationRadius*100))/100;
   const weatherPulse=game.weather.name==="Pluvieux"?rand(5,24)/100:game.weather.name==="Chaud"?-rand(3,18)/100:["Froid","Neige"].includes(game.weather.name)?-rand(0,10)/100:rand(-5,5)/100;
-  const measured=previous*.3+expected*.7+localShock+weatherPulse;
+  const measured=previous*.1+(expected+localShock)*.9+weatherPulse;
   return clamp(measured,.3,3.4);
 }
 
@@ -329,6 +329,11 @@ function addJournal(text) {
   game.journal.unshift(entry);return entry;
 }
 
+function addJournalStandalone(text){
+  const entry={day:game.day,month:game.month,year:game.year,text};
+  game.journal.unshift(entry);return entry;
+}
+
 function mergeJournalEntry(entry,text) {
   if(!entry)return addJournal(text);
   entry.text=bilingualJoin(entry.text," ",text);return entry;
@@ -343,7 +348,13 @@ function recoveryJournal(traveler,condition){
   addJournal(bilingual(fr,en));
 }
 
-function advanceDate(days) {
+function recoveryWithWoundJournal(traveler,condition){
+  const fr={Dysenterie:`${traveler.name} s’est remis de la dysenterie, mais sa blessure exige encore des soins.`,Fièvre:`La fièvre de ${traveler.name} est tombée, mais sa blessure exige encore des soins.`,Malade:`${traveler.name} s’est remis de sa maladie, mais sa blessure exige encore des soins.`,Blessé:`${traveler.name} se remet de sa première blessure, mais celle de l’attaque exige encore des soins.`,Engelures:`${traveler.name} ne souffre plus de ses engelures, mais sa blessure exige encore des soins.`,Piqûres:`Les piqûres de ${traveler.name} ont guéri, mais sa blessure exige encore des soins.`,Convalescent:`${traveler.name} a achevé sa convalescence, mais sa blessure exige encore des soins.`}[condition]??`${traveler.name} va mieux, mais sa blessure exige encore des soins.`;
+  const en={Dysenterie:`${traveler.name} has recovered from dysentery, but the wound still needs care.`,Fièvre:`${traveler.name}’s fever has broken, but the wound still needs care.`,Malade:`${traveler.name} has recovered from illness, but the wound still needs care.`,Blessé:`${traveler.name} has recovered from the first injury, but the attack wound still needs care.`,Engelures:`${traveler.name} has recovered from frostbite, but the wound still needs care.`,Piqûres:`${traveler.name}’s bites have healed, but the wound still needs care.`,Convalescent:`${traveler.name} has completed recovery, but the wound still needs care.`}[condition]??`${traveler.name} is better, but the wound still needs care.`;
+  addJournal(bilingual(fr,en));
+}
+
+function advanceDate(days,resting=false,atFort=false) {
   for(let i=0;i<days;i++){
     game.day++; game.days++;
     const lengths=[31,(game.year%4===0?29:28),31,30,31,30,31,31,30,31,30,31];
@@ -352,12 +363,14 @@ function advanceDate(days) {
       const previousCondition=p.state,wasSick=p.sickDays>0,wasWounded=(p.woundDays??0)>0;
       let dailyLoss=0;
       if(p.sickDays>0){
+        const injury=["Blessé","Convalescent","Engelures","Piqûres"].includes(p.state);
         const untreatedLoss=({Dysenterie:3,Fièvre:2,Malade:2,Blessé:2,Engelures:2,Piqûres:1,Convalescent:1}[p.state]??1);
-        dailyLoss+=p.treated?Math.max(1,Math.floor(untreatedLoss/2)):untreatedLoss;
-        p.sickDays--;
+        if(!(resting&&injury))dailyLoss+=p.treated?Math.max(1,Math.floor(untreatedLoss/2)):untreatedLoss;
+        p.sickDays=Math.max(0,p.sickDays-(resting&&injury?(atFort?3:2):1));
       }
       if((p.woundDays??0)>0){
-        dailyLoss+=p.needsRemedy?2:1;p.woundDays--;
+        if(!resting)dailyLoss+=p.needsRemedy?2:1;
+        p.woundDays=Math.max(0,p.woundDays-(resting?(atFort?3:2):1));
         if(p.woundDays<=0)p.needsRemedy=false;
       }
       p.health=clamp(p.health-dailyLoss,0,100);
@@ -368,7 +381,7 @@ function advanceDate(days) {
       }
       const illnessEnded=wasSick&&p.sickDays<=0,woundEnded=wasWounded&&(p.woundDays??0)<=0;
       if(illnessEnded){
-        if((p.woundDays??0)>0)addJournal(bilingual(`${p.name} a vaincu ${previousCondition.toLowerCase()}, mais sa blessure exige encore des soins.`,`${p.name} has overcome ${languageText(previousCondition,"en").toLowerCase()}, but the wound still needs care.`));
+        if((p.woundDays??0)>0)recoveryWithWoundJournal(p,previousCondition);
         else recoveryJournal(p,previousCondition);
       }
       if(woundEnded&&!illnessEnded){
@@ -698,7 +711,7 @@ function updateDeaths(cause=null){
   // Une même étape peut affaiblir tout le groupe, mais ne doit pas tuer
   // plusieurs voyageurs simultanément. Les autres restent en état critique.
   for(const p of dying.slice(1)){
-    p.health=1;p.state="Très faible";
+    p.health=1;p.deathCause=null;
   }
   return deaths[0]??null;
 }
@@ -821,22 +834,40 @@ function groupJournalSummary(){
   return bilingual("Le groupe reste au bord de l’épuisement malgré la halte.","The party remains near exhaustion despite the halt.");
 }
 
+function restEventJournalLabel(eventId,language=currentLanguage){
+  const labels={
+    attack:{fr:"une attaque contre le camp",en:"an attack on the camp"},
+    theft:{fr:"un vol au camp",en:"a theft at camp"},
+    trade:{fr:"une proposition commerciale",en:"a trade offer"},
+    encounter:{fr:"une rencontre avec d’autres voyageurs",en:"an encounter with other travelers"},
+    fever:{fr:"une forte fièvre",en:"a high fever"},
+    dysentery:{fr:"un cas de dysenterie",en:"a case of dysentery"},
+    contagious:{fr:"une maladie contagieuse",en:"a contagious illness"},
+    "climate-injury":{fr:"une blessure liée au climat",en:"a weather-related injury"},
+    blankets:{fr:"la perte de couvertures",en:"the loss of blankets"}
+  };
+  return labels[eventId]?.[language]??(language==="en"?"an incident at camp":"un incident au camp");
+}
+
 function performRest(days=2,atFort=false){
   const streak=game.lastRestDay===game.days?(game.restStreak??0)+1:1,pace=PACES[game.pace];
   let rested=0,selected=null;
   for(let day=0;day<days;day++){
-    const restWeather=game.weather;consumeDelay(1,2);rested++;updateDeaths();
+    const restWeather=game.weather;consumeDelay(1,2,true,true,atFort);rested++;
+    alive().forEach(traveler=>{
+      traveler.health=clamp(traveler.health+restRecovery(traveler,streak,atFort)/Math.max(1,days),0,100);
+      if(traveler.health>0&&traveler.deathCause)traveler.deathCause=null;
+    });
+    updateDeaths();
     if(game.pendingDeath||game.finished)break;
     if(!atFort&&dailyIncidentOccurs(pace,restWeather)){selected=selectRestEvent();if(selected)break;}
   }
   const portion=rested/Math.max(1,days);
   game.oxStrain=clamp(game.oxStrain-3*portion,0,10);
-  alive().forEach(traveler=>traveler.health=clamp(traveler.health+restRecovery(traveler,streak,atFort)*portion,0,100));
   game.restStreak=streak;game.lastRestDay=game.days;
-  const repeatFr=streak>1?" Les haltes successives apportent chaque fois moins de répit.":"",repeatEn=streak>1?" Each successive halt brings less relief.":"";
-  const interruptionFr=selected?" La halte a été interrompue par un événement au camp.":"",interruptionEn=selected?" An event in camp interrupted the halt.":"";
+  const interruptionFr=selected?` La halte a été interrompue par ${restEventJournalLabel(selected.eventId,"fr")}.`:"",interruptionEn=selected?` The halt was interrupted by ${restEventJournalLabel(selected.eventId,"en")}.`:"";
   const state=groupJournalSummary();
-  addJournal(bilingual(`${rested} jour${rested>1?"s":""} de repos ont soulagé le groupe et l’attelage.${repeatFr}${interruptionFr} ${state.fr}`,`${rested} day${rested===1?"":"s"} of rest eased the party and the oxen.${repeatEn}${interruptionEn} ${state.en}`));
+  addJournal(bilingual(`${rested} jour${rested>1?"s":""} de repos ${rested===1?"a":"ont"} soulagé le groupe et l’attelage.${interruptionFr} ${state.fr}`,`${rested} day${rested===1?"":"s"} of rest eased the party and the oxen.${interruptionEn} ${state.en}`));
   return {days:rested,streak,event:selected};
 }
 
@@ -960,9 +991,10 @@ function tradeEvent(){
   const viableOffers=offers.filter(canAcceptOffer),offer=pick(viableOffers.length?viableOffers:offers),buying=offer.mode==="buy",offerLabelEn=itemQuantityFor(offer.key,offer.qty,"en");
   const canAccept=canAcceptOffer(offer);
   const text=bilingual(buying?`Un marchand vous propose ${offer.label} pour ${offer.price} $.`:`Un voyageur vous offre ${offer.price} $ pour ${offer.label}.`,buying?`A merchant offers you ${offerLabelEn} for $${offer.price}.`:`A traveler offers you $${offer.price} for ${offerLabelEn}.`);
+  const refusal=bilingual(buying?`Nous avons refusé d’acheter ${offer.label} pour ${offer.price} $.`:`Nous avons refusé de vendre ${offer.label} contre ${offer.price} $.`,buying?`We declined to buy ${offerLabelEn} for $${offer.price}.`:`We declined to sell ${offerLabelEn} for $${offer.price}.`);
   eventModal("Une proposition sur la piste",text,"La quantité et le prix sont fixes. Acceptez-vous l’offre ?",[
     {label:"Accepter",disabled:!canAccept,action:()=>{if(buying){game.money-=offer.price;game.cart[offer.key]+=offer.qty;}else{game.money+=offer.price;game.cart[offer.key]-=offer.qty;}addJournal(bilingual(`Marché conclu : ${offer.label} pour ${offer.price} $.`,`Trade completed: ${offerLabelEn} for $${offer.price}.`))}},
-    {label:"Refuser",action:()=>addJournal("Nous avons refusé une proposition commerciale.")}
+    {label:"Refuser",action:()=>addJournal(refusal)}
   ],"incident-trade.webp");
 }
 
@@ -1088,6 +1120,7 @@ function riverRisk(mark,depth,crossingWeather=weatherVisual()){
 }
 
 function fortEvent(mark,art=fortArrivalAsset(mark)){
+  addJournal(bilingual(`Arrivée à ${mark.name}.`,`Arrived at ${landmarkName(mark)}.`));
   const price=Math.round(1.3+game.km/KM_TOTAL*.7);
   const foodCost=20*price, ammoCost=ammoPrice(6)*price;
   const equipment=shuffled([
@@ -1102,7 +1135,7 @@ function fortEvent(mark,art=fortArrivalAsset(mark)){
     ...equipment.map(item=>({label:bilingual(`Acheter ${item.label} (${item.cost} $)`,`Buy ${item.labelEn} ($${item.cost})`),keepOpen:true,disabled:()=>game.money<item.cost||game.cart[item.key]+item.qty>SHOP[item.key].max,action:()=>{game.money-=item.cost;game.cart[item.key]+=item.qty;addJournal(bilingual(`Achat de ${item.label} à ${mark.name}.`,`Bought ${item.labelEn} at ${landmarkName(mark)}.`))},feedback:()=>bilingual(`Achat effectué : ${item.label}. Vous avez maintenant ${itemQuantityFor(item.key,game.cart[item.key],"fr")}.`,`Purchase complete: ${item.labelEn}. You now have ${itemQuantityFor(item.key,game.cart[item.key],"en")}.`)})),
     {label:"Se reposer 2 jours",keepOpen:true,disabled:()=>game.cart.vivres<alive().length*4,action:()=>{performRest(2,true);refreshFortArrivalArt(mark)},feedback:fortRestFeedback},
     {label:"Inventaire",keepOpen:true,withInventory:false,action:showInventory},
-    {label:"Repartir",primary:true,action:()=>addJournal(bilingual(`Passage à ${mark.name}.`,`Passed through ${landmarkName(mark)}.`))}
+    {label:"Repartir",primary:true,action:()=>addJournal(bilingual(`Départ de ${mark.name} : le convoi reprend la piste.`,`Departed ${landmarkName(mark)}: the wagon party returns to the trail.`))}
   ];
   eventModal(bilingual(mark.name,landmarkName(mark)),"Palissades, forge et odeur de pain frais : une halte bienvenue.","Le stock d’équipement varie à chaque fort. Vous pouvez effectuer plusieurs achats avant de repartir.",actions,art);
 }
@@ -1177,15 +1210,23 @@ function wildlifeDescription(route,language=currentLanguage){
   return language==="en"?`${abundance} game: ${joinList(names,"en")}`:`gibier ${abundance} : ${joinList(names,"fr")}`;
 }
 
+function currentWildlifeDescription(language=currentLanguage){
+  const setup=huntWildlife(routeSegmentAt(),game.weather),species=[...new Set(setup.pool)].map(name=>HUNT_SPECIES_NAMES[name][language]);
+  const abundance=setup.count>=4?(language==="en"?"plentiful":"abondant"):setup.count>=2?(language==="en"?"scattered":"dispersé"):(language==="en"?"scarce":"rare");
+  const weather=languageText(game.weather.name,language).toLowerCase();
+  return language==="en"?`${abundance} game in the current ${weather} weather: ${joinList(species,"en")}.`:`Gibier ${abundance} par le temps ${weather} actuel : ${joinList(species,"fr")}.`;
+}
+
 function renderTrailOutlook(distance=150){
   const start=Math.min(game.km,KM_TOTAL),end=Math.min(KM_TOTAL,start+distance),span=Math.max(0,Math.round(end-start));
-  if(!span)return `<div class="trail-outlook"><h4>${currentLanguage==="en"?"Ahead of the wagon":"Devant le convoi"}</h4><p>${currentLanguage==="en"?"The trail ends here.":"La piste s’achève ici."}</p></div>`;
+  const currentGame=`<div class="current-wildlife"><h4>${currentLanguage==="en"?"Game here today":"Gibier ici aujourd’hui"}</h4><p>${escapeHtml(currentWildlifeDescription())}</p></div>`;
+  if(!span)return `${currentGame}<div class="trail-outlook"><h4>${currentLanguage==="en"?"Ahead of the wagon":"Devant le convoi"}</h4><p>${currentLanguage==="en"?"The trail ends here.":"La piste s’achève ici."}</p></div>`;
   const entries=ROUTE_SEGMENTS.filter(route=>route.end>start&&route.start<end).map(route=>{
     const covered=Math.max(1,Math.round(Math.min(route.end,end)-Math.max(route.start,start))),terrain=route.terrain[currentLanguage]??route.terrain.fr,slope=route.slope[currentLanguage]??route.slope.fr,road=route.road[currentLanguage]??route.road.fr;
     const text=currentLanguage==="en"?`${slope}; ${road}; ${routeSpeedDescription(route,"en")}; ${wildlifeDescription(route,"en")}.`:`${slope} ; ${road} ; ${routeSpeedDescription(route,"fr")} ; ${wildlifeDescription(route,"fr")}.`;
     return `<li><strong>${covered} km · ${escapeHtml(terrain)}</strong><span>${escapeHtml(text)}</span></li>`;
   }).join("");
-  return `<div class="trail-outlook"><h4>${currentLanguage==="en"?`The next ${span} km`:`Les ${span} prochains kilomètres`}</h4><ul>${entries}</ul></div>`;
+  return `${currentGame}<div class="trail-outlook"><h4>${currentLanguage==="en"?`The next ${span} km`:`Les ${span} prochains kilomètres`}</h4><ul>${entries}</ul></div>`;
 }
 
 function renderTrailMap(){
@@ -1239,13 +1280,13 @@ function finalJourneyJournal(win){
   const survivors=alive().map(traveler=>traveler.name);
   if(win){
     const namesFr=joinList(survivors,"fr"),namesEn=joinList(survivors,"en");
-    return addJournal(bilingual(`${namesFr} ${survivors.length===1?"atteint":"atteignent"} la vallée de Willamette : le convoi est arrivé en Oregon.`,`${namesEn} ${survivors.length===1?"reaches":"reach"} the Willamette Valley: the wagon party has arrived in Oregon.`));
+    return addJournalStandalone(bilingual(`${namesFr} ${survivors.length===1?"atteint":"atteignent"} la vallée de Willamette : le convoi est arrivé en Oregon.`,`${namesEn} ${survivors.length===1?"reaches":"reach"} the Willamette Valley: the wagon party has arrived in Oregon.`));
   }
   const route=routeSegmentAt(),km=Math.round(game.km);
   if(survivors.length){
-    return addJournal(bilingual(`Le voyage de ${joinList(survivors,"fr")} s’achève au kilomètre ${km}, dans la région « ${route.terrain.fr} ».`,`The journey of ${joinList(survivors,"en")} ends at kilometer ${km}, in the ${route.terrain.en}.`));
+    return addJournalStandalone(bilingual(`Le voyage de ${joinList(survivors,"fr")} s’achève au kilomètre ${km}, dans la région « ${route.terrain.fr} ».`,`The journey of ${joinList(survivors,"en")} ends at kilometer ${km}, in the ${route.terrain.en}.`));
   }
-  return addJournal(bilingual(`Le convoi a disparu au kilomètre ${km}, dans la région « ${route.terrain.fr} ».`,`The wagon party vanished at kilometer ${km}, in the ${route.terrain.en}.`));
+  return addJournalStandalone(bilingual(`Le convoi a disparu au kilomètre ${km}, dans la région « ${route.terrain.fr} ».`,`The wagon party vanished at kilometer ${km}, in the ${route.terrain.en}.`));
 }
 
 function finishScoreText(win,score){

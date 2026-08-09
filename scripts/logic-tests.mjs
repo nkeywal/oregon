@@ -184,6 +184,12 @@ test("the map describes terrain, pace, and game for the next 150 km",()=>{
   assert.match(html,/lapins/);assert.match(html,/oiseaux/);assert.doesNotMatch(html,/bisons/);
 });
 
+test("the map distinguishes game available here today from the forecast ahead",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.km=1900;game.weather=WEATHER.find(weather=>weather.name==="Froid");escapeHtml=value=>String(value);const current=currentWildlifeDescription("fr"),html=renderTrailOutlook(150);({current,html})`);
+  assert.match(result.html,/Gibier ici aujourd’hui/);assert.match(result.html,/Les 150 prochains kilomètres/);
+  assert.match(result.current,/lapins|oiseaux/);assert.doesNotMatch(result.current,/bisons/);
+});
+
 test("generated daily weather always respects transition constraints",()=>{
   const result=scenario(`let history=["Neige"],valid=true;for(let i=0;i<500;i++){const km=[500,1600,1900,2700,3000][i%5],next=weatherForPosition(i%12,15,1848,km,history);if(!weatherTransitionAllowed(history.at(-1),next.name))valid=false;history=[...history,next.name].slice(-3)}valid`);
   assert.equal(result,true);
@@ -279,10 +285,31 @@ test("named recoveries are preserved in the journal without internal health valu
   assert.match(text,/Alice/);assert.match(text,/fièvre/);assert.doesNotMatch(text,/point|%/i);
 });
 
+test("recovery alongside an attack wound uses natural French",()=>{
+  const text=scenario(`game=baseGame(["Sacha"],"fermier",3);const sacha=game.party[0];Object.assign(sacha,{state:"Fièvre",sickDays:1,woundDays:5,needsRemedy:true});advanceDate(1);game.journal[0].text.fr`);
+  assert.match(text,/La fièvre de Sacha est tombée/);assert.match(text,/blessure exige encore des soins/);assert.doesNotMatch(text,/vaincu fièvre/);
+});
+
 test("rest reports the party condition and gives diminishing returns",()=>{
   const result=scenario(`game=baseGame(["Alice","B","C","D","E"],"fermier",3);game.cart.vivres=100;game.party.forEach(p=>p.health=45);game.party[0].state="Blessé";game.party[0].sickDays=8;dailyIncidentOccurs=()=>false;const before=game.party[1].health;const first=performRest(2);const afterFirst=game.party[1].health;const firstText=game.journal[0].text.fr;const second=performRest(2);({firstGain:afterFirst-before,secondGain:game.party[1].health-afterFirst,streak:second.streak,firstText,secondText:game.journal[0].text.fr})`);
   assert.ok(result.firstGain>result.secondGain);assert.equal(result.streak,2);
-  assert.match(result.firstText,/Alice \(blessé\)|état|groupe/i);assert.match(result.secondText,/moins de répit/);
+  assert.match(result.firstText,/Alice \(blessé\)|état|groupe/i);assert.doesNotMatch(result.secondText,/moins de répit|haltes successives/i);
+});
+
+test("wounds keep healing through successive rests",()=>{
+  const result=scenario(`game=baseGame(["Alice","B"],"fermier",3);game.cart.vivres=100;dailyIncidentOccurs=()=>false;const attackWound=game.party[0],trailWound=game.party[1];Object.assign(attackWound,{health:45,state:"Blessé",woundDays:8,needsRemedy:true});Object.assign(trailWound,{health:45,state:"Blessé",sickDays:8});performRest(2);const first={attack:attackWound.woundDays,trail:trailWound.sickDays};performRest(2);({first,second:{attack:attackWound.woundDays,trail:trailWound.sickDays},states:[attackWound.state,trailWound.state],health:[attackWound.health,trailWound.health]})`);
+  assert.ok(result.first.attack<8&&result.first.trail<8);assert.equal(result.second.attack,0);assert.equal(result.second.trail,0);
+  assert.ok(result.health.every(value=>value>45),JSON.stringify(result));
+});
+
+test("a fed critical patient receives the day's rest before death is resolved",()=>{
+  const result=scenario(`game=baseGame(["Lou"],"fermier",3);game.cart.vivres=20;dailyIncidentOccurs=()=>false;const lou=game.party[0];Object.assign(lou,{health:1,state:"Fièvre",sickDays:8});const outcome=performRest(1);({alive:lou.alive,health:lou.health,cause:lou.deathCause,days:outcome.days,text:game.journal[0].text.fr})`);
+  assert.equal(result.alive,true);assert.ok(result.health>0);assert.equal(result.cause,null);assert.match(result.text,/1 jour de repos a soulagé/);
+});
+
+test("rest summaries identify the event that interrupted the halt",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{vivres:100,boeufs:6,pieces:2,vetements:5});dailyIncidentOccurs=()=>true;selectRestEvent=()=>restEventPool().find(event=>event.eventId==="attack");performRest(2);game.journal[0].text`);
+  assert.match(result.fr,/attaque contre le camp/);assert.match(result.en,/attack on the camp/);assert.doesNotMatch(result.fr,/un événement au camp/);
 });
 
 test("rest recovery mainly benefits exhausted travelers",()=>{
@@ -395,9 +422,16 @@ test("trade selection prefers an offer the player can accept",()=>{
   assert.equal(result.acceptDisabled,false);assert.equal(result.before,1);
 });
 
+test("declining a trade records the exact rejected offer",()=>{
+  const result=scenario(`const run=(moneyValue,stock)=>{game=baseGame(["A"],"fermier",3);game.money=moneyValue;for(const key of Object.keys(game.cart))game.cart[key]=0;Object.assign(game.cart,stock);let actions;eventModal=(title,text,details,value)=>actions=value;Math.random=()=>0;tradeEvent();actions[1].action();return game.journal[0].text};({buy:run(1000,{}),sell:run(0,{pieces:1})})`);
+  assert.match(result.buy.fr,/refusé d’acheter 50 kg de vivres pour 34 \$/);assert.match(result.buy.en,/declined to buy 50 kg of food for \$34/);
+  assert.match(result.sell.fr,/refusé de vendre 1 pièce de rechange contre 20 \$/);assert.match(result.sell.en,/declined to sell 1 spare part for \$20/);
+});
+
 test("one resolution kills at most one traveler",()=>{
-  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.party.forEach(p=>p.health=0);const deceased=updateDeaths();({dead:game.party.filter(p=>!p.alive).length,critical:game.party.filter(p=>p.alive&&p.health===1).length,pending:game.pendingDeath.name,deceased:deceased.name})`);
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.party.forEach(p=>{p.health=0;p.state="Fièvre";p.sickDays=3;p.deathCause=bilingual("de la fièvre","from fever")});const deceased=updateDeaths();({dead:game.party.filter(p=>!p.alive).length,critical:game.party.filter(p=>p.alive&&p.health===1).length,pending:game.pendingDeath.name,deceased:deceased.name,survivors:game.party.filter(p=>p.alive).map(p=>({state:p.state,cause:p.deathCause}))})`);
   assert.equal(result.dead,1);assert.equal(result.critical,4);assert.equal(result.pending,result.deceased);
+  assert.ok(result.survivors.every(traveler=>traveler.state==="Fièvre"&&traveler.cause===null));
 });
 
 test("a death opens a specific illustrated event",()=>{
@@ -424,6 +458,11 @@ test("death artwork reflects every possible survivor count",()=>{
 test("the last companion's death uses the empty-camp report",()=>{
   const result=scenario(`game=baseGame(["Lou"],"fermier",3);game.party[0].health=0;eventModal=(title,text,details,actions,art)=>{game.deathEvent={details,action:actions[0],art}};updateDeaths();showPendingDeathEvent();({art:game.deathEvent.art,details:game.deathEvent.details.fr,label:game.deathEvent.action.label.fr})`);
   assert.equal(result.art,"incident-death-0.webp");assert.match(result.details,/Plus personne/);assert.equal(result.label,"Voir le bilan du convoi");
+});
+
+test("the last death entry is not overwritten by the final journey entry",()=>{
+  const result=scenario(`game=baseGame(["Lou"],"fermier",3);game.km=2920;const lou=game.party[0];Object.assign(lou,{health:0,state:"Fièvre",sickDays:5});renderFinish=()=>{};eventModal=(title,text,details,actions)=>{const entry=addJournal(bilingualJoin(title," — ",text));entry.captureOutcomes=true;entry.outcomeFragments=[];journalMergeTarget=entry;actions[0].action();journalMergeTarget=null};updateDeaths();showPendingDeathEvent();game.journal.map(entry=>entry.text)`);
+  assert.equal(result.length,2);assert.match(result[0].fr,/convoi a disparu au kilomètre 2920/);assert.match(result[1].fr,/Lou est mort de la fièvre/);
 });
 
 test("clicking hunt starts the mini-game before a day elapses",()=>{
@@ -518,8 +557,8 @@ test("river depth stays physical across seasonal and weather variation",()=>{
 });
 
 test("waiting produces visibly varied river levels",()=>{
-  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);const mark=LANDMARKS.find(m=>m.kind==="river");game.weather=WEATHER.find(weather=>weather.name==="Doux");game.weatherHistory=["Doux","Doux","Doux"];let seed=71;Math.random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296};const levels=Array.from({length:120},()=>riverDepth(mark,1.2));({minimum:Math.min(...levels),maximum:Math.max(...levels),rounded:new Set(levels.map(level=>level.toFixed(1))).size})`);
-  assert.ok(result.maximum-result.minimum>.55,JSON.stringify(result));assert.ok(result.rounded>=6,JSON.stringify(result));
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);const mark=LANDMARKS.find(m=>m.name==="The Dalles");game.weather=WEATHER.find(weather=>weather.name==="Doux");game.weatherHistory=["Doux","Doux","Doux"];let seed=71;Math.random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296};const levels=Array.from({length:300},()=>riverDepth(mark,2));({minimum:Math.min(...levels),maximum:Math.max(...levels),rounded:new Set(levels.map(level=>level.toFixed(1))).size})`);
+  assert.ok(result.maximum-result.minimum>1.7,JSON.stringify(result));assert.ok(result.minimum<1.5&&result.maximum>3,JSON.stringify(result));assert.ok(result.rounded>=15,JSON.stringify(result));
 });
 
 test("season and recent weather strongly influence a level measured after waiting",()=>{
@@ -556,6 +595,12 @@ test("river report is shown before a crossing loss can end the journey",()=>{
 test("fort stops expose the wagon inventory without forcing departure",()=>{
   const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{boeufs:6,vivres:500});let actions;eventModal=(title,text,details,value)=>actions=value;fortEvent(LANDMARKS.find(mark=>mark.kind==="fort"));const inventory=actions.find(action=>languageText(action.label)==="Inventaire");({present:!!inventory,keepOpen:inventory?.keepOpen,withInventory:inventory?.withInventory})`);
   assert.equal(result.present,true);assert.equal(result.keepOpen,true);assert.equal(result.withInventory,false);
+});
+
+test("fort arrival is journaled before rest and departure",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{boeufs:6,vivres:500});dailyIncidentOccurs=()=>false;refreshFortArrivalArt=()=>{};let actions;eventModal=(title,text,details,value)=>actions=value;const mark=LANDMARKS.find(item=>item.name==="Fort Boise");fortEvent(mark);actions.find(action=>String(languageText(action.label,"fr")).includes("reposer")).action();actions.find(action=>languageText(action.label,"fr")==="Repartir").action();game.journal.map(entry=>({day:entry.day,text:entry.text.fr}))`);
+  assert.match(result[0].text,/Départ de Fort Boise/);assert.match(result[1].text,/2 jours de repos/);assert.match(result[2].text,/Arrivée à Fort Boise/);
+  assert.ok(result[2].day<result[1].day);assert.equal(result[1].day,result[0].day);
 });
 
 test("food loading never exceeds capacity",()=>{

@@ -23,6 +23,7 @@ const incidents=["attack","axle","bites","blankets","contagious","dysentery","en
 const rivers=["kansas","snake","dalles"];
 const forts=["fort-kearny","fort-laramie","fort-boise"];
 const riverOutcomes=["ferry","float-accident","float-success","wait"];
+const weatherRiverOutcomes=["ferry","float-accident","float-success"];
 const requiredAssets=[
   "favicon.svg","social.jpg","hero.webp","trail.webp","fort.webp","river.webp","victory.webp","defeat.webp","hunt.webp",
   "hunt-cold.webp","hunt-hot.webp","hunt-rain.webp","weather-cold.webp","weather-hot.webp",
@@ -30,7 +31,8 @@ const requiredAssets=[
   ...stages.flatMap(stage=>["far","mid"].map(distance=>`progress-${stage}-${distance}.webp`)),
   ...forts.flatMap(fort=>climates.map(climate=>`arrival-${fort}-${climate}.webp`)),
   ...incidents.map(name=>`incident-${name}.webp`),
-  ...rivers.flatMap(river=>riverOutcomes.map(outcome=>`river-${river}-${outcome}.webp`))
+  ...rivers.flatMap(river=>riverOutcomes.map(outcome=>`river-${river}-${outcome}.webp`)),
+  ...rivers.flatMap(river=>weatherRiverOutcomes.map(outcome=>`river-weather-${river}-${outcome}.webp`))
 ].map(name=>`assets/${name}`);
 
 const literalAssets=[...`${html}\n${css}\n${game}`.matchAll(/assets\/([a-z0-9][a-z0-9.-]+\.(?:webp|jpg|svg))/gi)]

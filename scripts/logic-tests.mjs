@@ -145,8 +145,14 @@ test("desert segments never generate snow",()=>{
 test("cold and snow make bison and rabbits rarer during hunts",()=>{
   const result=scenario(`const wildlife=name=>{game=baseGame(["A","B","C","D","E"],"fermier",3);game.weather={...WEATHER.find(weather=>weather.name===name)};const setup=huntWildlife(),frequency=species=>setup.pool.filter(item=>item===species).length/setup.pool.length;return {count:setup.count,bison:frequency("bison"),rabbit:frequency("rabbit")}};({mild:wildlife("Doux"),cold:wildlife("Froid"),snow:wildlife("Neige")})`);
   assert.ok(result.cold.count<result.mild.count);assert.ok(result.snow.count<result.cold.count);
-  assert.ok(result.cold.bison<result.mild.bison);assert.ok(result.snow.bison<result.cold.bison);
+  assert.ok(result.cold.bison<result.mild.bison);assert.equal(result.cold.bison,0);assert.equal(result.snow.bison,0);
   assert.ok(result.cold.rabbit<result.mild.rabbit);assert.ok(result.snow.rabbit<result.cold.rabbit);
+});
+
+test("big game stays scarce in every non-ideal hunting climate",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);const climates=["Chaud","Pluvieux","Froid","Neige"],shares=[];for(const route of ROUTE_SEGMENTS)for(const name of climates){const setup=huntWildlife(route,WEATHER.find(weather=>weather.name===name));const large=setup.pool.filter(species=>species==="bison"||species==="deer").length/setup.pool.length;shares.push({route:route.key,name,large,count:setup.count})}({maximum:Math.max(...shares.map(item=>item.large)),minimumCount:Math.min(...shares.map(item=>item.count)),shares})`);
+  assert.ok(result.maximum<=.2,JSON.stringify(result.shares.filter(item=>item.large===result.maximum)));
+  assert.ok(result.minimumCount>=1);
 });
 
 test("terrain controls both hunting abundance and available species",()=>{
@@ -192,6 +198,23 @@ test("progress sprite quadrants map all four weather variants",()=>{
   assert.equal(reset.backgroundSize,"cover");assert.equal(reset.backgroundPosition,"center");
 });
 
+test("river report sprites map all four weather variants",()=>{
+  const styleFor=key=>scenario(`const element={style:{}};applyWeatherSprite(element,"river-weather-kansas-ferry.webp",{key:"${key}"});element.style`);
+  assert.equal(styleFor("mild").backgroundPosition,"0% 0%");assert.equal(styleFor("cold").backgroundPosition,"100% 0%");
+  assert.equal(styleFor("hot").backgroundPosition,"0% 100%");assert.equal(styleFor("rain").backgroundPosition,"100% 100%");
+  assert.equal(styleFor("rain").backgroundSize,"200% 200%");
+});
+
+test("river outcomes retain the weather observed at the start of the crossing",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{boeufs:6,vivres:500});game.money=500;game.weather={...WEATHER.find(weather=>weather.name==="Pluvieux")};let actions;eventModal=(title,text,details,value)=>actions=value;weatherForSeason=()=>WEATHER.find(weather=>weather.name==="Chaud");queueRiverOutcome=(mark,outcome,data)=>{game.report={outcome,data}};riverEvent(LANDMARKS.find(mark=>mark.kind==="river"),"stage-kansas-rain.webp",1);actions[0].action();({current:weatherVisual().key,reported:game.report.data.weather.key,outcome:game.report.outcome})`);
+  assert.equal(result.current,"hot");assert.equal(result.reported,"rain");assert.equal(result.outcome,"ferry");
+});
+
+test("sickness never receives a green individual or group indicator",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);const traveler=game.party[0];traveler.health=96;traveler.state="Dysenterie";traveler.sickDays=8;({individual:travelerStatusClass(traveler),group:groupHealthSummary()})`);
+  assert.equal(result.individual,"bad");assert.equal(result.group[1],"warn");assert.equal(result.group[0].fr,"Maladie en cours");
+});
+
 test("event pool excludes new illnesses for already affected travelers",()=>{
   const ids=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.party.forEach(p=>{p.sickDays=5;p.state="Malade"});eventPool().map(e=>e.eventId).join(",")`);
   for(const id of ["fever","injury","dysentery","contagious","climate-injury"])assert.doesNotMatch(ids,new RegExp(`(^|,)${id}(,|$)`));
@@ -210,6 +233,12 @@ test("two days of rest alone do not cure dysentery",()=>{
 test("five-day incident settings are converted into daily probabilities",()=>{
   const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{pieces:3,boeufs:6,vetements:5});const daily=dailyIncidentChance(PACES.prudent,WEATHER[0],{risk:0});({daily,five:1-Math.pow(1-daily,5)})`);
   assert.ok(result.daily>0&&result.daily<.38);assert.ok(Math.abs(result.five-.38)<1e-12);
+});
+
+test("grueling pace remains both harsher and much more eventful",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{pieces:3,boeufs:6,vetements:5});const fiveDay=pace=>1-Math.pow(1-dailyIncidentChance(PACES[pace],WEATHER[0],{risk:0}),5);({prudent:fiveDay("prudent"),soutenu:fiveDay("soutenu"),epuisant:fiveDay("epuisant"),health:{prudent:PACES.prudent.health,soutenu:PACES.soutenu.health,epuisant:PACES.epuisant.health},strain:{prudent:PACES.prudent.strain,soutenu:PACES.soutenu.strain,epuisant:PACES.epuisant.strain}})`);
+  assert.ok(result.epuisant>=.9&&result.epuisant>result.soutenu&&result.soutenu>result.prudent);
+  assert.ok(result.health.epuisant<result.health.soutenu&&result.strain.epuisant>result.strain.soutenu);
 });
 
 test("missing equipment increases incident risk in relevant conditions",()=>{
@@ -337,8 +366,9 @@ test("food loading never exceeds capacity",()=>{
 });
 
 test("prepared complete journeys stay in the historical four-to-six-month window",()=>{
-  const result=scenario(`let seed=1848;Math.random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296};finish=win=>{game.finished=true;game.testWin=win};updateUI=()=>{};setTrailScene=()=>{};showLandmarkArt=()=>{};toast=()=>{};returnToTrailTop=()=>{};refreshFortArrivalArt=()=>{};queueRiverOutcome=()=>{};startAttack=()=>{};eventModal=(title,text,details,actions)=>{let action=actions.find(candidate=>!actionDisabled(candidate));if(String(languageText(title)).includes("Fort"))action=actions.find(candidate=>languageText(candidate.label)==="Repartir")||action;if(!action)throw new Error("No playable event action");action.action();updateDeaths();checkJourneyFailure()};const runs={prudent:[],soutenu:[]};for(const pace of Object.keys(runs))for(let attempt=0;attempt<40;attempt++){game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{boeufs:8,vivres:700,munitions:300,vetements:8,pieces:5,medicaments:8});game.money=300;game.pace=pace;game.weather=weatherForPosition(game.month,game.day,game.year,0,[]);game.weatherHistory=[game.weather.name];let turns=0;while(!game.finished&&turns++<500){if(game.cart.vivres<100&&game.cart.munitions>=5){game.cart.munitions-=5;loadFood(55)}const average=alive().reduce((sum,traveler)=>sum+traveler.health,0)/alive().length;if(average<48&&game.cart.vivres>=alive().length*4)rest();else travel()}if(game.testWin)runs[pace].push(game.days)}for(const values of Object.values(runs))values.sort((a,b)=>a-b);const percentile=(values,p)=>values[Math.floor((values.length-1)*p)];({wins:Object.fromEntries(Object.entries(runs).map(([pace,values])=>[pace,values.length])),prudent:{p10:percentile(runs.prudent,.1),p90:percentile(runs.prudent,.9)},soutenu:{p10:percentile(runs.soutenu,.1),p90:percentile(runs.soutenu,.9)}})`);
+  const result=scenario(`let seed=1848;Math.random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296};finish=win=>{game.finished=true;game.testWin=win};updateUI=()=>{};setTrailScene=()=>{};showLandmarkArt=()=>{};toast=()=>{};returnToTrailTop=()=>{};refreshFortArrivalArt=()=>{};queueRiverOutcome=()=>{};startAttack=()=>{};eventModal=(title,text,details,actions)=>{let action=actions.find(candidate=>!actionDisabled(candidate));if(String(languageText(title)).includes("Fort"))action=actions.find(candidate=>languageText(candidate.label)==="Repartir")||action;if(!action)throw new Error("No playable event action");action.action();updateDeaths();checkJourneyFailure()};const runs={prudent:[],soutenu:[],epuisant:[]};for(const pace of Object.keys(runs))for(let attempt=0;attempt<40;attempt++){game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{boeufs:8,vivres:700,munitions:300,vetements:8,pieces:5,medicaments:8});game.money=300;game.pace=pace;game.weather=weatherForPosition(game.month,game.day,game.year,0,[]);game.weatherHistory=[game.weather.name];let turns=0;while(!game.finished&&turns++<500){if(game.cart.vivres<100&&game.cart.munitions>=5){game.cart.munitions-=5;loadFood(55)}const average=alive().reduce((sum,traveler)=>sum+traveler.health,0)/alive().length;if(average<48&&game.cart.vivres>=alive().length*4)rest();else travel()}if(game.testWin)runs[pace].push(game.days)}for(const values of Object.values(runs))values.sort((a,b)=>a-b);const percentile=(values,p)=>values[Math.floor((values.length-1)*p)];({wins:Object.fromEntries(Object.entries(runs).map(([pace,values])=>[pace,values.length])),prudent:{p10:percentile(runs.prudent,.1),p90:percentile(runs.prudent,.9)},soutenu:{p10:percentile(runs.soutenu,.1),p90:percentile(runs.soutenu,.9)}})`);
   assert.ok(result.wins.prudent>=35);assert.ok(result.wins.soutenu>=35);
+  assert.ok(result.wins.epuisant<result.wins.soutenu,JSON.stringify(result));
   assert.ok(result.prudent.p10>=120&&result.prudent.p90<=183,JSON.stringify(result));assert.ok(result.soutenu.p10>=120&&result.soutenu.p90<=183,JSON.stringify(result));
 });
 

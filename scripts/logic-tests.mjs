@@ -109,6 +109,13 @@ test("desert segments never generate snow",()=>{
   assert.equal(result.snow,false);assert.equal(result.desert,false);assert.equal(result.snake,false);
 });
 
+test("cold and snow make bison and rabbits rarer during hunts",()=>{
+  const result=scenario(`const wildlife=name=>{game=baseGame(["A","B","C","D","E"],"fermier",3);game.weather={...WEATHER.find(weather=>weather.name===name)};const setup=huntWildlife(),frequency=species=>setup.pool.filter(item=>item===species).length/setup.pool.length;return {count:setup.count,bison:frequency("bison"),rabbit:frequency("rabbit")}};({mild:wildlife("Doux"),cold:wildlife("Froid"),snow:wildlife("Neige")})`);
+  assert.ok(result.cold.count<result.mild.count);assert.ok(result.snow.count<result.cold.count);
+  assert.ok(result.cold.bison<result.mild.bison);assert.ok(result.snow.bison<result.cold.bison);
+  assert.ok(result.cold.rabbit<result.mild.rabbit);assert.ok(result.snow.rabbit<result.cold.rabbit);
+});
+
 test("generated daily weather always respects transition constraints",()=>{
   const result=scenario(`let history=["Neige"],valid=true;for(let i=0;i<500;i++){const km=[500,1600,1900,2700,3000][i%5],next=weatherForPosition(i%12,15,1848,km,history);if(!weatherTransitionAllowed(history.at(-1),next.name))valid=false;history=[...history,next.name].slice(-3)}valid`);
   assert.equal(result,true);

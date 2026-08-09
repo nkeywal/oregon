@@ -14,19 +14,19 @@ The initial request contained five broad requirements:
 4. Produce better illustrations with a consistent art direction.
 5. Use multiple agents for the code and images.
 
-This was followed by 37 substantial specification messages, excluding purely operational messages such as “I ran ssh-add,” “GitHub Pages is configured,” or “continue.”
+This was followed by 38 substantial specification messages, excluding purely operational messages such as “I ran ssh-add,” “GitHub Pages is configured,” or “continue.”
 
-Using a breakdown in which each explicitly requested, independently verifiable behavior counts as one request, this amounts to approximately 92 additional requirements:
+Using a breakdown in which each explicitly requested, independently verifiable behavior counts as one request, this amounts to approximately 93 additional requirements:
 
 | Area added after the initial request | Approximate number |
 |---|---:|
 | Images, interface, and mobile | 19 |
-| Gameplay, economy, and balancing | 34 |
+| Gameplay, economy, and balancing | 35 |
 | Incidents, illnesses, and health | 15 |
 | Terminology, copy, and translation | 11 |
 | Help, publishing, and launch preparation | 10 |
 | Experiment documentation | 3 |
-| **Total** | **≈ 92** |
+| **Total** | **≈ 93** |
 
 Approximately 95% of the detailed requirements were therefore specified after the initial request. The finished project is substantially broader than a simply illustrated version of the classic Oregon Trail.
 
@@ -67,6 +67,7 @@ Hunting gradually received:
 - Increased difficulty.
 - Fewer bison in rain.
 - Less game in snow.
+- Significantly rarer bison and rabbits in cold or snowy weather, with fewer simultaneous targets.
 - A limit of 90 kg per hunt.
 - Enforcement of the wagon’s maximum capacity.
 - Working touch controls on mobile.

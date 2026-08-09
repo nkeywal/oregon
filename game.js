@@ -919,7 +919,8 @@ const HUNT_SPECIES={
 };
 
 function huntWildlife(){
-  if(game.weather.name==="Neige")return {count:3,pool:["bison","deer","rabbit","rabbit","bird","bird","bird"]};
+  if(game.weather.name==="Neige")return {count:2,pool:["bison","deer","deer","deer","deer","deer","deer","rabbit","bird","bird","bird","bird","bird","bird","bird","bird","bird","bird","bird","bird"]};
+  if(game.weather.name==="Froid")return {count:3,pool:["bison","deer","deer","deer","deer","rabbit","rabbit","bird","bird","bird","bird","bird","bird","bird"]};
   if(game.weather.name==="Pluvieux")return {count:5,pool:["bison","deer","deer","deer","rabbit","rabbit","rabbit","bird","bird","bird","bird","bird","bird","bird"]};
   return {count:5,pool:["bison","bison","deer","deer","rabbit","rabbit","rabbit","bird","bird","bird"]};
 }

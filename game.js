@@ -249,6 +249,9 @@ function riverDepth(mark,previous=null) {
 
 function checkJourneyFailure() {
   if(game.finished)return true;
+  // Le bilan d'un fleuve doit être présenté avant une éventuelle fin de partie
+  // causée par les pertes subies pendant la traversée.
+  if(game.pendingRiverOutcome)return false;
   if(alive().length===0&&!game.pendingDeath&&!game.deathEventOpen){
     finish(false,"La piste a eu raison de tout le convoi.");
     return true;
@@ -763,7 +766,8 @@ function riverEvent(mark,art=stageAsset(mark),depth=null,observation=""){
   const measured=depth??riverDepth(mark),shown=formatDepth(measured);
   const cost=55+Math.round(measured*25+game.km/KM_TOTAL*30);
   const shownEn=measured.toFixed(1);
-  const details=observation?bilingual(`${languageText(observation,"fr")} Comment ferez-vous traverser le chariot ?`,`${languageText(observation,"en")} How will you get the wagon across?`):"Comment ferez-vous traverser le chariot ?";
+  const condition=riverFatigueDescription(),observationFr=observation?`${languageText(observation,"fr")} `:"",observationEn=observation?`${languageText(observation,"en")} `:"";
+  const details=bilingual(`${observationFr}${condition.fr} Comment ferez-vous traverser le chariot ?`,`${observationEn}${condition.en} How will you get the wagon across?`);
   eventModal(bilingual(mark.name,landmarkName(mark)),bilingual(`Le courant est rapide et la profondeur mesurée atteint environ ${shown} mètre${measured>=2?"s":""}.`,`The current is swift and the measured depth is about ${shownEn} meter${measured===1?"":"s"}.`),details,[
     {label:bilingual(`Prendre le bac (${cost} $)`,`Take the ferry ($${cost})`),disabled:game.money<cost,action:()=>{game.money-=cost;const food=consumeDelay(1);addJournal(bilingual(`Traversée de ${mark.name} en bac, sans incident, avec une profondeur de ${shown} m.`,`We crossed ${landmarkName(mark)} by ferry without incident at a depth of ${shownEn} m.`));queueRiverOutcome(mark,"ferry",{method:bilingual("Bac","Ferry"),days:1,food:food.consumed,text:"Le bac a transporté le chariot et tout le groupe jusqu’à l’autre rive.",result:bilingual(`Traversée sans perte · Profondeur : ${shown} m · Coût : ${cost} $`,`Crossing without loss · Depth: ${shownEn} m · Cost: $${cost}`)})}},
     {label:"Calfater et flotter",action:()=>riverRisk(mark,measured)},
@@ -791,9 +795,12 @@ function showRiverOutcome(mark,outcome,data){
 
 function renderRiverOutcome(){
   if(!activeRiverOutcome)return;
-  const {mark,outcome,method,days,food,text,result}=activeRiverOutcome;
+  const {mark,outcome,method,days,food,text,result,retry}=activeRiverOutcome;
   const art=$("#bilan-riviere-art");art.style.backgroundImage=`url('assets/river-${mark.visual}-${outcome}.webp')`;art.setAttribute("aria-label",currentLanguage==="en"?`${languageText(method)} at ${landmarkName(mark)}`:`${languageText(method)} à ${mark.name}`);
-  $("#titre-bilan-riviere").textContent=currentLanguage==="en"?`Report — ${landmarkName(mark)}`:`Bilan — ${mark.name}`;$("#bilan-riviere-texte").textContent=languageText(text);$("#bilan-riviere-methode").textContent=languageText(method);
+  $("#titre-bilan-riviere").textContent=currentLanguage==="en"?`Report — ${landmarkName(mark)}`:`Bilan — ${mark.name}`;$("#bilan-riviere-texte").textContent=languageText(text);
+  $("#bilan-riviere-rive").textContent=retry?(currentLanguage==="en"?"The same bank":"La même rive"):(currentLanguage==="en"?"The far bank":"L’autre rive");
+  $("#fermer-bilan-riviere").textContent=retry?(currentLanguage==="en"?"Reconsider the crossing":"Revoir les options"):(currentLanguage==="en"?"Return to the trail":"Reprendre la piste");
+  $("#bilan-riviere-methode").textContent=languageText(method);
   $("#bilan-riviere-duree").textContent=currentLanguage==="en"?`${days} day${days===1?"":"s"}`:`${days} jour${days>1?"s":""}`;$("#bilan-riviere-vivres").textContent=`${Math.round(food)} kg`;$("#bilan-riviere-resultat").textContent=languageText(result);
 }
 
@@ -803,7 +810,30 @@ function floatCargoLossChance(depth){
   return clamp(.025*Math.exp(1.5*Math.max(0,depth)),.04,.9);
 }
 
+function travelerFatigueRisk(){
+  const travelers=alive();if(!travelers.length)return 1;
+  const average=travelers.reduce((sum,p)=>sum+p.health,0)/travelers.length;
+  const weakened=travelers.filter(p=>p.health<45).length/travelers.length;
+  const unwell=travelers.filter(p=>p.sickDays>0||p.needsRemedy).length/travelers.length;
+  return clamp(clamp((78-average)/58,0,1)*.6+weakened*.25+unwell*.15,0,1);
+}
+
+function riverFatigueRisk(){return clamp(travelerFatigueRisk()*.75+clamp(game.oxStrain/10,0,1)*.25,0,1)}
+
+function riverFatigueDescription(){
+  const fatigue=travelerFatigueRisk();
+  if(fatigue<.2)return bilingual("Le groupe paraît reposé.","The party appears rested.");
+  if(fatigue<.5)return bilingual("Plusieurs voyageurs sont fatigués.","Several travelers are tired.");
+  return bilingual("Le groupe est très éprouvé et manquera de force dans le courant.","The party is exhausted and will lack strength in the current.");
+}
+
+function floatCrossingFailureChance(depth,fatigue=riverFatigueRisk(),oxen=game.cart.boeufs,hasParts=game.cart.pieces>0){
+  const waterRisk=clamp(.11*(Math.exp(1.25*Math.max(0,depth-1.1))-1),0,.72);
+  return clamp(waterRisk+fatigue*.32+Math.max(0,4-oxen)*.05+(hasParts?0:.04),0,.88);
+}
+
 function riverRisk(mark,depth){
+  const fatigue=riverFatigueRisk(),crossingFailed=Math.random()<floatCrossingFailureChance(depth,fatigue);
   const travelFood=consumeDelay(1);
   game.oxStrain=clamp(game.oxStrain+1,0,10);
   const cargoCandidates=[
@@ -814,20 +844,30 @@ function riverRisk(mark,depth){
       {key:"medicaments",amount:Math.min(game.cart.medicaments,rand(1,2))}
     ].filter(loss=>loss.amount>0);
   const cargoAccident=cargoCandidates.length>0&&Math.random()<floatCargoLossChance(depth);
-  const handlingAccident=Math.random()<clamp(.04+(game.cart.boeufs<4?.12:0)+(game.cart.pieces===0?.08:0)+depth*.025,.04,.32);
-  if(cargoAccident||handlingAccident){
-    const cargoLosses=cargoAccident?shuffled(cargoCandidates).slice(0,Math.min(cargoCandidates.length,depth>=2.2?rand(3,5):depth>=1.4?rand(2,3):1)):[];
+  const handlingAccident=Math.random()<clamp(.04+(game.cart.boeufs<4?.12:0)+(game.cart.pieces===0?.08:0)+depth*.025+fatigue*.25,.04,.5);
+  if(crossingFailed||cargoAccident||handlingAccident){
+    const cargoDamaged=cargoCandidates.length>0&&(cargoAccident||crossingFailed);
+    const cargoCount=crossingFailed?(depth>=2.2?rand(3,5):rand(2,3)):(depth>=2.2?rand(3,5):depth>=1.4?rand(2,3):1);
+    const cargoLosses=cargoDamaged?shuffled(cargoCandidates).slice(0,Math.min(cargoCandidates.length,cargoCount)):[];
     const losses=[],lossesEn=[];
     for(const loss of cargoLosses){
       if(!loss.amount)continue;
       game.cart[loss.key]-=loss.amount;losses.push(itemQuantityFor(loss.key,loss.amount,"fr"));lossesEn.push(itemQuantityFor(loss.key,loss.amount,"en"));
     }
-    const maxOxLoss=game.cart.boeufs;
-    const oxLoss=maxOxLoss&&Math.random()<clamp(.18+depth*.12,.2,.45)?Math.min(maxOxLoss,depth>=1.5?rand(1,2):1):0;
+    const maxOxLoss=game.cart.boeufs,oxLossChance=crossingFailed?clamp(.38+depth*.12+fatigue*.18,.42,.82):clamp(.18+depth*.12+fatigue*.08,.2,.52);
+    const oxLoss=maxOxLoss&&Math.random()<oxLossChance?Math.min(maxOxLoss,crossingFailed?(depth>=2.2?rand(2,3):rand(1,2)):(depth>=1.5?rand(1,2):1)):0;
     if(oxLoss){game.cart.boeufs-=oxLoss;losses.push(`${oxLoss} bœuf${oxLoss>1?"s":""}`);lossesEn.push(`${oxLoss} ${oxLoss===1?"ox":"oxen"}`);}
-    alive().forEach(p=>p.health=clamp(p.health-rand(2,9),0,100));
-    addJournal(losses.length?bilingual(`À ${mark.name}, le chariot a pris l’eau par ${depth.toFixed(1).replace(".",",")} m de profondeur. Le courant emporte ${joinList(losses,"fr")}.`,`At ${landmarkName(mark)}, the wagon took on water at a depth of ${depth.toFixed(1)} m. The current swept away ${joinList(lossesEn,"en")}.`):bilingual(`Le chariot a pris l’eau à ${mark.name}, sans perte de chargement.`,`The wagon took on water at ${landmarkName(mark)}, without losing any cargo.`));toast("Le courant a secoué le convoi.");
-    queueRiverOutcome(mark,"float-accident",{method:"Chariot calfaté",days:1,food:travelFood.consumed,text:"Le chariot a pris l’eau dans le courant avant d’atteindre difficilement l’autre rive.",result:losses.length?bilingual(`Profondeur : ${depth.toFixed(1).replace(".",",")} m · Pertes : ${joinList(losses,"fr")}`,`Depth: ${depth.toFixed(1)} m · Losses: ${joinList(lossesEn,"en")}`):bilingual(`Profondeur : ${depth.toFixed(1).replace(".",",")} m · Aucune provision perdue, mais le groupe a été éprouvé`,`Depth: ${depth.toFixed(1)} m · No supplies lost, but the party was shaken`)});
+    const healthDamage=crossingFailed?rand(10,22)+Math.round(fatigue*8):rand(2,9)+Math.round(fatigue*4);
+    alive().forEach(p=>p.health=clamp(p.health-healthDamage,0,100));
+    if(crossingFailed){
+      const lossSuffixFr=losses.length?` Le courant emporte ${joinList(losses,"fr")}.`:"";
+      const lossSuffixEn=losses.length?` The current sweeps away ${joinList(lossesEn,"en")}.`:"";
+      addJournal(bilingual(`La traversée de ${mark.name} échoue par ${depth.toFixed(1).replace(".",",")} m de profondeur : les cordes cèdent et le convoi regagne la rive de départ.${lossSuffixFr}`,`The crossing of ${landmarkName(mark)} fails at a depth of ${depth.toFixed(1)} m: the ropes give way and the wagon party returns to the original bank.${lossSuffixEn}`));toast(bilingual("Le courant a repoussé le convoi.","The current drove the wagon party back."));
+      queueRiverOutcome(mark,"float-accident",{method:"Chariot calfaté",days:1,food:travelFood.consumed,retry:true,previousDepth:depth,text:bilingual("Les cordes ont cédé. Après avoir lutté contre le courant, le convoi a regagné la rive de départ.","The ropes gave way. After struggling against the current, the wagon party returned to the original bank."),result:losses.length?bilingual(`Échec de la traversée · Profondeur : ${depth.toFixed(1).replace(".",",")} m · Pertes : ${joinList(losses,"fr")}`,`Crossing failed · Depth: ${depth.toFixed(1)} m · Losses: ${joinList(lossesEn,"en")}`):bilingual(`Échec de la traversée · Profondeur : ${depth.toFixed(1).replace(".",",")} m · Groupe très éprouvé`,`Crossing failed · Depth: ${depth.toFixed(1)} m · Party severely exhausted`)});
+    }else{
+      addJournal(losses.length?bilingual(`À ${mark.name}, le chariot a pris l’eau par ${depth.toFixed(1).replace(".",",")} m de profondeur. Le courant emporte ${joinList(losses,"fr")}.`,`At ${landmarkName(mark)}, the wagon took on water at a depth of ${depth.toFixed(1)} m. The current swept away ${joinList(lossesEn,"en")}.`):bilingual(`Le chariot a pris l’eau à ${mark.name}, sans perte de chargement.`,`The wagon took on water at ${landmarkName(mark)}, without losing any cargo.`));toast("Le courant a secoué le convoi.");
+      queueRiverOutcome(mark,"float-accident",{method:"Chariot calfaté",days:1,food:travelFood.consumed,text:"Le chariot a pris l’eau dans le courant avant d’atteindre difficilement l’autre rive.",result:losses.length?bilingual(`Profondeur : ${depth.toFixed(1).replace(".",",")} m · Pertes : ${joinList(losses,"fr")}`,`Depth: ${depth.toFixed(1)} m · Losses: ${joinList(lossesEn,"en")}`):bilingual(`Profondeur : ${depth.toFixed(1).replace(".",",")} m · Aucune provision perdue, mais le groupe a été éprouvé`,`Depth: ${depth.toFixed(1)} m · No supplies lost, but the party was shaken`)});
+    }
   } else {addJournal(bilingual(`Le chariot a traversé ${mark.name} à flot sans incident, par ${depth.toFixed(1).replace(".",",")} m de profondeur.`,`The wagon floated across ${landmarkName(mark)} without incident at a depth of ${depth.toFixed(1)} m.`));queueRiverOutcome(mark,"float-success",{method:"Chariot calfaté",days:1,food:travelFood.consumed,text:"Le chariot a flotté jusqu’à l’autre rive sous le contrôle des cordes et des bœufs.",result:bilingual(`Traversée réussie sans perte · Profondeur : ${depth.toFixed(1).replace(".",",")} m`,`Successful crossing without loss · Depth: ${depth.toFixed(1)} m`)})}
   setTrailScene();updateDeaths();
 }
@@ -1120,7 +1160,15 @@ function bindEvents(){
   $("#dialogue-chasse").addEventListener("cancel",e=>{e.preventDefault();endHunt()});
   $("#dialogue-attaque").addEventListener("cancel",e=>e.preventDefault());$("#dialogue-bilan-attaque").addEventListener("cancel",e=>e.preventDefault());
   $("#dialogue-evenement").addEventListener("close",()=>{activeEventModal=null;returnToTrailTop()});
-  $("#dialogue-bilan-riviere").addEventListener("close",()=>{activeRiverOutcome=null;returnToTrailTop()});
+  $("#dialogue-bilan-riviere").addEventListener("close",()=>{
+    const retry=activeRiverOutcome?.retry?{mark:activeRiverOutcome.mark,previousDepth:activeRiverOutcome.previousDepth}:null;activeRiverOutcome=null;
+    if(checkJourneyFailure())return;
+    if(retry&&!game.finished&&alive().length&&game.cart.boeufs>0){
+      const next=riverDepth(retry.mark,retry.previousDepth),weather=weatherVisual(),art=stageAsset(retry.mark,weather);
+      showLandmarkArt(retry.mark,art,weather);
+      setTimeout(()=>riverEvent(retry.mark,art,next,bilingual("Après l’échec, le niveau a été mesuré de nouveau.","After the failed attempt, the water level was measured again.")),0);
+    }else returnToTrailTop();
+  });
   $("#dialogue-bilan-chasse").addEventListener("close",returnToTrailTop);
   $("#dialogue-info").addEventListener("close",()=>{activeInfoView=null});
   $("#attaque-gauche").addEventListener("click",()=>moveAttack(-1));$("#attaque-droite").addEventListener("click",()=>moveAttack(1));$("#soigner-attaque").addEventListener("click",treatAttackWounds);$("#continuer-attaque").addEventListener("click",continueAfterAttack);

@@ -14,19 +14,19 @@ The initial request contained five broad requirements:
 4. Produce better illustrations with a consistent art direction.
 5. Use multiple agents for the code and images.
 
-This was followed by 41 substantial specification messages, excluding purely operational messages such as “I ran ssh-add,” “GitHub Pages is configured,” or “continue.”
+This was followed by 42 substantial specification messages, excluding purely operational messages such as “I ran ssh-add,” “GitHub Pages is configured,” or “continue.”
 
-Using a breakdown in which each explicitly requested, independently verifiable behavior counts as one request, this amounts to approximately 101 additional requirements:
+Using a breakdown in which each explicitly requested, independently verifiable behavior counts as one request, this amounts to approximately 103 additional requirements:
 
 | Area added after the initial request | Approximate number |
 |---|---:|
 | Images, interface, and mobile | 21 |
-| Gameplay, economy, and balancing | 39 |
+| Gameplay, economy, and balancing | 41 |
 | Incidents, illnesses, and health | 17 |
 | Terminology, copy, and translation | 11 |
 | Help, publishing, and launch preparation | 10 |
 | Experiment documentation | 3 |
-| **Total** | **≈ 101** |
+| **Total** | **≈ 103** |
 
 Approximately 95% of the detailed requirements were therefore specified after the initial request. The finished project is substantially broader than a simply illustrated version of the classic Oregon Trail.
 
@@ -190,6 +190,8 @@ River crossings received a complete system:
 - A choice between ferrying, waiting, and floating the wagon.
 - Risk of losing food, bullets, blankets, spare parts, and medicine.
 - When floating the wagon, an exponentially increasing chance of losing cargo as water depth rises.
+- A genuinely failed floating attempt can leave the wagon party on the original bank.
+- Traveler and ox-team fatigue affects the party’s ability to control the wagon in the current.
 - Risk of losing oxen.
 - An illustrated report after every crossing.
 - A different illustration for each river, method, and outcome.

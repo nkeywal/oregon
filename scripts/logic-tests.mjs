@@ -278,9 +278,24 @@ test("floating cargo-loss probability rises exponentially with water depth",()=>
   assert.ok(result.second>result.first*2);assert.equal(result.extreme,.9);
 });
 
+test("traveler fatigue materially raises river-crossing failure risk",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{boeufs:6,pieces:2});const rested=travelerFatigueRisk(),restedRisk=floatCrossingFailureChance(1.8);game.party.forEach(p=>{p.health=38;p.state="Malade";p.sickDays=5});game.oxStrain=8;const exhausted=travelerFatigueRisk(),exhaustedRisk=floatCrossingFailureChance(1.8);({rested,exhausted,restedRisk,exhaustedRisk})`);
+  assert.equal(result.rested,0);assert.ok(result.exhausted>.7);assert.ok(result.exhaustedRisk>result.restedRisk+.2);
+});
+
+test("deep water can truly fail while shallow water remains relatively safe",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{boeufs:6,pieces:2});({shallow:floatCrossingFailureChance(.8,0),middle:floatCrossingFailureChance(1.8,0),deep:floatCrossingFailureChance(2.5,0)})`);
+  assert.ok(result.shallow<.03);assert.ok(result.middle>.1&&result.middle<.25);assert.ok(result.deep>.45);
+});
+
 test("a dangerous river crossing can take the last ox and still queue its report",()=>{
-  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.boeufs=1;game.cart.vivres=100;Math.random=()=>0;setTrailScene=()=>{};updateDeaths=()=>{};toast=()=>{};queueRiverOutcome=(mark,outcome,data)=>{game.report={outcome,data}};riverRisk(LANDMARKS.find(m=>m.kind==="river"),2);({oxen:game.cart.boeufs,outcome:game.report.outcome})`);
-  assert.equal(result.oxen,0);assert.equal(result.outcome,"float-accident");
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.boeufs=1;game.cart.vivres=100;Math.random=()=>0;setTrailScene=()=>{};updateDeaths=()=>{};toast=()=>{};queueRiverOutcome=(mark,outcome,data)=>{game.report={outcome,data}};riverRisk(LANDMARKS.find(m=>m.kind==="river"),2);({oxen:game.cart.boeufs,outcome:game.report.outcome,retry:game.report.data.retry})`);
+  assert.equal(result.oxen,0);assert.equal(result.outcome,"float-accident");assert.equal(result.retry,true);
+});
+
+test("river report is shown before a crossing loss can end the journey",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.boeufs=0;game.pendingRiverOutcome={};let reason=null;finish=(win,text)=>reason=text;const before=checkJourneyFailure();game.pendingRiverOutcome=null;const after=checkJourneyFailure();({before,after,reason})`);
+  assert.equal(result.before,false);assert.equal(result.after,true);assert.match(result.reason,/dernier bœuf/);
 });
 
 test("food loading never exceeds capacity",()=>{

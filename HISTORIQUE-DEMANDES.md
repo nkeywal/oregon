@@ -14,19 +14,19 @@ La demande initiale contenait cinq grandes exigences :
 4. Produire de meilleures illustrations avec une direction artistique homogène.
 5. Utiliser plusieurs agents pour le code et les images.
 
-Ensuite, il y a eu 41 messages substantiels de spécification, en excluant les simples messages opérationnels comme « j’ai fait ssh-add », « GitHub Pages est configuré » ou « continue ».
+Ensuite, il y a eu 42 messages substantiels de spécification, en excluant les simples messages opérationnels comme « j’ai fait ssh-add », « GitHub Pages est configuré » ou « continue ».
 
-Avec un découpage où chaque comportement vérifiable explicitement demandé compte comme une demande, on obtient environ 101 exigences supplémentaires :
+Avec un découpage où chaque comportement vérifiable explicitement demandé compte comme une demande, on obtient environ 103 exigences supplémentaires :
 
 | Domaine ajouté après la demande initiale | Nombre approximatif |
 |---|---:|
 | Images, interface et mobile | 21 |
-| Gameplay, économie et équilibrage | 39 |
+| Gameplay, économie et équilibrage | 41 |
 | Incidents, maladies et santé | 17 |
 | Terminologie, textes et traduction | 11 |
 | Aide, publication et préproduction | 10 |
 | Documentation de l’expérience | 3 |
-| **Total** | **≈ 101** |
+| **Total** | **≈ 103** |
 
 Ainsi, environ 95 % des exigences détaillées ont été formulées après la demande initiale. Le projet final est sensiblement plus large qu’un simple Oregon Trail classique illustré.
 
@@ -190,6 +190,8 @@ Les franchissements ont reçu un système complet :
 - Choix entre bac, attente et traversée à flot.
 - Risque de perte de vivres, munitions, couvertures, pièces et remèdes.
 - Pour la traversée à flot, probabilité de perdre du matériel augmentant exponentiellement avec la hauteur de l’eau.
+- Possibilité d’un véritable échec de la traversée à flot, laissant le convoi sur la rive de départ.
+- Influence de la fatigue des voyageurs et de l’attelage sur le contrôle du chariot dans le courant.
 - Risque de perte de bœufs.
 - Bilan illustré après chaque traversée.
 - Illustration différente selon le fleuve, la méthode et le résultat.

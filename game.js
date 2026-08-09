@@ -3,6 +3,8 @@
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const KM_TOTAL = 3200;
+const AMMO_PRICE_MULTIPLIER = 3;
+function ammoPrice(basePrice){return basePrice*AMMO_PRICE_MULTIPLIER}
 const MONTHS = ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
 const MONTHS_EN = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const ENDING_RANKS = [
@@ -31,7 +33,7 @@ const ENDING_RANKS = [
 const SHOP = {
   boeufs: { label:"Bœufs", desc:"Une paire coûte 40 $. Il en faut au moins quatre.", unit:"bête", plural:"bêtes", unitEn:"ox", pluralEn:"oxen", step:2, price:40, max:12, start:0 },
   vivres: { label:"Vivres", desc:"Farine, lard, café et haricots. Prix pour 10 kg.", unit:"kg", plural:"kg", unitEn:"kg", pluralEn:"kg", step:10, price:4, max:800, start:0 },
-  munitions: { label:"Munitions", desc:"Boîtes de 20 balles pour la chasse.", unit:"balle", plural:"balles", unitEn:"bullet", pluralEn:"bullets", step:20, price:3, max:600, start:0 },
+  munitions: { label:"Munitions", desc:"Boîtes de 20 balles pour la chasse.", unit:"balle", plural:"balles", unitEn:"bullet", pluralEn:"bullets", step:20, price:ammoPrice(3), max:600, start:0 },
   vetements: { label:"Couvertures", desc:"Chacune protège un voyageur du froid et de l’humidité.", unit:"couverture", plural:"couvertures", unitEn:"blanket", pluralEn:"blankets", step:1, price:10, max:15, start:0 },
   pieces: { label:"Pièces de rechange", desc:"Roues, essieux et timons pour les avaries.", unit:"pièce", plural:"pièces", unitEn:"spare part", pluralEn:"spare parts", step:1, price:18, max:12, start:0 },
   medicaments: { label:"Remèdes", desc:"Bandages et fortifiants pour soigner le groupe.", unit:"dose", plural:"doses", unitEn:"dose", pluralEn:"doses", step:1, price:12, max:15, start:0 }
@@ -87,6 +89,7 @@ let activeEventModal = null;
 let activeRiverOutcome = null;
 let activeInfoView = null;
 let helpReturnScreen = "ecran-accueil";
+let journalMergeTarget = null;
 
 function baseGame(names, profession, month) {
   const money = {fermier:800,charpentier:1000,banquier:1600}[profession];
@@ -263,7 +266,14 @@ function toast(text) {
 }
 
 function addJournal(text) {
-  game.journal.unshift({day:game.day,month:game.month,year:game.year,text});
+  if(journalMergeTarget)return mergeJournalEntry(journalMergeTarget,text);
+  const entry={day:game.day,month:game.month,year:game.year,text};
+  game.journal.unshift(entry);return entry;
+}
+
+function mergeJournalEntry(entry,text) {
+  if(!entry)return addJournal(text);
+  entry.text=bilingualJoin(entry.text," ",text);return entry;
 }
 
 function journalDate(entry){return formatDate(entry.day,entry.month,entry.year)}
@@ -455,7 +465,7 @@ function addTravelJournal(distance,days,weatherBreakdown=[],route=routeSegmentAt
   const weatherTextEn=breakdown.length===1?`in ${travelWeatherLabel(breakdown[0].name,"en")}`:`: ${detailsEn}`;
   const routeTextFr=` Terrain : ${route.terrain.fr} ; ${route.slope.fr} ; ${route.road.fr} ; climat ${route.climate.fr}.`;
   const routeTextEn=` Terrain: ${route.terrain.en}; ${route.slope.en}; ${route.road.en}; ${route.climate.en} climate.`;
-  addJournal(bilingual(`${distance} km parcourus en ${days} jour${days>1?"s":""} ${weatherTextFr}.${routeTextFr}${paceJournal}`,`${distance} km traveled in ${days} day${days===1?"":"s"} ${weatherTextEn}.${routeTextEn}${paceJournalEn}`));
+  return addJournal(bilingual(`${distance} km parcourus en ${days} jour${days>1?"s":""} ${weatherTextFr}.${routeTextFr}${paceJournal}`,`${distance} km traveled in ${days} day${days===1?"":"s"} ${weatherTextEn}.${routeTextEn}${paceJournalEn}`));
 }
 
 function travel(){
@@ -497,14 +507,14 @@ function travel(){
     if(dailyIncidentOccurs(pace,travelWeather)){addTravelJournal(distance,travelDays,travelWeatherBreakdown,travelRoute);randomEvent();updateUI();return;}
     refreshWeather();
   }
-  addTravelJournal(distance,travelDays,travelWeatherBreakdown,travelRoute);quietTravelEvent(distance,Math.round(foodConsumed),travelDays);updateUI();
+  const travelEntry=addTravelJournal(distance,travelDays,travelWeatherBreakdown,travelRoute);quietTravelEvent(distance,Math.round(foodConsumed),travelDays,travelEntry);updateUI();
 }
 
-function quietTravelEvent(distance,foodConsumed,travelDays=5){
+function quietTravelEvent(distance,foodConsumed,travelDays=5,travelEntry=null){
   const paceText={prudent:"L’allure prudente a ménagé le groupe et l’attelage.",soutenu:"L’allure soutenue a laissé une fatigue ordinaire.",epuisant:"Même sans accident, l’allure épuisante a durement éprouvé le groupe et les bœufs."}[game.pace];
   const paceTextEn={prudent:"The steady pace spared the party and the oxen.",soutenu:"The strenuous pace caused ordinary fatigue.",epuisant:"Even without an accident, the grueling pace severely tested the party and the oxen."}[game.pace];
   eventModal("Une étape sans incident",bilingual(`Le convoi a avancé de ${distance} km en ${travelDays} jour${travelDays>1?"s":""}.`,`The wagon party traveled ${distance} km in ${travelDays} day${travelDays===1?"":"s"}.`),bilingual(`${foodConsumed} kg de vivres ${foodConsumed<=1?"a été consommé":"ont été consommés"}. ${paceText}`,`${foodConsumed} kg of food ${foodConsumed===1?"was":"were"} consumed. ${paceTextEn}`),[
-    {label:"Poursuivre la route",action:()=>addJournal("Une étape calme et sans incident.")}
+    {label:"Poursuivre la route",action:()=>mergeJournalEntry(travelEntry,"Une étape calme et sans incident.")}
   ],stageAsset());
 }
 
@@ -674,8 +684,8 @@ function climateInjuryEvent(p=pick(eventEligibleTravelers())){
 function contagiousDiseaseEvent(candidates=eventEligibleTravelers()){
   const patients=shuffled(candidates).slice(0,Math.min(candidates.length,rand(2,3)));if(!patients.length)return;
   patients.forEach(p=>{p.health=clamp(p.health-rand(12,22),0,100);p.state="Malade";p.sickDays=Math.max(p.sickDays,10)});
-  const count=patients.length;
-  eventModal("Maladie contagieuse",bilingual(`${count} voyageur${count>1?"s":""} présente${count>1?"nt":""} les mêmes symptômes.`,`${count} traveler${count===1?"":"s"} ${count===1?"shows":"show"} the same symptoms.`),bilingual(`La maladie risque d’épuiser rapidement le groupe. Vous avez ${itemQuantityFor("medicaments",game.cart.medicaments,"fr")}.`,`The disease may quickly exhaust the party. You have ${itemQuantityFor("medicaments",game.cart.medicaments,"en")}.`),[
+  const count=patients.length,namesFr=joinList(patients.map(p=>p.name),"fr"),namesEn=joinList(patients.map(p=>p.name),"en");
+  eventModal("Maladie contagieuse",bilingual(`${count} voyageur${count>1?"s":""} présente${count>1?"nt":""} les mêmes symptômes : ${namesFr}.`,`${count} traveler${count===1?"":"s"} ${count===1?"shows":"show"} the same symptoms: ${namesEn}.`),bilingual(`La maladie risque d’épuiser rapidement le groupe. Vous avez ${itemQuantityFor("medicaments",game.cart.medicaments,"fr")}.`,`The disease may quickly exhaust the party. You have ${itemQuantityFor("medicaments",game.cart.medicaments,"en")}.`),[
     {label:remedyLabel(bilingual(`Distribuer ${count} remède${count>1?"s":""}`,`Give ${count} dose${count===1?"":"s"}`),count),disabled:game.cart.medicaments<count,action:()=>{game.cart.medicaments-=count;patients.forEach(p=>{p.health=clamp(p.health+14,1,100);p.sickDays=4;p.state="Convalescent"});addJournal(bilingual(`${count} malade${count>1?"s ont":" a"} reçu un remède.`,`${count} sick traveler${count===1?"":"s"} received medicine.`))}},
     {label:"Isoler les malades 2 jours",action:()=>{consumeDelay(2);patients.forEach(p=>p.sickDays=7);addJournal("Le convoi s’est arrêté pour isoler les malades.")}},
     {label:"Continuer la route",action:()=>{patients.forEach(p=>p.health=clamp(p.health-5,0,100));addJournal("La maladie contagieuse affaiblit le groupe.")}}
@@ -715,13 +725,13 @@ function theftEvent(){
 function tradeEvent(){
   const offers=[
     {mode:"buy",key:"vivres",qty:50,price:34,label:"50 kg de vivres"},
-    {mode:"buy",key:"munitions",qty:40,price:18,label:"40 balles"},
+    {mode:"buy",key:"munitions",qty:40,price:ammoPrice(18),label:"40 balles"},
     {mode:"buy",key:"pieces",qty:1,price:28,label:"1 pièce de rechange"},
     {mode:"buy",key:"medicaments",qty:2,price:30,label:"2 remèdes"},
     {mode:"buy",key:"boeufs",qty:2,price:85,label:"2 bœufs"},
     {mode:"buy",key:"vetements",qty:2,price:24,label:"2 couvertures"},
     {mode:"sell",key:"vivres",qty:40,price:22,label:"40 kg de vivres"},
-    {mode:"sell",key:"munitions",qty:30,price:14,label:"30 balles"},
+    {mode:"sell",key:"munitions",qty:30,price:ammoPrice(14),label:"30 balles"},
     {mode:"sell",key:"vetements",qty:1,price:14,label:"1 couverture"},
     {mode:"sell",key:"pieces",qty:1,price:20,label:"1 pièce de rechange"},
     {mode:"sell",key:"medicaments",qty:1,price:18,label:"1 remède"}
@@ -738,7 +748,7 @@ function tradeEvent(){
 
 function attackEvent(){
   eventModal("Attaque du convoi","Les indiens approchent rapidement à cheval et des projectiles frappent autour des chariots.","Mettez le groupe à couvert et tenez jusqu’à leur retrait.",[
-    {label:"Protéger le convoi",action:()=>setTimeout(startAttack,0)}
+    {label:"Protéger le convoi",action:()=>{const incidentEntry=journalMergeTarget;setTimeout(()=>startAttack(incidentEntry),0)}}
   ],"incident-attack.webp");
 }
 
@@ -824,7 +834,7 @@ function riverRisk(mark,depth){
 
 function fortEvent(mark,art=fortArrivalAsset(mark)){
   const price=Math.round(1.3+game.km/KM_TOTAL*.7);
-  const foodCost=20*price, ammoCost=6*price;
+  const foodCost=20*price, ammoCost=ammoPrice(6)*price;
   const equipment=shuffled([
     {key:"boeufs",qty:2,cost:60*price,label:"2 bœufs",labelEn:"2 oxen"},
     {key:"vetements",qty:2,cost:22*price,label:"2 couvertures",labelEn:"2 blankets"},
@@ -844,7 +854,7 @@ function fortEvent(mark,art=fortArrivalAsset(mark)){
 function eventModal(title,text,details,actions,art="trail"){
   const d=$("#dialogue-evenement");$("#event-title").textContent=languageText(title);$("#event-text").textContent=languageText(text);$("#event-details").textContent=languageText(details);
   const artFile=art.includes(".")?art:`${art}.webp`;
-  if(artFile.startsWith("incident-"))addJournal(bilingualJoin(title," — ",text));
+  const incidentEntry=artFile.startsWith("incident-")?addJournal(bilingualJoin(title," — ",text)):null;
   $("#event-art").style.backgroundImage=`url('assets/${artFile}')`;
   const box=$("#event-actions");box.innerHTML="";
   const hasExplicitPrimary=actions.some(a=>a.primary),defaultPrimary=hasExplicitPrimary?-1:actions.findIndex(a=>!actionDisabled(a));
@@ -853,7 +863,9 @@ function eventModal(title,text,details,actions,art="trail"){
     const b=document.createElement("button");b.type="button";b.className=`btn ${a.primary||i===defaultPrimary?"primary":"secondary"}`;b.textContent=languageText(a.label);b.disabled=actionDisabled(a);
     b.addEventListener("click",()=>{
       if(actionDisabled(a))return;
-      a.action();updateDeaths();
+      journalMergeTarget=incidentEntry;
+      try{a.action()}finally{journalMergeTarget=null}
+      updateDeaths();
       if(showPendingDeathEvent()){updateUI();return;}
       if(game.finished||checkJourneyFailure()){d.close();return;}
       updateUI();
@@ -1038,9 +1050,9 @@ function endHunt(){
 }
 
 // Mini-jeu d'attaque : esquive et mise à couvert, sans tir.
-function startAttack(){
+function startAttack(journalEntry=null){
   if(game.finished||!alive().length)return;
-  attack={time:15,hits:0,x:330,projectiles:[],spawnIn:.3,last:performance.now(),running:true};
+  attack={time:15,hits:0,x:330,projectiles:[],spawnIn:.3,last:performance.now(),running:true,journalEntry};
   $("#attaque-temps").textContent=15;$("#attaque-impacts").textContent=0;
   $("#dialogue-attaque").showModal();$("#canvas-attaque").focus();requestAnimationFrame(attackLoop);
 }
@@ -1060,14 +1072,14 @@ function attackLoop(now){
 }
 
 function endAttack(){
-  if(!attack?.running)return;const hits=attack.hits;attack.running=false;$("#dialogue-attaque").close();attack=null;
+  if(!attack?.running)return;const {hits,journalEntry}=attack;attack.running=false;$("#dialogue-attaque").close();attack=null;
   const candidates=shuffled(alive()),affected=Math.min(candidates.length,Math.ceil(hits/2)),wounded=[],dead=[];
   for(const p of candidates.slice(0,affected)){
     const lethalChance=Math.max(0,(hits-4)*.07);
     if(dead.length===0&&Math.random()<lethalChance){p.health=0;p.alive=false;p.state="Décédé";game.pendingDeath=p;dead.push(p);}
     else{p.health=clamp(p.health-rand(18,32)-Math.floor(hits/3),1,100);p.state="Blessé";p.needsRemedy=true;p.sickDays=Math.max(p.sickDays,8);wounded.push(p);}
   }
-  attackOutcome={hits,wounded,dead};showAttackOutcome();
+  attackOutcome={hits,wounded,dead,journalEntry};showAttackOutcome();
 }
 
 function showAttackOutcome(){
@@ -1087,8 +1099,8 @@ function treatAttackWounds(){
 }
 
 function continueAfterAttack(){
-  if(!attackOutcome)return;const {hits,wounded,dead}=attackOutcome;$("#dialogue-bilan-attaque").close();
-  addJournal(bilingual(`L’attaque se termine après ${hits} impact${hits>1?"s":""} : ${wounded.length} blessé${wounded.length>1?"s":""}, ${dead.length} mort${dead.length>1?"s":""}.`,`The attack ended after ${hits} hit${hits===1?"":"s"}: ${wounded.length} wounded, ${dead.length} dead.`));attackOutcome=null;
+  if(!attackOutcome)return;const {hits,wounded,dead,journalEntry}=attackOutcome;$("#dialogue-bilan-attaque").close();
+  mergeJournalEntry(journalEntry,bilingual(`L’attaque se termine après ${hits} impact${hits>1?"s":""} : ${wounded.length} blessé${wounded.length>1?"s":""}, ${dead.length} mort${dead.length>1?"s":""}.`,`The attack ended after ${hits} hit${hits===1?"":"s"}: ${wounded.length} wounded, ${dead.length} dead.`));attackOutcome=null;
   if(showPendingDeathEvent()){updateUI();return;}
   if(!alive().length){finish(false,"Aucun membre du convoi n’a survécu à l’attaque.");return;}updateUI();returnToTrailTop();
 }

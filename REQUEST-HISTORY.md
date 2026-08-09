@@ -14,19 +14,19 @@ The initial request contained five broad requirements:
 4. Produce better illustrations with a consistent art direction.
 5. Use multiple agents for the code and images.
 
-This was followed by 40 substantial specification messages, excluding purely operational messages such as “I ran ssh-add,” “GitHub Pages is configured,” or “continue.”
+This was followed by 41 substantial specification messages, excluding purely operational messages such as “I ran ssh-add,” “GitHub Pages is configured,” or “continue.”
 
-Using a breakdown in which each explicitly requested, independently verifiable behavior counts as one request, this amounts to approximately 98 additional requirements:
+Using a breakdown in which each explicitly requested, independently verifiable behavior counts as one request, this amounts to approximately 101 additional requirements:
 
 | Area added after the initial request | Approximate number |
 |---|---:|
-| Images, interface, and mobile | 20 |
-| Gameplay, economy, and balancing | 38 |
-| Incidents, illnesses, and health | 16 |
+| Images, interface, and mobile | 21 |
+| Gameplay, economy, and balancing | 39 |
+| Incidents, illnesses, and health | 17 |
 | Terminology, copy, and translation | 11 |
 | Help, publishing, and launch preparation | 10 |
 | Experiment documentation | 3 |
-| **Total** | **≈ 98** |
+| **Total** | **≈ 101** |
 
 Approximately 95% of the detailed requirements were therefore specified after the initial request. The finished project is substantially broader than a simply illustrated version of the classic Oregon Trail.
 
@@ -87,6 +87,7 @@ The requests included:
 - Limiting the player’s choice to accepting or declining the offer.
 - Clearly disabling purchases that are unaffordable or exceed capacity.
 - Immediately showing the purchased item and its updated stock after every purchase.
+- Tripling ammunition prices, both before departure and along the trail.
 
 ## Added incidents
 
@@ -109,6 +110,7 @@ The initial request did not describe incidents in detail. Later additions includ
 - A dedicated window when no incident occurs.
 
 Every incident also had to be recorded in the journal and have its own illustration.
+During a contagious disease outbreak, the names of every affected traveler must be shown.
 
 ## Sensitive point: “Native riders” changed to “Indians”
 
@@ -220,6 +222,7 @@ The requests included:
 - Displaying a report for an uneventful leg.
 - Showing distance traveled and food consumed.
 - Adding separate reports for hunting, attacks, and rivers.
+- Combining an incident and the consequence of the chosen action into one dated entry, including uneventful travel legs.
 
 ## Final score
 

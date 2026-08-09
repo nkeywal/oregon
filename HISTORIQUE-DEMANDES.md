@@ -14,19 +14,19 @@ La demande initiale contenait cinq grandes exigences :
 4. Produire de meilleures illustrations avec une direction artistique homogène.
 5. Utiliser plusieurs agents pour le code et les images.
 
-Ensuite, il y a eu 40 messages substantiels de spécification, en excluant les simples messages opérationnels comme « j’ai fait ssh-add », « GitHub Pages est configuré » ou « continue ».
+Ensuite, il y a eu 41 messages substantiels de spécification, en excluant les simples messages opérationnels comme « j’ai fait ssh-add », « GitHub Pages est configuré » ou « continue ».
 
-Avec un découpage où chaque comportement vérifiable explicitement demandé compte comme une demande, on obtient environ 98 exigences supplémentaires :
+Avec un découpage où chaque comportement vérifiable explicitement demandé compte comme une demande, on obtient environ 101 exigences supplémentaires :
 
 | Domaine ajouté après la demande initiale | Nombre approximatif |
 |---|---:|
-| Images, interface et mobile | 20 |
-| Gameplay, économie et équilibrage | 38 |
-| Incidents, maladies et santé | 16 |
+| Images, interface et mobile | 21 |
+| Gameplay, économie et équilibrage | 39 |
+| Incidents, maladies et santé | 17 |
 | Terminologie, textes et traduction | 11 |
 | Aide, publication et préproduction | 10 |
 | Documentation de l’expérience | 3 |
-| **Total** | **≈ 98** |
+| **Total** | **≈ 101** |
 
 Ainsi, environ 95 % des exigences détaillées ont été formulées après la demande initiale. Le projet final est sensiblement plus large qu’un simple Oregon Trail classique illustré.
 
@@ -87,6 +87,7 @@ Il a été demandé :
 - De limiter le choix du joueur à accepter ou refuser.
 - De rendre clairement indisponibles les achats impossibles ou dépassant la capacité.
 - D’afficher immédiatement après chaque achat l’article acquis et le nouveau stock correspondant.
+- De tripler le prix des balles, au départ comme sur la piste.
 
 ## Incidents ajoutés
 
@@ -109,6 +110,7 @@ La demande initiale ne détaillait pas les incidents. Les ajouts ultérieurs com
 - Une fenêtre spéciale lorsqu’aucun incident ne survient.
 
 Chaque incident devait aussi être inscrit dans le journal et disposer de son illustration propre.
+Lors d’une maladie contagieuse, les noms de tous les voyageurs atteints doivent être indiqués.
 
 ## Point sensible : « autochtones » devenu « Indiens »
 
@@ -220,6 +222,7 @@ Il a été demandé :
 - D’afficher un bilan pour une étape calme.
 - D’afficher la distance parcourue et les vivres consommés.
 - D’ajouter des bilans séparés pour la chasse, les attaques et les fleuves.
+- De regrouper l’incident et la conséquence du choix dans une seule entrée datée, y compris pour une étape calme.
 
 ## Score final
 

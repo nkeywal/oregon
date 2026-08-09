@@ -29,6 +29,13 @@ test("the initial wagon is empty and leaves the full budget to the player",()=>{
   assert.equal(result.empty,true);assert.equal(result.money,800);
 });
 
+test("all ammunition prices use the tripled price scale",()=>{
+  assert.equal(scenario(`SHOP.munitions.price`),9);
+  assert.equal(scenario(`ammoPrice(6)`),18);
+  assert.equal(scenario(`ammoPrice(14)`),42);
+  assert.equal(scenario(`ammoPrice(18)`),54);
+});
+
 test("calendar handles the 1848 leap day",()=>{
   assert.equal(scenario(`game=baseGame(["A","B","C","D","E"],"fermier",1);game.day=28;advanceDate(1);game.day+":"+game.month`),"29:1");
   assert.equal(scenario(`game=baseGame(["A","B","C","D","E"],"fermier",1);game.day=29;advanceDate(1);game.day+":"+game.month`),"1:2");
@@ -70,6 +77,22 @@ test("multi-day stops evolve weather once per elapsed day",()=>{
 test("travel journal associates distance with each encountered weather",()=>{
   const text=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);addTravelJournal(25,2,[{name:"Neige",distance:12,days:1},{name:"Doux",distance:13,days:1}]);game.journal[0].text.fr`);
   assert.equal(text,"25 km parcourus en 2 jours : 12 km par temps de neige et 13 km par temps modéré. Terrain : Prairies du Kansas ; terrain ondulé ; piste bien marquée ; climat continental humide.");
+});
+
+test("an uneventful travel outcome stays in the same journal entry",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);eventModal=(title,text,details,actions)=>actions[0].action();const entry=addTravelJournal(70,5,[{name:"Pluvieux",distance:70,days:5}],ROUTE_SEGMENTS[8]);quietTravelEvent(70,50,5,entry);({count:game.journal.length,text:game.journal[0].text.fr})`);
+  assert.equal(result.count,1);assert.match(result.text,/70 km parcourus/);assert.match(result.text,/Une étape calme et sans incident/);
+});
+
+test("incident outcomes merge into their original dated journal entry",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);const entry=addJournal(bilingual("Un bœuf blessé — accident.","An injured ox — accident."));game.day=3;journalMergeTarget=entry;addJournal(bilingual("Le bœuf a été abattu.","The ox was slaughtered."));journalMergeTarget=null;({count:game.journal.length,day:game.journal[0].day,text:game.journal[0].text})`);
+  assert.equal(result.count,1);assert.equal(result.day,1);assert.match(result.text.fr,/accident\. Le bœuf a été abattu/);assert.match(result.text.en,/accident\. The ox was slaughtered/);
+});
+
+test("contagious disease identifies every affected traveler",()=>{
+  const result=scenario(`game=baseGame(["Alice","Benoît","Clara"],"fermier",3);Math.random=()=>.999;let notice;eventModal=(title,text)=>notice=text;contagiousDiseaseEvent(game.party);notice`);
+  assert.match(result.fr,/3 voyageurs/);for(const name of ["Alice","Benoît","Clara"])assert.match(result.fr,new RegExp(name));
+  for(const name of ["Alice","Benoît","Clara"])assert.match(result.en,new RegExp(name));
 });
 
 test("weather directly changes travel distance",()=>{

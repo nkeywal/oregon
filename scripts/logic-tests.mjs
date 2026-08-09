@@ -402,7 +402,18 @@ test("one resolution kills at most one traveler",()=>{
 
 test("a death opens a specific illustrated event",()=>{
   const result=scenario(`game=baseGame(["Lou","B","C","D","E"],"fermier",3);game.party[0].health=0;eventModal=(title,text,details,actions,art)=>{game.deathEvent={title,text,details,actions,art}};updateDeaths();const shown=showPendingDeathEvent();({shown,art:game.deathEvent.art,title:game.deathEvent.title.fr,text:game.deathEvent.text.en,open:game.deathEventOpen})`);
-  assert.equal(result.shown,true);assert.equal(result.art,"incident-death-4.webp");assert.equal(result.title,"Un compagnon est mort");assert.equal(result.text,"Lou died on the trail.");assert.equal(result.open,true);
+  assert.equal(result.shown,true);assert.equal(result.art,"incident-death-4.webp");assert.equal(result.title,"Un compagnon est mort");assert.equal(result.text,"Lou died from exhaustion on the trail.");assert.equal(result.open,true);
+});
+
+test("death notices preserve a specific cause",()=>{
+  const result=scenario(`game=baseGame(["Lou","B"],"fermier",3);const lou=game.party[0];Object.assign(lou,{health:0,state:"Dysenterie",sickDays:8});updateDeaths();const illness=deathNotice(lou);const other=game.party[1];Object.assign(other,{health:0,deathCause:bilingual("pendant l’attaque","during the attack")});const attackNotice=deathNotice(other);({illness,attack:attackNotice})`);
+  assert.match(result.illness.fr,/Lou est mort de la dysenterie/);assert.match(result.illness.en,/Lou died from dysentery/);
+  assert.match(result.attack.fr,/pendant l’attaque/);assert.match(result.attack.en,/during the attack/);
+});
+
+test("a lethal final illness day retains the illness as its cause",()=>{
+  const result=scenario(`game=baseGame(["Lou"],"fermier",3);const lou=game.party[0];Object.assign(lou,{health:2,state:"Dysenterie",sickDays:1,treated:false});advanceDate(1);updateDeaths();({state:lou.state,cause:lou.deathCause,notice:deathNotice(lou)})`);
+  assert.equal(result.state,"Décédé");assert.equal(result.cause.fr,"de la dysenterie");assert.match(result.notice.en,/from dysentery/);
 });
 
 test("death artwork reflects every possible survivor count",()=>{
@@ -454,6 +465,31 @@ test("each death applies an explicit final score penalty",()=>{
   const result=scenario(`renderFinish=()=>{};const scoreFor=dead=>{game=baseGame(["A","B","C","D","E"],"charpentier",3);game.km=KM_TOTAL;game.money=200;for(const key of Object.keys(game.cart))game.cart[key]=0;if(dead)game.party[4].alive=false;finish(true);return {score:game.score,rank:endingRank(game.score),penalty:game.finishState.deathPenalty}};({intact:scoreFor(false),loss:scoreFor(true)})`);
   assert.equal(result.intact.penalty,0);assert.equal(result.loss.penalty,525);assert.equal(result.intact.score-result.loss.score,525);
   assert.notEqual(result.loss.rank,result.intact.rank);
+});
+
+test("all ending ranks have a distinct situating comment",()=>{
+  const result=scenario(`({ranks:ENDING_RANKS.length,comments:ENDING_COMMENTS,uniqueFr:new Set(ENDING_COMMENTS.map(comment=>comment.fr)).size,cattle:ENDING_COMMENTS[ENDING_RANKS.indexOf("Convoyeur de bétail")]})`);
+  assert.equal(result.ranks,20);assert.equal(result.comments.length,20);assert.equal(result.uniqueFr,20);
+  for(const comment of result.comments){assert.ok(comment.fr.length>15);assert.ok(comment.en.length>15)}
+  assert.match(result.cattle.fr,/bien/);
+});
+
+test("the victory narrative names survivors and remembers the dead",()=>{
+  const result=scenario(`game=baseGame(["Alice","Benoît","Clara","Diego","Emma"],"fermier",3);game.days=161;game.party[3].alive=false;game.party[4].alive=false;const withLosses=finishNarrative(true);game.party.forEach(traveler=>traveler.alive=true);const intact=finishNarrative(true);({withLosses,intact})`);
+  assert.match(result.withLosses.fr,/Alice, Benoît et Clara contemplent/);assert.match(result.withLosses.fr,/dernière pensée pour Diego et Emma/);assert.doesNotMatch(result.withLosses.fr,/3 voyageurs/);
+  assert.doesNotMatch(result.intact.fr,/dernière pensée/);assert.match(result.intact.en,/Alice, Benoît, Clara, Diego and Emma finally look/);
+});
+
+test("finishing adds a final journal entry with people and place",()=>{
+  const result=scenario(`renderFinish=()=>{};game=baseGame(["Alice","Benoît","Clara"],"fermier",3);game.km=KM_TOTAL;game.party[2].alive=false;finish(true);const success=game.journal[0].text;game=baseGame(["Diego","Emma"],"fermier",3);game.km=2675;game.party.forEach(traveler=>traveler.alive=false);finish(false);const failure=game.journal[0].text;({success,failure})`);
+  assert.match(result.success.fr,/Alice et Benoît atteignent la vallée de Willamette/);assert.match(result.success.en,/Alice and Benoît reach the Willamette Valley/);
+  assert.match(result.failure.fr,/kilomètre 2675/);assert.match(result.failure.fr,/Blue Mountains/);assert.match(result.failure.en,/wagon party vanished/);
+});
+
+test("the visible score keeps death penalties internal",()=>{
+  const result=scenario(`game=baseGame(["A","B","C"],"fermier",3);game.km=2100;currentLanguage="fr";const fr=finishScoreText(false,1234);currentLanguage="en";const en=finishScoreText(true,1234);({fr,en})`);
+  assert.match(result.fr,/Score/);assert.match(result.fr,/Distance/);assert.doesNotMatch(result.fr,/Pertes humaines/);
+  assert.doesNotMatch(result.en,/Human losses/);
 });
 
 test("profession level strongly scales the final score",()=>{

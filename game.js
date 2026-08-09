@@ -90,6 +90,7 @@ let activeRiverOutcome = null;
 let activeInfoView = null;
 let helpReturnScreen = "ecran-accueil";
 let journalMergeTarget = null;
+let queuedEventReturn = null;
 
 function baseGame(names, profession, month) {
   const money = {fermier:800,charpentier:1000,banquier:1600}[profession];
@@ -97,7 +98,7 @@ function baseGame(names, profession, month) {
     version:1, profession, money, initialMoney:money, cart:{...cart},
     party:names.map(name => ({name,health:100,state:"En forme",alive:true,sickDays:0,treated:false,woundDays:0,needsRemedy:false})),
     day:1, month:Number(month), year:1848, km:0, days:0, pace:"soutenu", rations:"normales",
-    weather:{...WEATHER[0]}, weatherHistory:["Doux"], landmarkIndex:0, oxStrain:0, lastEvent:null, journal:[], finished:false, score:0,
+    weather:{...WEATHER[0]}, weatherHistory:["Doux"], landmarkIndex:0, oxStrain:0, lastEvent:null, lastRestDay:null, restStreak:0, journal:[], finished:false, score:0,
     pendingDeath:null, deathEventOpen:false, pendingRiverOutcome:null
   };
 }
@@ -162,6 +163,15 @@ function remedyLabel(availableLabel,required=1) {
   return bilingual(`${required} remèdes nécessaires · ${game.cart.medicaments} disponible`,`${required} doses needed · ${game.cart.medicaments} available`);
 }
 function dailyFoodPerPerson() { return {copieuses:2,normales:1.5,maigres:1}[game.rations]; }
+
+function oxenJournalStatus(language=currentLanguage){
+  const count=game.cart.boeufs;
+  if(count<=0)return language==="en"?"No ox remains: the wagon is stranded.":"Il ne reste aucun bœuf : le chariot est immobilisé.";
+  if(count===1)return language==="en"?"Only one ox remains: the wagon will be drastically slowed.":"Il ne reste qu’un bœuf : l’allure sera fortement ralentie.";
+  if(count<4)return language==="en"?`${count} oxen remain: the weakened team will be drastically slowed.`:`Il reste ${count} bœufs : l’attelage affaibli sera fortement ralenti.`;
+  if(count<6)return language==="en"?`${count} oxen remain: the wagon will now move more slowly.`:`Il reste ${count} bœufs : le chariot avancera désormais plus lentement.`;
+  return language==="en"?`${count} oxen remain; the team can still hold its pace.`:`Il reste ${count} bœufs ; l’attelage peut encore tenir l’allure.`;
+}
 function consumeFood(days,perPerson=dailyFoodPerPerson()) {
   const needed=perPerson*alive().length*days,consumed=Math.min(game.cart.vivres,needed);
   game.cart.vivres-=consumed;return {needed,consumed,missing:needed-consumed};
@@ -282,12 +292,19 @@ function mergeJournalEntry(entry,text) {
 function journalDate(entry){return formatDate(entry.day,entry.month,entry.year)}
 function journalItems(entries){return entries.map(j=>`<li><time>${escapeHtml(journalDate(j))}</time>${escapeHtml(languageText(j.text))}</li>`).join("")}
 
+function recoveryJournal(traveler,condition){
+  const fr={Dysenterie:`${traveler.name} a enfin vaincu la dysenterie et reprend sa place dans le convoi.`,Fièvre:`La fièvre de ${traveler.name} est enfin tombée.`,Malade:`${traveler.name} s’est remis de la maladie qui frappait le camp.`,Blessé:`La blessure de ${traveler.name} s’est refermée ; la piste peut reprendre.`,Engelures:`${traveler.name} ne souffre plus de ses engelures.`,Piqûres:`Les piqûres de ${traveler.name} ont fini par guérir.`,Convalescent:`${traveler.name} a achevé sa convalescence.`}[condition]??`${traveler.name} est de nouveau en forme.`;
+  const en={Dysenterie:`${traveler.name} has finally overcome dysentery and returns to their place in the wagon party.`,Fièvre:`${traveler.name}’s fever has finally broken.`,Malade:`${traveler.name} has recovered from the illness that struck the camp.`,Blessé:`${traveler.name}’s wound has closed; the trail may continue.`,Engelures:`${traveler.name} has recovered from frostbite.`,Piqûres:`${traveler.name}’s infected bites have finally healed.`,Convalescent:`${traveler.name} has completed their recovery.`}[condition]??`${traveler.name} is well again.`;
+  addJournal(bilingual(fr,en));
+}
+
 function advanceDate(days) {
   for(let i=0;i<days;i++){
     game.day++; game.days++;
     const lengths=[31,(game.year%4===0?29:28),31,30,31,30,31,31,30,31,30,31];
     if(game.day>lengths[game.month]){game.day=1;game.month++;if(game.month>11){game.month=0;game.year++;}}
     for(const p of alive()){
+      const previousCondition=p.state,wasSick=p.sickDays>0,wasWounded=(p.woundDays??0)>0;
       let dailyLoss=0;
       if(p.sickDays>0){
         const untreatedLoss=({Dysenterie:3,Fièvre:2,Malade:2,Blessé:2,Engelures:2,Piqûres:1,Convalescent:1}[p.state]??1);
@@ -303,13 +320,23 @@ function advanceDate(days) {
         p.treated=false;
         p.state=(p.woundDays??0)>0?(p.needsRemedy?"Blessé":"Convalescent"):"En forme";
       }
+      const illnessEnded=wasSick&&p.sickDays<=0,woundEnded=wasWounded&&(p.woundDays??0)<=0;
+      if(illnessEnded){
+        if((p.woundDays??0)>0)addJournal(bilingual(`${p.name} a vaincu ${previousCondition.toLowerCase()}, mais sa blessure exige encore des soins.`,`${p.name} has overcome ${languageText(previousCondition,"en").toLowerCase()}, but the wound still needs care.`));
+        else recoveryJournal(p,previousCondition);
+      }
+      if(woundEnded&&!illnessEnded){
+        if(p.sickDays>0)addJournal(bilingual(`La blessure d’attaque de ${p.name} s’est refermée, mais ${p.name} reste malade.`,`${p.name}’s attack wound has healed, but ${p.name} remains ill.`));
+        else addJournal(bilingual(`La blessure d’attaque de ${p.name} a fini par se refermer.`,`${p.name}’s attack wound has finally healed.`));
+      }
     }
   }
 }
 
-function restRecovery(traveler,atFort=false){
-  if(traveler.sickDays>0||(traveler.woundDays??0)>0)return 5.5;
-  return atFort?6:7;
+function restRecovery(traveler,streak=1,atFort=false){
+  const maximum=traveler.sickDays>0||(traveler.woundDays??0)>0?5.5:atFort?6:7;
+  const fatigueFactor=clamp((105-traveler.health)/55,.12,1),streakFactor=Math.pow(.62,Math.max(0,streak-1));
+  return Math.round(maximum*fatigueFactor*streakFactor*2)/2;
 }
 
 function healthLabel(value) {
@@ -665,10 +692,55 @@ function eventPool(){
   return events;
 }
 
+function selectEvent(events){
+  if(!events.length)return null;
+  const withoutRepeat=events.filter(event=>event.eventId!==game.lastEvent);
+  return pick(withoutRepeat.length?withoutRepeat:events);
+}
+
 function randomEvent(){
-  const events=eventPool();if(!events.length)return;
-  const withoutRepeat=events.filter(event=>event.eventId!==game.lastEvent),selected=pick(withoutRepeat.length?withoutRepeat:events);
+  const selected=selectEvent(eventPool());if(!selected)return;
   game.lastEvent=selected.eventId;selected();
+}
+
+function restEventPool(){
+  const allowed=new Set(["attack","theft","trade","encounter","fever","dysentery","contagious","climate-injury","blankets"]);
+  return eventPool().filter(event=>allowed.has(event.eventId));
+}
+
+function groupJournalSummary(){
+  const travelers=alive();if(!travelers.length)return bilingual("Le camp est silencieux : plus personne ne répond à l’appel.","The camp is silent: no one answers the call.");
+  const average=travelers.reduce((sum,traveler)=>sum+traveler.health,0)/travelers.length,unwell=travelers.filter(traveler=>traveler.state!=="En forme");
+  if(unwell.length){
+    const statesFr=joinList(unwell.map(traveler=>`${traveler.name} (${traveler.state.toLowerCase()})`),"fr"),statesEn=joinList(unwell.map(traveler=>`${traveler.name} (${languageText(traveler.state,"en").toLowerCase()})`),"en");
+    return bilingual(`${statesFr} ${unwell.length===1?"reste éprouvé":"restent éprouvés"}. ${average>55?"Le groupe tient encore debout.":"Le convoi repart avec des forces très fragiles."}`,`${statesEn} ${unwell.length===1?"remains":"remain"} unwell. ${average>55?"The party is still standing.":"The wagon party moves on with dangerously little strength."}`);
+  }
+  if(average>74)return bilingual("Le groupe repart d’un pas plus sûr, prêt à affronter la piste.","The party sets out with a steadier step, ready to face the trail.");
+  if(average>44)return bilingual("Le repos a aidé, mais la fatigue demeure visible sur tous les visages.","The rest helped, but fatigue still shows on every face.");
+  return bilingual("Le groupe reste au bord de l’épuisement malgré la halte.","The party remains near exhaustion despite the halt.");
+}
+
+function performRest(days=2,atFort=false){
+  const streak=game.lastRestDay===game.days?(game.restStreak??0)+1:1,pace=PACES[game.pace];
+  let rested=0,selected=null;
+  for(let day=0;day<days;day++){
+    const restWeather=game.weather;consumeDelay(1,2);rested++;updateDeaths();
+    if(game.pendingDeath||game.finished)break;
+    if(dailyIncidentOccurs(pace,restWeather)){selected=selectEvent(restEventPool());if(selected)break;}
+  }
+  const portion=rested/Math.max(1,days);
+  game.oxStrain=clamp(game.oxStrain-3*portion,0,10);
+  alive().forEach(traveler=>traveler.health=clamp(traveler.health+restRecovery(traveler,streak,atFort)*portion,0,100));
+  game.restStreak=streak;game.lastRestDay=game.days;
+  const repeatFr=streak>1?" Les haltes successives apportent chaque fois moins de répit.":"",repeatEn=streak>1?" Each successive halt brings less relief.":"";
+  const interruptionFr=selected?" La halte a été interrompue par un événement au camp.":"",interruptionEn=selected?" An event in camp interrupted the halt.":"";
+  const state=groupJournalSummary();
+  addJournal(bilingual(`${rested} jour${rested>1?"s":""} de repos ont soulagé le groupe et l’attelage.${repeatFr}${interruptionFr} ${state.fr}`,`${rested} day${rested===1?"":"s"} of rest eased the party and the oxen.${repeatEn}${interruptionEn} ${state.en}`));
+  return {days:rested,streak,event:selected};
+}
+
+function runRestEvent(event,returnCallback=null){
+  if(!event)return false;queuedEventReturn=returnCallback;game.lastEvent=event.eventId;event();return true;
 }
 
 function feverEvent(p){
@@ -688,7 +760,10 @@ function oxInjuryEvent(){
       game.cart.medicaments--;consumeDelay(2);game.oxStrain=clamp(game.oxStrain-4,0,10);addJournal(bilingual("Un remède et deux jours de repos ont remis un bœuf sur pied.","Medicine and two days of rest got an ox back on its feet."));
     }},
     {label:slaughterLabel,action:()=>{
-      game.cart.boeufs--;const loaded=loadFood(meat);game.oxStrain=clamp(game.oxStrain-2,0,10);addJournal(loaded?bilingual(`Un bœuf blessé a été abattu. Sa viande ajoute ${loaded} kg aux réserves.`,`An injured ox was slaughtered. Its meat adds ${loaded} kg to the food stores.`):bilingual("Un bœuf blessé a été abattu, mais le chariot était trop plein pour charger sa viande.","An injured ox was slaughtered, but the wagon was too full to load its meat."));
+      game.cart.boeufs--;const loaded=loadFood(meat);game.oxStrain=clamp(game.oxStrain-2,0,10);
+      const resultFr=loaded?`Un bœuf blessé a été abattu. Sa viande ajoute ${loaded} kg aux réserves.`:"Un bœuf blessé a été abattu, mais le chariot était trop plein pour charger sa viande.";
+      const resultEn=loaded?`An injured ox was slaughtered. Its meat adds ${loaded} kg to the food stores.`:"An injured ox was slaughtered, but the wagon was too full to load its meat.";
+      addJournal(bilingual(`${resultFr} ${oxenJournalStatus("fr")}`,`${resultEn} ${oxenJournalStatus("en")}`));
     }}
   ],"incident-ox-injury.webp");
 }
@@ -762,7 +837,7 @@ function theftEvent(){
   const stolenLabelEn=stolen.key==="money"?`$${stolen.amount}`:itemQuantityFor(stolen.key,stolen.amount,"en");
   const description=`${stolenLabel} ${stolen.amount===1?"a":"ont"} disparu.`;
   eventModal("Vol au camp","Au lever du jour, un coffre est ouvert et des traces s’éloignent du camp.",bilingual(description,`${stolenLabelEn} ${stolen.amount===1?"is":"are"} missing.`),[
-    {label:"Sécuriser le chargement",action:()=>addJournal(bilingual(`Un vol nous a coûté ${stolenLabel}.`,`A theft cost us ${stolenLabelEn}.`))}
+    {label:"Sécuriser le chargement",action:()=>addJournal(bilingual(`Un vol nous a coûté ${stolenLabel}.${stolen.key==="boeufs"?` ${oxenJournalStatus("fr")}`:""}`,`A theft cost us ${stolenLabelEn}.${stolen.key==="boeufs"?` ${oxenJournalStatus("en")}`:""}`))}
   ],"incident-theft.webp");
 }
 
@@ -792,7 +867,7 @@ function tradeEvent(){
 
 function attackEvent(){
   eventModal("Attaque du convoi","Les indiens approchent rapidement à cheval et des projectiles frappent autour des chariots.","Mettez le groupe à couvert et tenez jusqu’à leur retrait.",[
-    {label:"Protéger le convoi",action:()=>{const incidentEntry=journalMergeTarget;setTimeout(()=>startAttack(incidentEntry),0)}}
+    {label:"Protéger le convoi",deferReturn:true,action:()=>{const incidentEntry=journalMergeTarget,returnCallback=activeEventModal?.returnCallback??null;setTimeout(()=>startAttack(incidentEntry,returnCallback),0)}}
   ],"incident-attack.webp");
 }
 
@@ -846,9 +921,7 @@ function renderRiverOutcome(){
 }
 
 function floatCargoLossChance(depth){
-  // Une faible hausse du niveau devient très vite dangereuse : 6 % vers 0,6 m,
-  // 15 % vers 1,2 m, 37 % vers 1,8 m et près de 90 % au-delà de 2,4 m.
-  return clamp(.025*Math.exp(1.5*Math.max(0,depth)),.04,.9);
+  return clamp(.032*Math.exp(1.55*Math.max(0,depth)),.06,.94);
 }
 
 function travelerFatigueRisk(){
@@ -869,8 +942,8 @@ function riverFatigueDescription(){
 }
 
 function floatCrossingFailureChance(depth,fatigue=riverFatigueRisk(),oxen=game.cart.boeufs,hasParts=game.cart.pieces>0){
-  const waterRisk=clamp(.11*(Math.exp(1.25*Math.max(0,depth-1.1))-1),0,.72);
-  return clamp(waterRisk+fatigue*.32+Math.max(0,4-oxen)*.05+(hasParts?0:.04),0,.88);
+  const waterRisk=clamp(.14*(Math.exp(1.3*Math.max(0,depth-1))-1),0,.78);
+  return clamp(waterRisk+fatigue*.38+Math.max(0,4-oxen)*.06+(hasParts?0:.06),0,.92);
 }
 
 function riverRisk(mark,depth,crossingWeather=weatherVisual()){
@@ -885,7 +958,7 @@ function riverRisk(mark,depth,crossingWeather=weatherVisual()){
       {key:"medicaments",amount:Math.min(game.cart.medicaments,rand(1,2))}
     ].filter(loss=>loss.amount>0);
   const cargoAccident=cargoCandidates.length>0&&Math.random()<floatCargoLossChance(depth);
-  const handlingAccident=Math.random()<clamp(.04+(game.cart.boeufs<4?.12:0)+(game.cart.pieces===0?.08:0)+depth*.025+fatigue*.25,.04,.5);
+  const handlingAccident=Math.random()<clamp(.06+(game.cart.boeufs<4?.14:0)+(game.cart.pieces===0?.1:0)+depth*.03+fatigue*.3,.06,.58);
   if(crossingFailed||cargoAccident||handlingAccident){
     const cargoDamaged=cargoCandidates.length>0&&(cargoAccident||crossingFailed);
     const cargoCount=crossingFailed?(depth>=2.2?rand(3,5):rand(2,3)):(depth>=2.2?rand(3,5):depth>=1.4?rand(2,3):1);
@@ -901,12 +974,12 @@ function riverRisk(mark,depth,crossingWeather=weatherVisual()){
     const healthDamage=crossingFailed?rand(10,22)+Math.round(fatigue*8):rand(2,9)+Math.round(fatigue*4);
     alive().forEach(p=>p.health=clamp(p.health-healthDamage,0,100));
     if(crossingFailed){
-      const lossSuffixFr=losses.length?` Le courant emporte ${joinList(losses,"fr")}.`:"";
-      const lossSuffixEn=losses.length?` The current sweeps away ${joinList(lossesEn,"en")}.`:"";
+      const lossSuffixFr=losses.length?` Le courant emporte ${joinList(losses,"fr")}.${oxLoss?` ${oxenJournalStatus("fr")}`:""}`:"";
+      const lossSuffixEn=losses.length?` The current sweeps away ${joinList(lossesEn,"en")}.${oxLoss?` ${oxenJournalStatus("en")}`:""}`:"";
       addJournal(bilingual(`La traversée de ${mark.name} échoue par ${depth.toFixed(1).replace(".",",")} m de profondeur : les cordes cèdent et le convoi regagne la rive de départ.${lossSuffixFr}`,`The crossing of ${landmarkName(mark)} fails at a depth of ${depth.toFixed(1)} m: the ropes give way and the wagon party returns to the original bank.${lossSuffixEn}`));toast(bilingual("Le courant a repoussé le convoi.","The current drove the wagon party back."));
       queueRiverOutcome(mark,"float-accident",{method:"Chariot calfaté",days:1,food:travelFood.consumed,weather:crossingWeather,retry:true,previousDepth:depth,text:bilingual("Les cordes ont cédé. Après avoir lutté contre le courant, le convoi a regagné la rive de départ.","The ropes gave way. After struggling against the current, the wagon party returned to the original bank."),result:losses.length?bilingual(`Échec de la traversée · Profondeur : ${depth.toFixed(1).replace(".",",")} m · Pertes : ${joinList(losses,"fr")}`,`Crossing failed · Depth: ${depth.toFixed(1)} m · Losses: ${joinList(lossesEn,"en")}`):bilingual(`Échec de la traversée · Profondeur : ${depth.toFixed(1).replace(".",",")} m · Groupe très éprouvé`,`Crossing failed · Depth: ${depth.toFixed(1)} m · Party severely exhausted`)});
     }else{
-      addJournal(losses.length?bilingual(`À ${mark.name}, le chariot a pris l’eau par ${depth.toFixed(1).replace(".",",")} m de profondeur. Le courant emporte ${joinList(losses,"fr")}.`,`At ${landmarkName(mark)}, the wagon took on water at a depth of ${depth.toFixed(1)} m. The current swept away ${joinList(lossesEn,"en")}.`):bilingual(`Le chariot a pris l’eau à ${mark.name}, sans perte de chargement.`,`The wagon took on water at ${landmarkName(mark)}, without losing any cargo.`));toast("Le courant a secoué le convoi.");
+      addJournal(losses.length?bilingual(`À ${mark.name}, le chariot a pris l’eau par ${depth.toFixed(1).replace(".",",")} m de profondeur. Le courant emporte ${joinList(losses,"fr")}.${oxLoss?` ${oxenJournalStatus("fr")}`:""}`,`At ${landmarkName(mark)}, the wagon took on water at a depth of ${depth.toFixed(1)} m. The current swept away ${joinList(lossesEn,"en")}.${oxLoss?` ${oxenJournalStatus("en")}`:""}`):bilingual(`Le chariot a pris l’eau à ${mark.name}, sans perte de chargement.`,`The wagon took on water at ${landmarkName(mark)}, without losing any cargo.`));toast("Le courant a secoué le convoi.");
       queueRiverOutcome(mark,"float-accident",{method:"Chariot calfaté",days:1,food:travelFood.consumed,weather:crossingWeather,text:"Le chariot a pris l’eau dans le courant avant d’atteindre difficilement l’autre rive.",result:losses.length?bilingual(`Profondeur : ${depth.toFixed(1).replace(".",",")} m · Pertes : ${joinList(losses,"fr")}`,`Depth: ${depth.toFixed(1)} m · Losses: ${joinList(lossesEn,"en")}`):bilingual(`Profondeur : ${depth.toFixed(1).replace(".",",")} m · Aucune provision perdue, mais le groupe a été éprouvé`,`Depth: ${depth.toFixed(1)} m · No supplies lost, but the party was shaken`)});
     }
   } else {addJournal(bilingual(`Le chariot a traversé ${mark.name} à flot sans incident, par ${depth.toFixed(1).replace(".",",")} m de profondeur.`,`The wagon floated across ${landmarkName(mark)} without incident at a depth of ${depth.toFixed(1)} m.`));queueRiverOutcome(mark,"float-success",{method:"Chariot calfaté",days:1,food:travelFood.consumed,weather:crossingWeather,text:"Le chariot a flotté jusqu’à l’autre rive sous le contrôle des cordes et des bœufs.",result:bilingual(`Traversée réussie sans perte · Profondeur : ${depth.toFixed(1).replace(".",",")} m`,`Successful crossing without loss · Depth: ${depth.toFixed(1)} m`)})}
@@ -926,7 +999,7 @@ function fortEvent(mark,art=fortArrivalAsset(mark)){
     {label:bilingual(`Acheter 50 kg de vivres (${foodCost} $)`,`Buy 50 kg of food ($${foodCost})`),keepOpen:true,disabled:()=>game.money<foodCost||game.cart.vivres+50>SHOP.vivres.max,action:()=>{game.money-=foodCost;loadFood(50);addJournal(bilingual(`Ravitaillement à ${mark.name}.`,`Resupplied at ${landmarkName(mark)}.`))},feedback:()=>bilingual(`Achat effectué : 50 kg de vivres. Vous avez maintenant ${itemQuantityFor("vivres",Math.round(game.cart.vivres),"fr")}.`,`Purchase complete: 50 kg of food. You now have ${itemQuantityFor("vivres",Math.round(game.cart.vivres),"en")}.`)},
     {label:bilingual(`Acheter 40 balles (${ammoCost} $)`,`Buy 40 bullets ($${ammoCost})`),keepOpen:true,disabled:()=>game.money<ammoCost||game.cart.munitions+40>SHOP.munitions.max,action:()=>{game.money-=ammoCost;game.cart.munitions+=40;addJournal(bilingual(`Achat de munitions à ${mark.name}.`,`Bought ammunition at ${landmarkName(mark)}.`))},feedback:()=>bilingual(`Achat effectué : 40 balles. Vous avez maintenant ${itemQuantityFor("munitions",game.cart.munitions,"fr")}.`,`Purchase complete: 40 bullets. You now have ${itemQuantityFor("munitions",game.cart.munitions,"en")}.`)},
     ...equipment.map(item=>({label:bilingual(`Acheter ${item.label} (${item.cost} $)`,`Buy ${item.labelEn} ($${item.cost})`),keepOpen:true,disabled:()=>game.money<item.cost||game.cart[item.key]+item.qty>SHOP[item.key].max,action:()=>{game.money-=item.cost;game.cart[item.key]+=item.qty;addJournal(bilingual(`Achat de ${item.label} à ${mark.name}.`,`Bought ${item.labelEn} at ${landmarkName(mark)}.`))},feedback:()=>bilingual(`Achat effectué : ${item.label}. Vous avez maintenant ${itemQuantityFor(item.key,game.cart[item.key],"fr")}.`,`Purchase complete: ${item.labelEn}. You now have ${itemQuantityFor(item.key,game.cart[item.key],"en")}.`)})),
-    {label:"Se reposer 2 jours",keepOpen:true,disabled:()=>game.cart.vivres<alive().length*4,action:()=>{consumeDelay(2,2);game.oxStrain=clamp(game.oxStrain-3,0,10);alive().forEach(p=>p.health=clamp(p.health+restRecovery(p,true),0,100));refreshFortArrivalArt(mark);addJournal(bilingual(`Halte réparatrice à ${mark.name}.`,`A restorative stop at ${landmarkName(mark)}.`))},feedback:()=>bilingual("Repos terminé : deux jours se sont écoulés.","Rest complete: two days have passed.")},
+    {label:"Se reposer 2 jours",keepOpen:true,disabled:()=>game.cart.vivres<alive().length*4,action:()=>{const outcome=performRest(2,true);refreshFortArrivalArt(mark);if(outcome.event)setTimeout(()=>runRestEvent(outcome.event,()=>fortEvent(mark)),0)},feedback:()=>bilingual("Repos terminé : consultez le journal pour connaître l’état du groupe.","Rest complete: consult the journal for the party’s condition.")},
     {label:"Inventaire",keepOpen:true,withInventory:false,action:showInventory},
     {label:"Repartir",primary:true,action:()=>addJournal(bilingual(`Passage à ${mark.name}.`,`Passed through ${landmarkName(mark)}.`))}
   ];
@@ -934,6 +1007,7 @@ function fortEvent(mark,art=fortArrivalAsset(mark)){
 }
 
 function eventModal(title,text,details,actions,art="trail"){
+  const returnCallback=queuedEventReturn;queuedEventReturn=null;
   const d=$("#dialogue-evenement");$("#event-title").textContent=languageText(title);$("#event-text").textContent=languageText(text);$("#event-details").textContent=languageText(details);
   const artFile=art.includes(".")?art:`${art}.webp`;
   const incidentEntry=artFile.startsWith("incident-")?addJournal(bilingualJoin(title," — ",text)):null;
@@ -955,11 +1029,13 @@ function eventModal(title,text,details,actions,art="trail"){
         activeEventModal.withInventory=a.withInventory??true;activeEventModal.feedback=a.feedback??null;refreshEventModalLanguage();
         return;
       }
-      d.close();setTrailScene();returnToTrailTop();
+      d.close();
+      if(returnCallback&&!a.deferReturn){setTimeout(returnCallback,0);return;}
+      setTrailScene();returnToTrailTop();
     });
     buttons.push({action:a,button:b});box.appendChild(b);
   });
-  activeEventModal={title,text,details,buttons,withInventory:false,feedback:null};refreshEventModalLanguage();
+  activeEventModal={title,text,details,buttons,withInventory:false,feedback:null,returnCallback};refreshEventModalLanguage();
   if(!d.open)d.showModal();
 }
 
@@ -979,7 +1055,10 @@ function refreshEventModalLanguage(){
 function rest(){
   if(checkJourneyFailure())return;
   if(game.cart.vivres<alive().length*4){toast("Pas assez de vivres pour camper deux jours.");return;}
-  consumeDelay(2,2);game.oxStrain=clamp(game.oxStrain-3,0,10);alive().forEach(p=>{p.health=clamp(p.health+restRecovery(p),0,100);if(p.health>60&&p.sickDays<=0&&(p.woundDays??0)<=0&&!p.needsRemedy)p.state="En forme"});addJournal("Deux jours de repos ont remonté le moral du groupe et soulagé l’attelage.");updateDeaths();if(showPendingDeathEvent())updateUI();else if(!game.finished)updateUI();returnToTrailTop();
+  const outcome=performRest();
+  if(showPendingDeathEvent()){updateUI();return;}
+  if(game.finished||checkJourneyFailure()){updateUI();return;}
+  updateUI();if(!runRestEvent(outcome.event))returnToTrailTop();
 }
 
 function routeSpeedDescription(route,language=currentLanguage){
@@ -1046,12 +1125,15 @@ function showHelp(){
 function finish(win,message=""){
   game.finished=true;const avg=alive().length?alive().reduce((n,p)=>n+p.health,0)/alive().length:0;
   const equipment=game.cart.munitions*.2+game.cart.vetements*12+game.cart.pieces*20+game.cart.medicaments*14+game.cart.boeufs*30;
-  const assets=Math.max(0,game.money+game.cart.vivres*2+equipment+game.party.length*250+avg*10+(game.profession==="fermier"?1200:game.profession==="charpentier"?600:0));
-  const deaths=game.party.length-alive().length,deathPenalty=deaths*750;
+  const assets=Math.max(0,game.money+game.cart.vivres*2+equipment+game.party.length*250+avg*10);
+  const deaths=game.party.length-alive().length,baseDeathPenalty=deaths*750;
+  const professionMultiplier={fermier:.42,charpentier:.72,banquier:1}[game.profession]??1;
+  const deathPenalty=Math.round(baseDeathPenalty*professionMultiplier);
   // L'arrivée compte davantage que les économies laissées dans un chariot abandonné.
   const progress=clamp(game.km/KM_TOTAL,0,1);
-  const score=win?Math.max(0,Math.round(assets+1000-deathPenalty)):Math.min(2249,Math.max(0,Math.round((assets-deathPenalty)*progress*.45)));
-  game.score=score;game.finishState={win,message,deaths,deathPenalty};renderFinish();
+  const rawScore=win?Math.max(0,assets+1000-baseDeathPenalty):Math.min(2249,Math.max(0,(assets-baseDeathPenalty)*progress*.45));
+  const score=Math.round(rawScore*professionMultiplier);
+  game.score=score;game.finishState={win,message,deaths,deathPenalty,baseDeathPenalty,professionMultiplier};renderFinish();
 }
 
 function endingArtAsset(win,survivors=alive().length){return win?"victory.webp":survivors===0?"defeat.webp":"trail.webp"}
@@ -1198,10 +1280,16 @@ function endHunt(){
 }
 
 // Mini-jeu d'attaque : esquive et mise à couvert, sans tir.
-function startAttack(journalEntry=null){
+function attackDifficultyAt(km=game.km){
+  const progress=clamp(km/KM_TOTAL,0,1);
+  return {progress,duration:15+Math.round(progress*3),speed:1+progress*.35,spawnBase:.52-progress*.12};
+}
+
+function startAttack(journalEntry=null,returnCallback=null){
   if(game.finished||!alive().length)return;
-  attack={time:15,hits:0,x:330,projectiles:[],spawnIn:.3,last:performance.now(),running:true,journalEntry};
-  $("#attaque-temps").textContent=15;$("#attaque-impacts").textContent=0;
+  const difficulty=attackDifficultyAt();
+  attack={time:difficulty.duration,duration:difficulty.duration,hits:0,x:330,projectiles:[],spawnIn:.3,last:performance.now(),running:true,journalEntry,returnCallback,...difficulty};
+  $("#attaque-temps").textContent=difficulty.duration;$("#attaque-impacts").textContent=0;
   $("#dialogue-attaque").showModal();$("#canvas-attaque").focus();requestAnimationFrame(attackLoop);
 }
 
@@ -1209,20 +1297,20 @@ function moveAttack(direction){if(attack?.running)attack.x=clamp(attack.x+direct
 
 function applyAttackWound(traveler,damage){
   traveler.health=clamp(traveler.health-damage,1,100);
-  traveler.needsRemedy=true;traveler.woundDays=Math.max(traveler.woundDays??0,10);
+  traveler.needsRemedy=true;traveler.woundDays=Math.max(traveler.woundDays??0,13);
   if(traveler.sickDays<=0)traveler.state="Blessé";
 }
 
 function treatAttackWound(traveler){
   traveler.health=clamp(traveler.health+24,1,100);
-  traveler.needsRemedy=false;traveler.woundDays=Math.min(traveler.woundDays??5,5);
+  traveler.needsRemedy=false;traveler.woundDays=Math.min(traveler.woundDays??7,7);
   if(traveler.sickDays<=0)traveler.state="Convalescent";
 }
 
 function attackLoop(now){
   if(!attack?.running)return;const dt=Math.min(.04,(now-attack.last)/1000);attack.last=now;attack.time-=dt;attack.spawnIn-=dt;
   const c=$("#canvas-attaque"),ctx=c.getContext("2d");ctx.clearRect(0,0,c.width,c.height);
-  if(attack.spawnIn<=0){attack.projectiles.push({x:rand(20,740),y:-20,vx:rand(-35,35),vy:rand(180,260)});attack.spawnIn=Math.max(.16,.52-(15-attack.time)*.018);}
+  if(attack.spawnIn<=0){const elapsed=attack.duration-attack.time;attack.projectiles.push({x:rand(20,740),y:-20,vx:rand(-35,35)*attack.speed,vy:rand(180,260)*attack.speed});attack.spawnIn=Math.max(.12,attack.spawnBase-elapsed*.018);}
   ctx.strokeStyle="#ead8ad";ctx.lineWidth=3;
   attack.projectiles.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x-p.vx*.06,p.y-18);ctx.stroke();if(!p.hit&&p.y>345&&p.y<410&&p.x>attack.x&&p.x<attack.x+100){p.hit=true;attack.hits++;$("#attaque-impacts").textContent=attack.hits;}});
   attack.projectiles=attack.projectiles.filter(p=>p.y<440&&!p.hit);
@@ -1232,14 +1320,14 @@ function attackLoop(now){
 }
 
 function endAttack(){
-  if(!attack?.running)return;const {hits,journalEntry}=attack;attack.running=false;$("#dialogue-attaque").close();attack=null;
+  if(!attack?.running)return;const {hits,journalEntry,returnCallback}=attack;attack.running=false;$("#dialogue-attaque").close();attack=null;
   const candidates=shuffled(alive()),affected=Math.min(candidates.length,Math.ceil(hits/2)),wounded=[],dead=[];
   for(const p of candidates.slice(0,affected)){
     const lethalChance=Math.max(0,(hits-4)*.07);
     if(dead.length===0&&Math.random()<lethalChance){p.health=0;p.alive=false;p.state="Décédé";game.pendingDeath=p;dead.push(p);}
     else{applyAttackWound(p,rand(18,32)+Math.floor(hits/3));wounded.push(p);}
   }
-  attackOutcome={hits,wounded,dead,journalEntry};showAttackOutcome();
+  attackOutcome={hits,wounded,dead,journalEntry,returnCallback};showAttackOutcome();
 }
 
 function showAttackOutcome(){
@@ -1259,10 +1347,10 @@ function treatAttackWounds(){
 }
 
 function continueAfterAttack(){
-  if(!attackOutcome)return;const {hits,wounded,dead,journalEntry}=attackOutcome;$("#dialogue-bilan-attaque").close();
+  if(!attackOutcome)return;const {hits,wounded,dead,journalEntry,returnCallback}=attackOutcome;$("#dialogue-bilan-attaque").close();
   mergeJournalEntry(journalEntry,bilingual(`L’attaque se termine après ${hits} impact${hits>1?"s":""} : ${wounded.length} blessé${wounded.length>1?"s":""}, ${dead.length} mort${dead.length>1?"s":""}.`,`The attack ended after ${hits} hit${hits===1?"":"s"}: ${wounded.length} wounded, ${dead.length} dead.`));attackOutcome=null;
   if(showPendingDeathEvent()){updateUI();return;}
-  if(!alive().length){finish(false,"Aucun membre du convoi n’a survécu à l’attaque.");return;}updateUI();returnToTrailTop();
+  if(!alive().length){finish(false,"Aucun membre du convoi n’a survécu à l’attaque.");return;}updateUI();if(returnCallback)setTimeout(returnCallback,0);else returnToTrailTop();
 }
 
 function bindEvents(){

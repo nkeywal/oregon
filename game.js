@@ -120,7 +120,7 @@ function baseGame(names, profession, month) {
     version:1, profession, money, initialMoney:money, cart:{...cart},
     party:names.map(name => ({name,health:100,state:"En forme",alive:true,sickDays:0,treated:false,woundDays:0,needsRemedy:false,deathCause:null})),
     day:1, month:Number(month), year:1848, km:0, days:0, pace:"soutenu", rations:"normales",
-    weather:{...WEATHER[0]}, weatherHistory:["Doux"], landmarkIndex:0, oxStrain:0, lastEvent:null, lastRestDay:null, restStreak:0, journal:[], finished:false, score:0,
+    weather:{...WEATHER[0]}, weatherHistory:["Doux"], landmarkIndex:0, oxStrain:0, lastEvent:null, lastRestDay:null, restStreak:0, huntPressure:{}, journal:[], finished:false, score:0,
     pendingDeath:null, deathEventOpen:false, pendingRiverOutcome:null
   };
 }
@@ -1224,13 +1224,13 @@ function routeSpeedDescription(route,language=currentLanguage){
 
 function wildlifeDescription(route,language=currentLanguage){
   const profile=huntTerrainProfile(route),names=Object.entries(profile.weights).filter(([,weight])=>weight>0).map(([species])=>HUNT_SPECIES_NAMES[species][language]);
-  const abundance=profile.abundance>=.85?(language==="en"?"plentiful":"abondant"):profile.abundance>=.6?(language==="en"?"scattered":"dispersé"):(language==="en"?"scarce":"rare");
+  const abundance=profile.abundance>=.85?(language==="en"?"plentiful":"abondant"):profile.abundance>=.6?(language==="en"?"scattered":"peu abondant"):(language==="en"?"scarce":"rare");
   return language==="en"?`${abundance} game: ${joinList(names,"en")}`:`gibier ${abundance} : ${joinList(names,"fr")}`;
 }
 
 function currentWildlifeDescription(language=currentLanguage){
   const setup=huntWildlife(routeSegmentAt(),game.weather),species=[...new Set(setup.pool)].map(name=>HUNT_SPECIES_NAMES[name][language]);
-  const abundance=setup.count>=4?(language==="en"?"plentiful":"abondant"):setup.count>=2?(language==="en"?"scattered":"dispersé"):(language==="en"?"scarce":"rare");
+  const abundance=setup.count>=4?(language==="en"?"plentiful":"abondant"):setup.count>=2?(language==="en"?"scattered":"peu abondant"):(language==="en"?"scarce":"rare");
   const weather=languageText(game.weather.name,language).toLowerCase();
   return language==="en"?`${abundance} game in the current ${weather} weather: ${joinList(species,"en")}.`:`Gibier ${abundance} par le temps ${weather} actuel : ${joinList(species,"fr")}.`;
 }
@@ -1380,14 +1380,30 @@ const HUNT_SPECIES={
 
 function huntTerrainProfile(route=routeSegmentAt()){return HUNT_TERRAIN[route.key]??HUNT_TERRAIN["great-plains"]}
 
-function huntWildlife(route=routeSegmentAt(),weather=game.weather){
+function huntSiteKey(km=game.km){return `${routeSegmentAt(km).key}:${Math.floor(km/50)}`}
+
+function huntPressureAt(siteKey=huntSiteKey()){
+  return game.huntPressure?.[siteKey]??{hunts:0,kills:{}};
+}
+
+function recordHuntPressure(siteKey,kills={}){
+  game.huntPressure??={};
+  const pressure=game.huntPressure[siteKey]??={hunts:0,kills:{}};pressure.hunts++;
+  for(const [species,count] of Object.entries(kills))pressure.kills[species]=(pressure.kills[species]??0)+count;
+  return pressure;
+}
+
+function huntWildlife(route=routeSegmentAt(),weather=game.weather,siteKey=huntSiteKey()){
   const terrain=huntTerrainProfile(route),climate=HUNT_WEATHER[weather.name]??HUNT_WEATHER.Doux,pool=[];
+  const pressure=huntPressureAt(siteKey),totalKills=Object.values(pressure.kills).reduce((sum,count)=>sum+count,0);
   for(const species of Object.keys(HUNT_SPECIES)){
-    const tickets=Math.round((terrain.weights[species]??0)*(climate.weights[species]??0)*4);
+    const baseTickets=Math.round((terrain.weights[species]??0)*(climate.weights[species]??0)*4);
+    const tickets=Math.max(0,baseTickets-(pressure.kills[species]??0)*5);
     for(let i=0;i<tickets;i++)pool.push(species);
   }
-  if(!pool.length)pool.push(Object.keys(terrain.weights).find(species=>terrain.weights[species]>0)??"bird");
-  return {count:clamp(Math.round(5*terrain.abundance*climate.abundance),1,5),pool};
+  if(!pool.length)pool.push(Object.keys(terrain.weights).filter(species=>terrain.weights[species]>0).sort((left,right)=>(pressure.kills[left]??0)-(pressure.kills[right]??0))[0]??"bird");
+  const baseCount=Math.round(5*terrain.abundance*climate.abundance),depletion=Math.ceil(totalKills*.35+pressure.hunts*.5);
+  return {count:clamp(baseCount-depletion,0,5),pool,siteKey,pressure};
 }
 
 function huntBackground(){
@@ -1398,8 +1414,8 @@ function huntBackground(){
 function startHunt(){
   if(game.cart.munitions<=0){toast("Vous n’avez plus de munitions.");return;}
   if(game.cart.vivres>=SHOP.vivres.max){toast("Le chariot ne peut pas charger davantage de vivres.");return;}
-  const wildlife=huntWildlife();
-  hunt={time:14,loot:0,limit:Math.min(90,SHOP.vivres.max-game.cart.vivres),shots:0,background:huntBackground(),cross:{x:380,y:210},animals:[],species:wildlife.pool,last:performance.now(),running:true};
+  const siteKey=huntSiteKey(),wildlife=huntWildlife(routeSegmentAt(),game.weather,siteKey);
+  hunt={time:14,loot:0,limit:Math.min(90,SHOP.vivres.max-game.cart.vivres),shots:0,kills:{},siteKey,background:huntBackground(),cross:{x:380,y:210},animals:[],species:wildlife.pool,last:performance.now(),running:true};
   for(let i=0;i<wildlife.count;i++)spawnAnimal(i*145);
   const canvas=$("#canvas-chasse");canvas.style.backgroundImage=`url('assets/${hunt.background}')`;
   $("#dialogue-chasse .eyebrow").textContent=languageText(regionVisual().title);
@@ -1454,14 +1470,14 @@ function aimHuntAt(event){
 function shoot(touchAssist=false){
   if(!hunt?.running||game.cart.munitions<=0)return;hunt.shots++;game.cart.munitions--;
   const hit=hunt.animals.find(a=>Math.hypot(a.x-hunt.cross.x,a.y-hunt.cross.y)<a.size*HUNT_SPECIES[a.species].hit+(touchAssist?14:0));
-  if(hit){const range=HUNT_SPECIES[hit.species].loot,gain=Math.min(hunt.limit-hunt.loot,rand(...range));hunt.loot+=gain;resetAnimal(hit)}
+  if(hit){const species=hit.species,range=HUNT_SPECIES[species].loot,gain=Math.min(hunt.limit-hunt.loot,rand(...range));hunt.loot+=gain;hunt.kills[species]=(hunt.kills[species]??0)+1;resetAnimal(hit)}
   $("#chasse-balles").textContent=game.cart.munitions;$("#chasse-butin").textContent=hunt.loot;
   if(hunt.loot>=hunt.limit)endHunt();
 }
 
 function endHunt(){
   if(!hunt?.running)return;
-  const result={shots:hunt.shots,remaining:game.cart.munitions,loot:hunt.loot,background:hunt.background};hunt.running=false;
+  const result={shots:hunt.shots,remaining:game.cart.munitions,loot:hunt.loot,kills:{...hunt.kills},siteKey:hunt.siteKey,background:hunt.background};hunt.running=false;recordHuntPressure(result.siteKey,result.kills);
   const consequences=resolveHuntDay(result.loot);result.loot=consequences.loaded;
   addJournal(result.loot?bilingual(`La chasse rapporte ${result.loot} kg de viande pour ${result.shots} balle${result.shots>1?"s":""} tirée${result.shots>1?"s":""}.`,`The hunt yielded ${result.loot} kg of meat for ${result.shots} bullet${result.shots===1?"":"s"} fired.`):bilingual("La chasse ne rapporte rien cette fois.","The hunt yielded nothing this time."));
   $("#dialogue-chasse").close();updateUI();hunt=null;

@@ -178,6 +178,17 @@ test("terrain controls both hunting abundance and available species",()=>{
   assert.ok(result.desert.pool.includes("rabbit")&&result.desert.pool.includes("bird"));
 });
 
+test("hunting depletes local game and especially species already killed",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.km=200;game.weather={...WEATHER[0]};const site=huntSiteKey(),baseline=huntWildlife(),tickets=(setup,species)=>setup.pool.filter(item=>item===species).length;recordHuntPressure(site,{deer:2});const repeat=huntWildlife();game.km=260;const moved=huntWildlife();({site,baselineCount:baseline.count,repeatCount:repeat.count,movedCount:moved.count,baselineDeer:tickets(baseline,"deer"),repeatDeer:tickets(repeat,"deer"),newSite:huntSiteKey()})`);
+  assert.ok(result.repeatCount<result.baselineCount,JSON.stringify(result));assert.ok(result.repeatDeer<result.baselineDeer,JSON.stringify(result));
+  assert.equal(result.movedCount,result.baselineCount);assert.notEqual(result.newSite,result.site);
+});
+
+test("French game abundance descriptions avoid the awkward 'gibier dispersé'",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.km=2700;game.weather={...WEATHER[0]};({forecast:wildlifeDescription(routeSegmentAt(),"fr"),current:currentWildlifeDescription("fr")})`);
+  assert.doesNotMatch(`${result.forecast} ${result.current}`,/gibier dispersé/i);assert.match(`${result.forecast} ${result.current}`,/gibier peu abondant/i);
+});
+
 test("the map describes terrain, pace, and game for the next 150 km",()=>{
   const html=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.km=1900;escapeHtml=value=>String(value);renderTrailOutlook(150)`);
   assert.match(html,/150 prochains kilomètres/);assert.match(html,/Bassin aride/);assert.match(html,/progression lente/);

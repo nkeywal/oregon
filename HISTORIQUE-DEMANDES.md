@@ -14,19 +14,19 @@ La demande initiale contenait cinq grandes exigences :
 4. Produire de meilleures illustrations avec une direction artistique homogène.
 5. Utiliser plusieurs agents pour le code et les images.
 
-Ensuite, il y a eu 38 messages substantiels de spécification, en excluant les simples messages opérationnels comme « j’ai fait ssh-add », « GitHub Pages est configuré » ou « continue ».
+Ensuite, il y a eu 39 messages substantiels de spécification, en excluant les simples messages opérationnels comme « j’ai fait ssh-add », « GitHub Pages est configuré » ou « continue ».
 
-Avec un découpage où chaque comportement vérifiable explicitement demandé compte comme une demande, on obtient environ 93 exigences supplémentaires :
+Avec un découpage où chaque comportement vérifiable explicitement demandé compte comme une demande, on obtient environ 96 exigences supplémentaires :
 
 | Domaine ajouté après la demande initiale | Nombre approximatif |
 |---|---:|
 | Images, interface et mobile | 19 |
-| Gameplay, économie et équilibrage | 35 |
-| Incidents, maladies et santé | 15 |
+| Gameplay, économie et équilibrage | 37 |
+| Incidents, maladies et santé | 16 |
 | Terminologie, textes et traduction | 11 |
 | Aide, publication et préproduction | 10 |
 | Documentation de l’expérience | 3 |
-| **Total** | **≈ 93** |
+| **Total** | **≈ 96** |
 
 Ainsi, environ 95 % des exigences détaillées ont été formulées après la demande initiale. Le projet final est sensiblement plus large qu’un simple Oregon Trail classique illustré.
 
@@ -149,6 +149,7 @@ Les demandes ont imposé plusieurs règles éditoriales :
 - Ne pas proposer visuellement une action médicale comme disponible sans remède.
 - Éviter de tuer plusieurs membres du groupe au même instant.
 - Présenter chaque décès dans une fenêtre d’événement avec une illustration spécifique.
+- Rendre les maladies et blessures plus susceptibles d’emporter un voyageur déjà très affaibli.
 
 Ce dernier point ne rend pas la partie gagnable automatiquement : tout le groupe peut mourir progressivement au cours du voyage.
 
@@ -196,6 +197,8 @@ La page d’aide et la logique ont été étendues pour que chaque ressource ait
 - Les vivres sont consommés par chaque personne et chaque jour écoulé.
 - Les balles conditionnent la chasse.
 - Les couvertures protègent du froid.
+- Le chariot doit être entièrement vide avant les achats : c’est au joueur de composer son chargement.
+- Le nombre de couvertures doit réellement déterminer combien de voyageurs restent protégés du froid et des engelures.
 - Les pièces évitent les réparations longues et coûteuses.
 - Les remèdes traitent voyageurs et bœufs.
 - L’argent sert aux forts, bacs et rencontres.

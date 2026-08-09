@@ -24,6 +24,11 @@ test("initial state includes event cooldown",()=>{
   assert.equal(scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.lastEvent`),null);
 });
 
+test("the initial wagon is empty and leaves the full budget to the player",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);({cart:game.cart,money:game.money,empty:Object.values(game.cart).every(quantity=>quantity===0)})`);
+  assert.equal(result.empty,true);assert.equal(result.money,800);
+});
+
 test("calendar handles the 1848 leap day",()=>{
   assert.equal(scenario(`game=baseGame(["A","B","C","D","E"],"fermier",1);game.day=28;advanceDate(1);game.day+":"+game.month`),"29:1");
   assert.equal(scenario(`game=baseGame(["A","B","C","D","E"],"fermier",1);game.day=29;advanceDate(1);game.day+":"+game.month`),"1:2");
@@ -137,29 +142,46 @@ test("event pool excludes new illnesses for already affected travelers",()=>{
 });
 
 test("five-day incident settings are converted into daily probabilities",()=>{
-  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);const daily=dailyIncidentChance(PACES.prudent,WEATHER[0],{risk:0});({daily,five:1-Math.pow(1-daily,5)})`);
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{pieces:3,boeufs:6,vetements:5});const daily=dailyIncidentChance(PACES.prudent,WEATHER[0],{risk:0});({daily,five:1-Math.pow(1-daily,5)})`);
   assert.ok(result.daily>0&&result.daily<.38);assert.ok(Math.abs(result.five-.38)<1e-12);
 });
 
 test("missing equipment increases incident risk in relevant conditions",()=>{
-  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);const baseline=dailyIncidentChance(PACES.soutenu,WEATHER[0]);game.cart.pieces=0;const noParts=dailyIncidentChance(PACES.soutenu,WEATHER[0]);game.weather=WEATHER[3];game.cart.vetements=0;const exposed=dailyIncidentChance(PACES.soutenu,WEATHER[3]);({baseline,noParts,exposed})`);
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{pieces:3,boeufs:6,vetements:5});const baseline=dailyIncidentChance(PACES.soutenu,WEATHER[0]);game.cart.pieces=0;const noParts=dailyIncidentChance(PACES.soutenu,WEATHER[0]);game.weather=WEATHER[3];game.cart.vetements=0;const exposed=dailyIncidentChance(PACES.soutenu,WEATHER[3]);({baseline,noParts,exposed})`);
   assert.ok(result.noParts>result.baseline);assert.ok(result.exposed>result.noParts);
 });
 
 test("event conditions follow weather and available equipment",()=>{
-  const rainy=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.weather=WEATHER[2];eventPool().map(e=>e.eventId).join(",")`);
+  const rainy=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.weather=WEATHER[2];game.cart.vetements=5;eventPool().map(e=>e.eventId).join(",")`);
   assert.match(rainy,/(^|,)rain(,|$)/);assert.match(rainy,/(^|,)blankets(,|$)/);assert.doesNotMatch(rainy,/(^|,)climate-injury(,|$)/);
   const coldNoBlankets=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.weather=WEATHER[3];game.cart.vetements=0;eventPool().map(e=>e.eventId).join(",")`);
   assert.match(coldNoBlankets,/(^|,)climate-injury(,|$)/);assert.doesNotMatch(coldNoBlankets,/(^|,)blankets(,|$)/);
+  const coldPrepared=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.weather=WEATHER[3];game.cart.vetements=5;eventPool().map(e=>e.eventId).join(",")`);
+  assert.doesNotMatch(coldPrepared,/(^|,)climate-injury(,|$)/);
+});
+
+test("blankets prevent substantial cold and snow exposure",()=>{
+  const result=scenario(`({covered:weatherExposurePenalty(WEATHER[4],true),mild:weatherExposurePenalty(WEATHER[0],false),cold:weatherExposurePenalty(WEATHER[3],false),snow:weatherExposurePenalty(WEATHER[4],false),rain:weatherExposurePenalty(WEATHER[2],false)})`);
+  assert.equal(result.covered,0);assert.equal(result.mild,0);assert.equal(result.cold,2);assert.equal(result.snow,4);assert.equal(result.rain,1);
+});
+
+test("serious untreated illness can now become lethal quickly",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);const patient=game.party[0];patient.health=5;patient.state="Dysenterie";patient.sickDays=2;advanceDate(2);updateDeaths();({alive:patient.alive,pending:game.pendingDeath?.name})`);
+  assert.equal(result.alive,false);assert.equal(result.pending,"A");
+});
+
+test("an empty party cannot continue without a pending death report",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.party.forEach(p=>p.alive=false);renderFinish=()=>{};const failed=checkJourneyFailure();({failed,finished:game.finished,win:game.finishState.win})`);
+  assert.equal(result.failed,true);assert.equal(result.finished,true);assert.equal(result.win,false);
 });
 
 test("grueling pace weights breakdowns, injuries, and ox trouble",()=>{
-  const counts=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.pace="epuisant";const pool=eventPool();Object.fromEntries([...new Set(pool.map(e=>e.eventId))].map(id=>[id,pool.filter(e=>e.eventId===id).length]))`);
+  const counts=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.pace="epuisant";game.cart.boeufs=6;const pool=eventPool();Object.fromEntries([...new Set(pool.map(e=>e.eventId))].map(id=>[id,pool.filter(e=>e.eventId===id).length]))`);
   assert.equal(counts.wagon,3);assert.equal(counts.axle,3);assert.equal(counts.injury,3);assert.equal(counts["ox-injury"],4);
 });
 
 test("high ox strain further increases ox injury weight",()=>{
-  assert.equal(scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.pace="epuisant";game.oxStrain=7;eventPool().filter(e=>e.eventId==="ox-injury").length`),7);
+  assert.equal(scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.pace="epuisant";game.cart.boeufs=6;game.oxStrain=7;eventPool().filter(e=>e.eventId==="ox-injury").length`),7);
 });
 
 test("the same random event cannot occur twice in succession",()=>{
@@ -193,17 +215,17 @@ test("each death applies an explicit final score penalty",()=>{
 });
 
 test("travel stops on the exact incident day",()=>{
-  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.vivres=500;updateUI=()=>{};setTrailScene=()=>{};weatherForSeason=()=>WEATHER[0];let rolls=0;dailyIncidentOccurs=()=>++rolls===2;randomEvent=()=>{game.testEvent=true};travel();({days:game.days,km:game.km,food:game.cart.vivres,event:game.testEvent})`);
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{boeufs:6,vivres:500,vetements:5});updateUI=()=>{};setTrailScene=()=>{};weatherForSeason=()=>WEATHER[0];let rolls=0;dailyIncidentOccurs=()=>++rolls===2;randomEvent=()=>{game.testEvent=true};travel();({days:game.days,km:game.km,food:game.cart.vivres,event:game.testEvent})`);
   assert.equal(result.days,2);assert.equal(result.km,60);assert.equal(result.food,485);assert.equal(result.event,true);
 });
 
 test("an uneventful travel command resolves five daily simulations",()=>{
-  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.vivres=500;updateUI=()=>{};setTrailScene=()=>{};dailyIncidentOccurs=()=>false;weatherForSeason=()=>WEATHER[0];quietTravelEvent=(distance,food,days)=>{game.report={distance,food,days}};travel();({days:game.days,km:game.km,food:game.cart.vivres,report:game.report})`);
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{boeufs:6,vivres:500,vetements:5});updateUI=()=>{};setTrailScene=()=>{};dailyIncidentOccurs=()=>false;weatherForSeason=()=>WEATHER[0];quietTravelEvent=(distance,food,days)=>{game.report={distance,food,days}};travel();({days:game.days,km:game.km,food:game.cart.vivres,report:game.report})`);
   assert.equal(result.days,5);assert.equal(result.km,150);assert.equal(result.food,462.5);assert.equal(result.report.days,5);assert.equal(result.report.food,38);
 });
 
 test("a changing forecast affects each day and is detailed in the journal",()=>{
-  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.vivres=500;updateUI=()=>{};setTrailScene=()=>{};dailyIncidentOccurs=()=>false;const forecast=[WEATHER[4],WEATHER[1],WEATHER[2],WEATHER[0]];weatherForSeason=()=>forecast.shift()??WEATHER[0];quietTravelEvent=()=>{};travel();({km:game.km,text:game.journal[0].text.fr})`);
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{boeufs:6,vivres:500,vetements:5});updateUI=()=>{};setTrailScene=()=>{};dailyIncidentOccurs=()=>false;const forecast=[WEATHER[4],WEATHER[1],WEATHER[2],WEATHER[0]];weatherForSeason=()=>forecast.shift()??WEATHER[0];quietTravelEvent=()=>{};travel();({km:game.km,text:game.journal[0].text.fr})`);
   assert.equal(result.km,128);assert.equal(result.text,"128 km parcourus en 5 jours : 60 km par temps modéré, 19 km par temps de neige, 25 km par temps très chaud et 24 km par temps pluvieux. Terrain : Prairies du Kansas ; terrain ondulé ; piste bien marquée ; climat continental humide.");
 });
 

@@ -81,7 +81,13 @@ test("multi-day stops evolve weather once per elapsed day",()=>{
 
 test("travel journal associates distance with each encountered weather",()=>{
   const text=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);addTravelJournal(25,2,[{name:"Neige",distance:12,days:1},{name:"Doux",distance:13,days:1}]);game.journal[0].text.fr`);
-  assert.equal(text,"25 km parcourus en 2 jours : 12 km par temps de neige et 13 km par temps modéré. Terrain : Prairies du Kansas ; terrain ondulé ; piste bien marquée ; climat continental humide.");
+  assert.equal(text,"25 km parcourus en 2 jours : 12 km par temps de neige et 13 km par temps modéré. Allure : normale. Terrain : Prairies du Kansas ; terrain ondulé ; piste bien marquée ; climat continental humide.");
+});
+
+test("travel journal records every chosen pace",()=>{
+  const labels=scenario(`game=baseGame(["A"],"fermier",3);Object.fromEntries(Object.keys(PACES).map(pace=>{game.pace=pace;addTravelJournal(10,1);return [pace,game.journal.shift().text]}))`);
+  assert.match(labels.prudent.fr,/Allure : prudente/);assert.match(labels.soutenu.fr,/Allure : normale/);assert.match(labels.epuisant.fr,/Allure : le plus vite possible/);
+  assert.match(labels.prudent.en,/Pace: cautious/);assert.match(labels.soutenu.en,/Pace: normal/);assert.match(labels.epuisant.en,/Pace: as fast as possible/);
 });
 
 test("an uneventful travel outcome stays in the same journal entry",()=>{
@@ -457,7 +463,7 @@ test("an uneventful travel command resolves five daily simulations",()=>{
 
 test("a changing forecast affects each day and is detailed in the journal",()=>{
   const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{boeufs:6,vivres:500,vetements:5});updateUI=()=>{};setTrailScene=()=>{};dailyIncidentOccurs=()=>false;const forecast=[WEATHER[4],WEATHER[1],WEATHER[2],WEATHER[0]];weatherForSeason=()=>forecast.shift()??WEATHER[0];quietTravelEvent=()=>{};travel();({km:game.km,text:game.journal[0].text.fr})`);
-  assert.equal(result.km,128);assert.equal(result.text,"128 km parcourus en 5 jours : 60 km par temps modéré, 19 km par temps de neige, 25 km par temps très chaud et 24 km par temps pluvieux. Terrain : Prairies du Kansas ; terrain ondulé ; piste bien marquée ; climat continental humide.");
+  assert.equal(result.km,128);assert.equal(result.text,"128 km parcourus en 5 jours : 60 km par temps modéré, 19 km par temps de neige, 25 km par temps très chaud et 24 km par temps pluvieux. Allure : normale. Terrain : Prairies du Kansas ; terrain ondulé ; piste bien marquée ; climat continental humide.");
 });
 
 test("river depth stays physical across seasonal and weather variation",()=>{

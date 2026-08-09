@@ -531,6 +531,15 @@ function recordTravelWeather(breakdown,weather,distance){
   entry.distance+=distance;entry.days++;
 }
 
+function travelPaceLabel(pace=game.pace,language=currentLanguage){
+  const labels={
+    prudent:{fr:"prudente",en:"cautious"},
+    soutenu:{fr:"normale",en:"normal"},
+    epuisant:{fr:"le plus vite possible",en:"as fast as possible"}
+  };
+  return labels[pace]?.[language]??labels.soutenu[language];
+}
+
 function addTravelJournal(distance,days,weatherBreakdown=[],route=routeSegmentAt()){
   const breakdown=weatherBreakdown.length?weatherBreakdown:[{name:game.weather.name,distance,days}];
   const detailsFr=joinList(breakdown.map(item=>`${item.distance} km par ${travelWeatherLabel(item.name,"fr")}`),"fr");
@@ -539,8 +548,8 @@ function addTravelJournal(distance,days,weatherBreakdown=[],route=routeSegmentAt
   const paceJournalEn=game.pace==="epuisant"?" The grueling pace severely tested the wagon party.":"";
   const weatherTextFr=breakdown.length===1?`par ${travelWeatherLabel(breakdown[0].name,"fr")}`:`: ${detailsFr}`;
   const weatherTextEn=breakdown.length===1?`in ${travelWeatherLabel(breakdown[0].name,"en")}`:`: ${detailsEn}`;
-  const routeTextFr=` Terrain : ${route.terrain.fr} ; ${route.slope.fr} ; ${route.road.fr} ; climat ${route.climate.fr}.`;
-  const routeTextEn=` Terrain: ${route.terrain.en}; ${route.slope.en}; ${route.road.en}; ${route.climate.en} climate.`;
+  const routeTextFr=` Allure : ${travelPaceLabel(game.pace,"fr")}. Terrain : ${route.terrain.fr} ; ${route.slope.fr} ; ${route.road.fr} ; climat ${route.climate.fr}.`;
+  const routeTextEn=` Pace: ${travelPaceLabel(game.pace,"en")}. Terrain: ${route.terrain.en}; ${route.slope.en}; ${route.road.en}; ${route.climate.en} climate.`;
   return addJournal(bilingual(`${distance} km parcourus en ${days} jour${days>1?"s":""} ${weatherTextFr}.${routeTextFr}${paceJournal}`,`${distance} km traveled in ${days} day${days===1?"":"s"} ${weatherTextEn}.${routeTextEn}${paceJournalEn}`));
 }
 

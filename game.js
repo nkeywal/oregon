@@ -101,6 +101,7 @@ const PACES = {
 // Fonte printanière, étiage estival et réaction aux conditions des derniers jours.
 const RIVER_SEASON_LEVEL = [-.15,-.1,.05,.25,.4,.3,.05,-.2,-.25,-.1,-.05,-.1];
 const RIVER_WEATHER_LEVEL = {Doux:0,Chaud:-.18,Pluvieux:.35,Froid:-.1,Neige:-.15};
+const RIVER_WAIT_VOLATILITY = {Doux:.3,Chaud:.38,Pluvieux:.5,Froid:.32,Neige:.34};
 
 let game = null;
 let cart = Object.fromEntries(Object.entries(SHOP).map(([k,v]) => [k,v.start]));
@@ -271,13 +272,28 @@ function refreshWeather(){
   game.weather=weatherForSeason();game.weatherHistory=[...(game.weatherHistory??[]),game.weather.name].slice(-3);return game.weather;
 }
 function formatDepth(depth) { return depth.toFixed(1).replace(".",currentLanguage==="en"?".":","); }
+function riverSeasonLevel(){
+  const progress=(game.day-1)/daysInMonth(game.month,game.year),next=(game.month+1)%12;
+  return RIVER_SEASON_LEVEL[game.month]*(1-progress)+RIVER_SEASON_LEVEL[next]*progress;
+}
+function recentRiverWeatherLevel(){
+  const recent=[...(game.weatherHistory??[])].slice(-3);
+  if(recent.at(-1)!==game.weather.name)recent.push(game.weather.name);
+  const names=recent.slice(-3),weights=names.map((_,index)=>index+1),total=weights.reduce((sum,weight)=>sum+weight,0);
+  return names.reduce((sum,name,index)=>sum+(RIVER_WEATHER_LEVEL[name]??0)*weights[index],0)/Math.max(1,total);
+}
 function riverDepth(mark,previous=null) {
-  const seasonal=RIVER_SEASON_LEVEL[game.month]*(mark.seasonalFlow??1);
-  const weather=(RIVER_WEATHER_LEVEL[game.weather.name]??0)*(mark.weatherResponse??1);
+  const seasonal=riverSeasonLevel()*(mark.seasonalFlow??1);
+  const weather=recentRiverWeatherLevel()*(mark.weatherResponse??1);
   const localVariation=rand(-22,22)/100;
   const expected=mark.baseDepth+seasonal+weather+localVariation;
-  // Après une attente, le niveau conserve une part d'inertie tout en restant imprévisible.
-  const measured=previous===null?expected:previous*.55+expected*.45+rand(-16,16)/100;
+  if(previous===null)return clamp(expected,.3,3.4);
+  // En trois jours, le fleuve garde un peu d'inertie mais réagit franchement
+  // à la saison, aux trois derniers jours de météo et aux crues locales.
+  const volatility=RIVER_WAIT_VOLATILITY[game.weather.name]??.32;
+  const localShock=rand(-Math.round(volatility*100),Math.round(volatility*100))/100;
+  const weatherPulse=game.weather.name==="Pluvieux"?rand(5,24)/100:game.weather.name==="Chaud"?-rand(3,18)/100:["Froid","Neige"].includes(game.weather.name)?-rand(0,10)/100:rand(-5,5)/100;
+  const measured=previous*.3+expected*.7+localShock+weatherPulse;
   return clamp(measured,.3,3.4);
 }
 

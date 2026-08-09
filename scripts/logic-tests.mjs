@@ -517,6 +517,16 @@ test("river depth stays physical across seasonal and weather variation",()=>{
   assert.ok(result.min>=.3);assert.ok(result.max<=3.4);assert.ok(result.max>result.min);
 });
 
+test("waiting produces visibly varied river levels",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);const mark=LANDMARKS.find(m=>m.kind==="river");game.weather=WEATHER.find(weather=>weather.name==="Doux");game.weatherHistory=["Doux","Doux","Doux"];let seed=71;Math.random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296};const levels=Array.from({length:120},()=>riverDepth(mark,1.2));({minimum:Math.min(...levels),maximum:Math.max(...levels),rounded:new Set(levels.map(level=>level.toFixed(1))).size})`);
+  assert.ok(result.maximum-result.minimum>.55,JSON.stringify(result));assert.ok(result.rounded>=6,JSON.stringify(result));
+});
+
+test("season and recent weather strongly influence a level measured after waiting",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);const mark=LANDMARKS.find(m=>m.kind==="river");Math.random=()=>.5;game.month=3;game.day=15;game.weather=WEATHER.find(weather=>weather.name==="Pluvieux");game.weatherHistory=["Doux","Pluvieux","Pluvieux"];const springRain=riverDepth(mark,1.2);game.month=7;game.day=15;game.weather=WEATHER.find(weather=>weather.name==="Chaud");game.weatherHistory=["Doux","Chaud","Chaud"];const summerHeat=riverDepth(mark,1.2);({springRain,summerHeat})`);
+  assert.ok(result.springRain>result.summerHeat+.55,JSON.stringify(result));
+});
+
 test("floating cargo-loss probability rises exponentially with water depth",()=>{
   const result=scenario(`const low=floatCargoLossChance(.6),middle=floatCargoLossChance(1.2),high=floatCargoLossChance(1.8),extreme=floatCargoLossChance(2.5);({low,middle,high,extreme,first:middle-low,second:high-middle})`);
   assert.ok(result.low<result.middle&&result.middle<result.high&&result.high<result.extreme);

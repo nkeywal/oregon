@@ -366,6 +366,11 @@ function groupHealthSummary() {
   return summary;
 }
 
+function fortRestFeedback(){
+  const [state]=groupHealthSummary();
+  return bilingual(`Repos terminé · État du groupe : ${languageText(state,"fr")}.`,`Rest complete · Party condition: ${languageText(state,"en")}.`);
+}
+
 function injuryCondition(value) {
   if(value>64)return "Blessure légère";
   if(value>34)return "Sérieusement affaibli";
@@ -605,7 +610,7 @@ function offerOxForFood(afterFeeding=null){
   eventModal(bilingual("Les vivres sont épuisés","The food stores are empty"),bilingual("Le groupe n’a plus rien à manger. Un bœuf pourrait être abattu pour nourrir le convoi.","The party has nothing left to eat. An ox could be slaughtered to feed the wagon party."),bilingual(`Il resterait ${game.cart.boeufs-1} bœuf${game.cart.boeufs-1>1?"s":""} pour tirer le chariot.`,`There would be ${game.cart.boeufs-1} ${game.cart.boeufs-1===1?"ox":"oxen"} left to pull the wagon.`),[
     {label:bilingual("Abattre un bœuf","Slaughter an ox"),action:slaughterOxForFood,afterClose:afterFeeding},
     {label:bilingual("Conserver l’attelage","Keep the team"),action:()=>addJournal(bilingual("Le convoi a conservé son dernier attelage et affronte désormais la faim.","The wagon party kept its remaining team and now faces starvation.")),afterClose:()=>resolveStarvation(false)}
-  ],"incident-ox-injury.webp");
+  ],"incident-ox-slaughter.webp");
   return true;
 }
 
@@ -1020,7 +1025,7 @@ function fortEvent(mark,art=fortArrivalAsset(mark)){
     {label:bilingual(`Acheter 50 kg de vivres (${foodCost} $)`,`Buy 50 kg of food ($${foodCost})`),keepOpen:true,disabled:()=>game.money<foodCost||game.cart.vivres+50>SHOP.vivres.max,action:()=>{game.money-=foodCost;loadFood(50);addJournal(bilingual(`Ravitaillement à ${mark.name}.`,`Resupplied at ${landmarkName(mark)}.`))},feedback:()=>bilingual(`Achat effectué : 50 kg de vivres. Vous avez maintenant ${itemQuantityFor("vivres",Math.round(game.cart.vivres),"fr")}.`,`Purchase complete: 50 kg of food. You now have ${itemQuantityFor("vivres",Math.round(game.cart.vivres),"en")}.`)},
     {label:bilingual(`Acheter 40 balles (${ammoCost} $)`,`Buy 40 bullets ($${ammoCost})`),keepOpen:true,disabled:()=>game.money<ammoCost||game.cart.munitions+40>SHOP.munitions.max,action:()=>{game.money-=ammoCost;game.cart.munitions+=40;addJournal(bilingual(`Achat de munitions à ${mark.name}.`,`Bought ammunition at ${landmarkName(mark)}.`))},feedback:()=>bilingual(`Achat effectué : 40 balles. Vous avez maintenant ${itemQuantityFor("munitions",game.cart.munitions,"fr")}.`,`Purchase complete: 40 bullets. You now have ${itemQuantityFor("munitions",game.cart.munitions,"en")}.`)},
     ...equipment.map(item=>({label:bilingual(`Acheter ${item.label} (${item.cost} $)`,`Buy ${item.labelEn} ($${item.cost})`),keepOpen:true,disabled:()=>game.money<item.cost||game.cart[item.key]+item.qty>SHOP[item.key].max,action:()=>{game.money-=item.cost;game.cart[item.key]+=item.qty;addJournal(bilingual(`Achat de ${item.label} à ${mark.name}.`,`Bought ${item.labelEn} at ${landmarkName(mark)}.`))},feedback:()=>bilingual(`Achat effectué : ${item.label}. Vous avez maintenant ${itemQuantityFor(item.key,game.cart[item.key],"fr")}.`,`Purchase complete: ${item.labelEn}. You now have ${itemQuantityFor(item.key,game.cart[item.key],"en")}.`)})),
-    {label:"Se reposer 2 jours",keepOpen:true,disabled:()=>game.cart.vivres<alive().length*4,action:()=>{const outcome=performRest(2,true);refreshFortArrivalArt(mark);if(outcome.event)setTimeout(()=>runRestEvent(outcome.event,()=>fortEvent(mark)),0)},feedback:()=>bilingual("Repos terminé : consultez le journal pour connaître l’état du groupe.","Rest complete: consult the journal for the party’s condition.")},
+    {label:"Se reposer 2 jours",keepOpen:true,disabled:()=>game.cart.vivres<alive().length*4,action:()=>{performRest(2,true);refreshFortArrivalArt(mark)},feedback:fortRestFeedback},
     {label:"Inventaire",keepOpen:true,withInventory:false,action:showInventory},
     {label:"Repartir",primary:true,action:()=>addJournal(bilingual(`Passage à ${mark.name}.`,`Passed through ${landmarkName(mark)}.`))}
   ];
@@ -1312,7 +1317,15 @@ function continueAfterHuntReport(){
 // Mini-jeu d'attaque : esquive et mise à couvert, sans tir.
 function attackDifficultyAt(km=game.km){
   const progress=clamp(km/KM_TOTAL,0,1);
-  return {progress,duration:15+Math.round(progress*3),speed:1+progress*.35,spawnBase:.52-progress*.12};
+  return {progress,duration:16+Math.round(progress*5),speed:1+progress*.55,spawnBase:.48-progress*.16,minSpawn:.09};
+}
+
+function attackOutcomeRisk(hits,progress=clamp(game.km/KM_TOTAL,0,1)){
+  return {
+    affected:Math.ceil(hits/1.5),
+    lethalChance:clamp(Math.max(0,hits-2)*.085+progress*.1,0,.72),
+    damageBonus:Math.floor(hits/2)+Math.round(progress*9)
+  };
 }
 
 function startAttack(journalEntry=null,returnCallback=null){
@@ -1327,20 +1340,20 @@ function moveAttack(direction){if(attack?.running)attack.x=clamp(attack.x+direct
 
 function applyAttackWound(traveler,damage){
   traveler.health=clamp(traveler.health-damage,1,100);
-  traveler.needsRemedy=true;traveler.woundDays=Math.max(traveler.woundDays??0,13);
+  traveler.needsRemedy=true;traveler.woundDays=Math.max(traveler.woundDays??0,16);
   if(traveler.sickDays<=0)traveler.state="Blessé";
 }
 
 function treatAttackWound(traveler){
   traveler.health=clamp(traveler.health+24,1,100);
-  traveler.needsRemedy=false;traveler.woundDays=Math.min(traveler.woundDays??7,7);
+  traveler.needsRemedy=false;traveler.woundDays=Math.min(traveler.woundDays??9,9);
   if(traveler.sickDays<=0)traveler.state="Convalescent";
 }
 
 function attackLoop(now){
   if(!attack?.running)return;const dt=Math.min(.04,(now-attack.last)/1000);attack.last=now;attack.time-=dt;attack.spawnIn-=dt;
   const c=$("#canvas-attaque"),ctx=c.getContext("2d");ctx.clearRect(0,0,c.width,c.height);
-  if(attack.spawnIn<=0){const elapsed=attack.duration-attack.time;attack.projectiles.push({x:rand(20,740),y:-20,vx:rand(-35,35)*attack.speed,vy:rand(180,260)*attack.speed});attack.spawnIn=Math.max(.12,attack.spawnBase-elapsed*.018);}
+  if(attack.spawnIn<=0){const elapsed=attack.duration-attack.time;attack.projectiles.push({x:rand(20,740),y:-20,vx:rand(-35,35)*attack.speed,vy:rand(180,260)*attack.speed});attack.spawnIn=Math.max(attack.minSpawn,attack.spawnBase-elapsed*.02);}
   ctx.strokeStyle="#ead8ad";ctx.lineWidth=3;
   attack.projectiles.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x-p.vx*.06,p.y-18);ctx.stroke();if(!p.hit&&p.y>345&&p.y<410&&p.x>attack.x&&p.x<attack.x+100){p.hit=true;attack.hits++;$("#attaque-impacts").textContent=attack.hits;}});
   attack.projectiles=attack.projectiles.filter(p=>p.y<440&&!p.hit);
@@ -1350,12 +1363,11 @@ function attackLoop(now){
 }
 
 function endAttack(){
-  if(!attack?.running)return;const {hits,journalEntry,returnCallback}=attack;attack.running=false;$("#dialogue-attaque").close();attack=null;
-  const candidates=shuffled(alive()),affected=Math.min(candidates.length,Math.ceil(hits/2)),wounded=[],dead=[];
+  if(!attack?.running)return;const {hits,journalEntry,returnCallback,progress}=attack;attack.running=false;$("#dialogue-attaque").close();attack=null;
+  const candidates=shuffled(alive()),risk=attackOutcomeRisk(hits,progress),affected=Math.min(candidates.length,risk.affected),wounded=[],dead=[];
   for(const p of candidates.slice(0,affected)){
-    const lethalChance=Math.max(0,(hits-4)*.07);
-    if(dead.length===0&&Math.random()<lethalChance){p.health=0;p.alive=false;p.state="Décédé";game.pendingDeath=p;dead.push(p);}
-    else{applyAttackWound(p,rand(18,32)+Math.floor(hits/3));wounded.push(p);}
+    if(dead.length===0&&Math.random()<risk.lethalChance){p.health=0;p.alive=false;p.state="Décédé";game.pendingDeath=p;dead.push(p);}
+    else{applyAttackWound(p,rand(22,38)+risk.damageBonus);wounded.push(p);}
   }
   attackOutcome={hits,wounded,dead,journalEntry,returnCallback};showAttackOutcome();
 }

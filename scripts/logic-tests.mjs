@@ -258,13 +258,13 @@ test("rest cannot improve health during untreated dysentery",()=>{
 
 test("an attack wound evolves alongside rather than replacing dysentery",()=>{
   const result=scenario(`game=baseGame(["Alice"],"fermier",3);const patient=game.party[0];Object.assign(patient,{health:90,state:"Dysenterie",sickDays:13,treated:true});applyAttackWound(patient,20);const wounded={state:patient.state,sickDays:patient.sickDays,woundDays:patient.woundDays,needsRemedy:patient.needsRemedy};treatAttackWound(patient);const treated={state:patient.state,sickDays:patient.sickDays,woundDays:patient.woundDays,needsRemedy:patient.needsRemedy};advanceDate(5);({wounded,treated,after:{state:patient.state,sickDays:patient.sickDays,woundDays:patient.woundDays,needsRemedy:patient.needsRemedy}})`);
-  assert.equal(result.wounded.state,"Dysenterie");assert.equal(result.wounded.sickDays,13);assert.equal(result.wounded.woundDays,13);
-  assert.equal(result.treated.state,"Dysenterie");assert.equal(result.treated.sickDays,13);assert.equal(result.treated.woundDays,7);assert.equal(result.treated.needsRemedy,false);
-  assert.equal(result.after.state,"Dysenterie");assert.equal(result.after.sickDays,8);assert.equal(result.after.woundDays,2);
+  assert.equal(result.wounded.state,"Dysenterie");assert.equal(result.wounded.sickDays,13);assert.equal(result.wounded.woundDays,16);
+  assert.equal(result.treated.state,"Dysenterie");assert.equal(result.treated.sickDays,13);assert.equal(result.treated.woundDays,9);assert.equal(result.treated.needsRemedy,false);
+  assert.equal(result.after.state,"Dysenterie");assert.equal(result.after.sickDays,8);assert.equal(result.after.woundDays,4);
 });
 
 test("an untreated attack wound eventually clears its remedy flag",()=>{
-  const result=scenario(`game=baseGame(["Alice"],"fermier",3);const patient=game.party[0];applyAttackWound(patient,10);advanceDate(13);({state:patient.state,woundDays:patient.woundDays,needsRemedy:patient.needsRemedy,eligible:eventEligibleTravelers().includes(patient)})`);
+  const result=scenario(`game=baseGame(["Alice"],"fermier",3);const patient=game.party[0];applyAttackWound(patient,10);advanceDate(16);({state:patient.state,woundDays:patient.woundDays,needsRemedy:patient.needsRemedy,eligible:eventEligibleTravelers().includes(patient)})`);
   assert.equal(result.state,"En forme");assert.equal(result.woundDays,0);assert.equal(result.needsRemedy,false);assert.equal(result.eligible,true);
 });
 
@@ -296,6 +296,11 @@ test("resting at a fort is safe from every incident",()=>{
   assert.equal(result.rolls,0);assert.equal(result.days,2);assert.equal(result.event,null);
 });
 
+test("fort rest feedback displays the group condition directly",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.party.forEach(traveler=>traveler.health=42);const feedback=fortRestFeedback();({fr:feedback.fr,en:feedback.en})`);
+  assert.match(result.fr,/État du groupe : Très faible/);assert.doesNotMatch(result.fr,/journal/i);assert.doesNotMatch(result.en,/journal/i);
+});
+
 test("losing an ox records the remaining team and its effect on pace",()=>{
   const text=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.boeufs=5;game.cart.vivres=0;eventModal=(title,body,details,actions)=>actions[1].action();oxInjuryEvent();game.journal[0].text.fr`);
   assert.match(text,/Il reste 4 bœufs/);assert.match(text,/plus lentement/);
@@ -303,7 +308,12 @@ test("losing an ox records the remaining team and its effect on pace",()=>{
 
 test("attacks become longer, faster, and denser farther west",()=>{
   const result=scenario(`game=baseGame(["A"],"fermier",3);({east:attackDifficultyAt(0),west:attackDifficultyAt(KM_TOTAL)})`);
-  assert.ok(result.west.duration>result.east.duration);assert.ok(result.west.speed>result.east.speed);assert.ok(result.west.spawnBase<result.east.spawnBase);
+  assert.ok(result.west.duration>=result.east.duration+5);assert.ok(result.west.speed>=result.east.speed*1.5);assert.ok(result.west.spawnBase<result.east.spawnBase);assert.ok(result.west.minSpawn<=.09);
+});
+
+test("later attacks cause more casualties and more severe wounds",()=>{
+  const result=scenario(`game=baseGame(["A"],"fermier",3);({light:attackOutcomeRisk(3,0),heavy:attackOutcomeRisk(8,0),late:attackOutcomeRisk(8,1)})`);
+  assert.ok(result.heavy.affected>result.light.affected);assert.ok(result.heavy.lethalChance>result.light.lethalChance);assert.ok(result.late.lethalChance>result.heavy.lethalChance);assert.ok(result.late.damageBonus>result.heavy.damageBonus);
 });
 
 test("five-day incident settings are converted into daily probabilities",()=>{
@@ -407,6 +417,11 @@ test("a hunting-day death is queued only after the meat has been added",()=>{
 test("an ox can feed an empty wagon only when another ox remains",()=>{
   const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.boeufs=2;game.cart.vivres=0;Math.random=()=>0;eventModal=()=>{};const offered=offerOxForFood();const loaded=slaughterOxForFood();const after={oxen:game.cart.boeufs,food:game.cart.vivres,text:game.journal[0].text.fr};game.cart.vivres=0;const refused=slaughterOxForFood();({offered,loaded,after,refused})`);
   assert.equal(result.offered,true);assert.ok(result.loaded>=42);assert.equal(result.after.oxen,1);assert.match(result.after.text,/Il ne reste qu’un bœuf/);assert.equal(result.refused,0);
+});
+
+test("the starvation choice uses its dedicated illustration",()=>{
+  const result=scenario(`game=baseGame(["A"],"fermier",3);game.cart.boeufs=2;game.cart.vivres=0;let art;eventModal=(title,text,details,actions,value)=>art=value;const offered=offerOxForFood();({offered,art})`);
+  assert.equal(result.offered,true);assert.equal(result.art,"incident-ox-slaughter.webp");
 });
 
 test("trying to travel hungry offers an ox before starvation",()=>{

@@ -1,4 +1,4 @@
-import {readFile, access} from "node:fs/promises";
+import {readFile, access, stat} from "node:fs/promises";
 import {constants as fsConstants} from "node:fs";
 import {Script} from "node:vm";
 
@@ -19,7 +19,7 @@ const localFiles=[...html.matchAll(/(?:src|href)="([^"#]+)"/g)]
 
 const stages=["kansas","fort-kearny","chimney-rock","fort-laramie","independence-rock","south-pass","snake","fort-boise","dalles","willamette"];
 const climates=["mild","cold","hot","rain"];
-const incidents=["attack","axle","bites","blankets","contagious","dysentery","encounter","fever","frostbite","injury","ox-injury","rain","theft","trade","wagon"];
+const incidents=["attack","axle","bites","blankets","contagious","dysentery","encounter","fever","frostbite","injury","ox-injury","ox-slaughter","rain","theft","trade","wagon"];
 const rivers=["kansas","snake","dalles"];
 const forts=["fort-kearny","fort-laramie","fort-boise"];
 const riverOutcomes=["ferry","float-accident","float-success","wait"];
@@ -43,7 +43,14 @@ const missing=[];
 for(const path of required)if(!await exists(path))missing.push(path);
 if(missing.length)throw new Error(`Missing local files:\n${missing.join("\n")}`);
 
+const oversized=[];
+for(const path of required.filter(path=>path.startsWith("assets/"))){
+  const info=await stat(path);if(info.size>600_000)oversized.push(`${path} (${Math.round(info.size/1024)} KiB)`);
+}
+if(oversized.length)throw new Error(`Oversized runtime assets:\n${oversized.join("\n")}`);
+
 if(/\.png\b/i.test(`${html}\n${css}\n${game}`))throw new Error("Runtime source still references an unoptimized PNG asset.");
+if(/\.weather\.(?:rain|snow)\s*\{[^}]*background[^;}]*?(?:gradient|url\()/i.test(css))throw new Error("CSS weather particles must not cover dedicated rain or cold artwork.");
 if(/localStorage|sessionStorage/.test(game))throw new Error("Game progression must not be persisted in browser storage.");
 if(/points? de santé|health points?|% de santé|% health/i.test(`${html}\n${game}\n${i18n}`))throw new Error("Internal health values leaked into player-facing copy.");
 

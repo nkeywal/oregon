@@ -26,7 +26,7 @@ Ouvrez ensuite `http://localhost:8000`. Le dossier peut aussi être déployé te
 
 - Choisissez le groupe, le métier, le mois de départ et les provisions.
 - Consultez le « Guide du pionnier » avant les achats ou depuis la piste.
-- Ajustez le rythme et les rations avant chaque tranche de cinq jours : une allure épuisante consomme davantage et augmente fortement les incidents.
+- Ajustez l’allure et les rations avant chaque action : la ration choisie est également consommée pendant la chasse et le repos. Une allure épuisante use davantage le convoi et favorise surtout les accidents liés au déplacement.
 - À la chasse, utilisez la souris ou les flèches pour viser, puis le clic ou `Espace` pour tirer.
 - Pour tester l’attaque du convoi, appuyez sur `&` pendant le voyage.
 

@@ -54,7 +54,7 @@ const ENDING_COMMENTS = [
 
 const SHOP = {
   boeufs: { label:"Bœufs", desc:"Une paire coûte 40 $. Il en faut au moins quatre.", unit:"bête", plural:"bêtes", unitEn:"ox", pluralEn:"oxen", step:2, price:40, max:12, start:0 },
-  vivres: { label:"Vivres", desc:"Farine, lard, café et haricots. Prix pour 10 kg.", unit:"kg", plural:"kg", unitEn:"kg", pluralEn:"kg", step:10, price:4, max:800, start:0 },
+  vivres: { label:"Vivres", desc:"Farine, lard, café et haricots. Prix pour 10 kg.", unit:"kg", plural:"kg", unitEn:"kg", pluralEn:"kg", step:10, price:6, max:800, start:0 },
   munitions: { label:"Munitions", desc:"Boîtes de 20 balles pour la chasse.", unit:"balle", plural:"balles", unitEn:"bullet", pluralEn:"bullets", step:20, price:ammoPrice(3), max:600, start:0 },
   vetements: { label:"Couvertures", desc:"Chacune protège un voyageur du froid et de l’humidité.", unit:"couverture", plural:"couvertures", unitEn:"blanket", pluralEn:"blankets", step:1, price:10, max:15, start:0 },
   pieces: { label:"Pièces de rechange", desc:"Roues, essieux et timons pour les avaries.", unit:"pièce", plural:"pièces", unitEn:"spare part", pluralEn:"spare parts", step:1, price:18, max:12, start:0 },
@@ -120,7 +120,7 @@ function baseGame(names, profession, month) {
     version:1, profession, money, initialMoney:money, cart:{...cart},
     party:names.map(name => ({name,health:100,state:"En forme",alive:true,sickDays:0,treated:false,woundDays:0,needsRemedy:false,deathCause:null})),
     day:1, month:Number(month), year:1848, km:0, days:0, pace:"soutenu", rations:"normales",
-    weather:{...WEATHER[0]}, weatherHistory:["Doux"], landmarkIndex:0, oxStrain:0, lastEvent:null, lastRestDay:null, restStreak:0, huntPressure:{}, journal:[], finished:false, score:0,
+    weather:{...WEATHER[0]}, weatherHistory:["Doux"], landmarkIndex:0, oxStrain:0, lastEvent:null, lastRestDay:null, restStreak:0, huntPressure:{}, fortPurchases:{}, journal:[], finished:false, score:0,
     pendingDeath:null, deathEventOpen:false, pendingRiverOutcome:null
   };
 }
@@ -221,11 +221,17 @@ function loadFood(amount){
   const loaded=Math.max(0,Math.min(amount,SHOP.vivres.max-game.cart.vivres));
   game.cart.vivres+=loaded;return loaded;
 }
+function proportionalLossAmount(quantity,minRate,maxRate,minimum=1){
+  if(quantity<=0)return 0;
+  const rate=rand(Math.round(minRate*100),Math.round(maxRate*100))/100;
+  return Math.min(quantity,Math.max(minimum,Math.round(quantity*rate)));
+}
 function travelWeatherFactor(weather) { return {Doux:1,Chaud:.85,Pluvieux:.8,Froid:.9,Neige:.65}[weather.name]??1; }
 function routeSegmentAt(km=game?.km??0){return ROUTE_SEGMENTS.find(segment=>km>=segment.start&&km<segment.end)||ROUTE_SEGMENTS.at(-1)}
 function routeTravelFactor(route=routeSegmentAt()){return route.speed}
+function oxenTravelFactor(oxen=game.cart.boeufs){return clamp(.45+oxen*.075,.5,1.35)}
 function plannedDailyDistance(pace,weather,route=routeSegmentAt(),oxen=game.cart.boeufs){
-  const oxFactor=clamp(.45+oxen*.075,.5,1.35);
+  const oxFactor=oxenTravelFactor(oxen);
   return Math.max(1,Math.round(pace.km/5*oxFactor*travelWeatherFactor(weather)*routeTravelFactor(route)));
 }
 function daysInMonth(month,year=game?.year??1848){return month===1?(year%4===0?29:28):[3,5,8,10].includes(month)?30:31}
@@ -739,11 +745,11 @@ function eventPool(){
   if(game.finished||!alive().length)return [];
   const patients=eventEligibleTravelers(),route=routeSegmentAt();
   const wagonEvent=taggedEvent("wagon",()=>{
-      const loss=Math.min(game.cart.vivres,rand(12,35));game.cart.vivres-=loss;
+      const loss=proportionalLossAmount(game.cart.vivres,.06,.15);game.cart.vivres-=loss;
       const lossText=loss>0?`${loss} kg de vivres ${loss===1?"est perdu":"sont perdus"}.`:"Les réserves de vivres étaient déjà vides : rien n’a pu être perdu.";
       const lossTextEn=loss>0?`${loss} kg of food ${loss===1?"is":"are"} lost.`:"The food stores were already empty: nothing could be lost.";
       eventModal(bilingual("Mauvaise piste","Rough trail"),bilingual(`Le chariot s’est renversé dans une ornière. ${lossText}`,`The wagon overturned in a rut. ${lossTextEn}`),bilingual("Une journée sera nécessaire pour tout remettre en ordre.","One day will be needed to put everything back in order."),[
-        {label:"Réparer et repartir",action:()=>{consumeDelay(1);addJournal(loss>0?bilingual(`Une chute de chariot nous a coûté ${loss} kg de vivres.`,`A wagon fall cost us ${loss} kg of food.`):bilingual("Le chariot s’est renversé, sans perte de vivres.","The wagon overturned without losing any food."))}}
+        {label:"Réparer et repartir",action:()=>{consumeDelay(1);addJournal(loss>0?bilingual(`Une chute de chariot nous a coûté ${loss} kg de vivres. Il reste ${Math.round(game.cart.vivres)} kg de vivres dans le chariot.`,`A wagon fall cost us ${loss} kg of food. ${Math.round(game.cart.vivres)} kg of food remain in the wagon.`):bilingual("Le chariot s’est renversé, sans perte de vivres.","The wagon overturned without losing any food."))}}
       ],"incident-wagon.webp");
     });
   const axleEvent=taggedEvent("axle",()=>{
@@ -753,15 +759,16 @@ function eventPool(){
           {label:"Effectuer la réparation",action:()=>{consumeDelay(days);addJournal(bilingual(`L’essieu a été remplacé avec une pièce de rechange en ${days} jour${days>1?"s":""}.`,`The axle was replaced with a spare part in ${days} day${days===1?"":"s"}.`))}}
         ],"incident-axle.webp");
       }else{
-        const discardedFood=Math.min(game.cart.vivres,rand(20,45));
-        const discardedBlankets=Math.min(game.cart.vetements,1);
+        const discardedFood=proportionalLossAmount(game.cart.vivres,.1,.25);
+        const discardedBlankets=proportionalLossAmount(game.cart.vetements,.2,.5);
         eventModal("Essieu brisé","Votre essieu est rompu et vous n’avez aucune pièce.","Une famille de passage propose une pièce pour 45 $.",[
           {label:"Acheter la pièce (45 $)",disabled:game.money<45,action:()=>{game.money-=45;consumeDelay(2);addJournal(bilingual("Une pièce achetée en urgence a permis de remplacer l’essieu en deux jours.","An emergency spare part purchase allowed us to replace the axle in two days."))}},
           {label:"Alléger et improviser",action:()=>{
             consumeDelay(4);const actualFood=Math.min(game.cart.vivres,discardedFood);game.cart.vivres-=actualFood;game.cart.vetements-=discardedBlankets;
             alive().forEach(p=>p.health=clamp(p.health-7,0,100));
             const losses=[];if(actualFood)losses.push(`${actualFood} kg de vivres`);if(discardedBlankets)losses.push("une couverture");
-            addJournal(bilingual(`Faute de pièce, le chariot a été allégé${losses.length?` de ${losses.join(" et ")}`:""} pour reprendre la piste.`,`Without a spare part, the wagon was lightened${losses.length?` by discarding ${losses.map(loss=>languageText(loss,"en")).join(" and ")}`:""} to return to the trail.`));
+            const remainingFr=`Il reste ${Math.round(game.cart.vivres)} kg de vivres et ${game.cart.vetements} couverture${game.cart.vetements>1?"s":""}.`,remainingEn=`${Math.round(game.cart.vivres)} kg of food and ${game.cart.vetements} blanket${game.cart.vetements===1?"":"s"} remain.`;
+            addJournal(bilingual(`Faute de pièce, le chariot a été allégé${losses.length?` de ${losses.join(" et ")}`:""} pour reprendre la piste. ${remainingFr}`,`Without a spare part, the wagon was lightened${losses.length?` by discarding ${losses.map(loss=>languageText(loss,"en")).join(" and ")}`:""} to return to the trail. ${remainingEn}`));
           }}
         ],"incident-axle.webp");
       }
@@ -770,7 +777,7 @@ function eventPool(){
       const found=loadFood(rand(10,25));
       const details=found?bilingual(`Vous recevez ${found} kg de vivres et quelques conseils.`,`You receive ${found} kg of food and some advice.`):bilingual("Le chariot est déjà plein : vous échangez plutôt des conseils sur la piste.","The wagon is already full, so you exchange advice about the trail instead.");
       eventModal("Une bonne rencontre","Des voyageurs revenant de l’Oregon partagent leurs provisions.",details,[
-        {label:"Les remercier",action:()=>addJournal(found?"Une famille généreuse nous a ravitaillés.":bilingual("Une famille généreuse nous a conseillé sur la route à venir.","A generous family shared advice about the road ahead."))}
+        {label:"Les remercier",action:()=>addJournal(found?bilingual(`Une famille généreuse nous a donné ${found} kg de vivres ; les réserves contiennent désormais ${Math.round(game.cart.vivres)} kg.`,`A generous family gave us ${found} kg of food; the stores now contain ${Math.round(game.cart.vivres)} kg.`):bilingual("Une famille généreuse nous a conseillé sur la route à venir.","A generous family shared advice about the road ahead."))}
       ],"incident-encounter.webp");
     }),taggedEvent("theft",theftEvent),taggedEvent("trade",tradeEvent),taggedEvent("attack",attackEvent)];
   let injuryEventChoice=null,oxEventChoice=null;
@@ -945,7 +952,7 @@ function contagiousDiseaseEvent(candidates=eventEligibleTravelers()){
 }
 
 function blanketLossEvent(){
-  const cold=game.weather.temp<=5,loss=Math.min(game.cart.vetements,rand(1,2));game.cart.vetements-=loss;
+  const cold=game.weather.temp<=5,loss=proportionalLossAmount(game.cart.vetements,.2,.45);game.cart.vetements-=loss;
   const blankets=`${loss} couverture${loss>1?"s":""}`;
   const cause=cold?bilingual("Une nuit glaciale et humide détrempe les couvertures les plus exposées.","A freezing, damp night soaks the most exposed blankets."):bilingual("La pluie s’est infiltrée dans le chariot pendant la nuit.","Rain leaked into the wagon during the night.");
   eventModal("Couvertures hors d’usage",cause,bilingual(`${blankets} ${loss===1?"est devenue":"sont devenues"} inutilisable${loss>1?"s":""}.`,`${loss} blanket${loss===1?" has":"s have"} become unusable.`),[
@@ -1085,11 +1092,11 @@ function riverRisk(mark,depth,crossingWeather=weatherVisual()){
   const travelFood=consumeDelay(1);
   game.oxStrain=clamp(game.oxStrain+1,0,10);
   const cargoCandidates=[
-      {key:"vivres",amount:Math.min(game.cart.vivres,rand(25,70))},
-      {key:"munitions",amount:Math.min(game.cart.munitions,rand(5,20))},
-      {key:"vetements",amount:Math.min(game.cart.vetements,rand(1,2))},
-      {key:"pieces",amount:Math.min(game.cart.pieces,1)},
-      {key:"medicaments",amount:Math.min(game.cart.medicaments,rand(1,2))}
+      {key:"vivres",amount:proportionalLossAmount(game.cart.vivres,.12,.35)},
+      {key:"munitions",amount:proportionalLossAmount(game.cart.munitions,.15,.35)},
+      {key:"vetements",amount:proportionalLossAmount(game.cart.vetements,.25,.6)},
+      {key:"pieces",amount:proportionalLossAmount(game.cart.pieces,.25,.6)},
+      {key:"medicaments",amount:proportionalLossAmount(game.cart.medicaments,.25,.6)}
     ].filter(loss=>loss.amount>0);
   const cargoAccident=cargoCandidates.length>0&&Math.random()<floatCargoLossChance(depth);
   const handlingAccident=Math.random()<clamp(.08+(game.cart.boeufs<4?.16:0)+(game.cart.pieces===0?.12:0)+depth*.04+fatigue*.34,.08,.68);
@@ -1097,23 +1104,24 @@ function riverRisk(mark,depth,crossingWeather=weatherVisual()){
     const cargoDamaged=cargoCandidates.length>0&&(cargoAccident||crossingFailed);
     const cargoCount=crossingFailed?(depth>=2.2?rand(3,5):rand(2,3)):(depth>=2.2?rand(3,5):depth>=1.4?rand(2,3):1);
     const cargoLosses=cargoDamaged?shuffled(cargoCandidates).slice(0,Math.min(cargoCandidates.length,cargoCount)):[];
-    const losses=[],lossesEn=[];
+    const losses=[],lossesEn=[],remaining=[],remainingEn=[];
     for(const loss of cargoLosses){
       if(!loss.amount)continue;
-      game.cart[loss.key]-=loss.amount;losses.push(itemQuantityFor(loss.key,loss.amount,"fr"));lossesEn.push(itemQuantityFor(loss.key,loss.amount,"en"));
+      game.cart[loss.key]-=loss.amount;losses.push(itemQuantityFor(loss.key,loss.amount,"fr"));lossesEn.push(itemQuantityFor(loss.key,loss.amount,"en"));remaining.push(itemQuantityFor(loss.key,Math.round(game.cart[loss.key]),"fr"));remainingEn.push(itemQuantityFor(loss.key,Math.round(game.cart[loss.key]),"en"));
     }
     const maxOxLoss=game.cart.boeufs,oxLossChance=crossingFailed?clamp(.38+depth*.12+fatigue*.18,.42,.82):clamp(.18+depth*.12+fatigue*.08,.2,.52);
-    const oxLoss=maxOxLoss&&Math.random()<oxLossChance?Math.min(maxOxLoss,crossingFailed?(depth>=2.2?rand(2,3):rand(1,2)):(depth>=1.5?rand(1,2):1)):0;
-    if(oxLoss){game.cart.boeufs-=oxLoss;losses.push(`${oxLoss} bœuf${oxLoss>1?"s":""}`);lossesEn.push(`${oxLoss} ${oxLoss===1?"ox":"oxen"}`);}
+    const oxLoss=maxOxLoss&&Math.random()<oxLossChance?proportionalLossAmount(maxOxLoss,crossingFailed?.2:.1,crossingFailed?.45:.3):0;
+    if(oxLoss){game.cart.boeufs-=oxLoss;losses.push(`${oxLoss} bœuf${oxLoss>1?"s":""}`);lossesEn.push(`${oxLoss} ${oxLoss===1?"ox":"oxen"}`);remaining.push(`${game.cart.boeufs} bœuf${game.cart.boeufs>1?"s":""}`);remainingEn.push(`${game.cart.boeufs} ${game.cart.boeufs===1?"ox":"oxen"}`);}
+    const remainingSuffixFr=remaining.length?` Chargement restant : ${joinList(remaining,"fr")}.`:"",remainingSuffixEn=remainingEn.length?` Remaining cargo: ${joinList(remainingEn,"en")}.`:"";
     const healthDamage=crossingFailed?rand(10,22)+Math.round(fatigue*8):rand(2,9)+Math.round(fatigue*4);
     alive().forEach(p=>p.health=clamp(p.health-healthDamage,0,100));
     if(crossingFailed){
-      const lossSuffixFr=losses.length?` Le courant emporte ${joinList(losses,"fr")}.${oxLoss?` ${oxenJournalStatus("fr")}`:""}`:"";
-      const lossSuffixEn=losses.length?` The current sweeps away ${joinList(lossesEn,"en")}.${oxLoss?` ${oxenJournalStatus("en")}`:""}`:"";
+      const lossSuffixFr=losses.length?` Le courant emporte ${joinList(losses,"fr")}.${remainingSuffixFr}${oxLoss?` ${oxenJournalStatus("fr")}`:""}`:"";
+      const lossSuffixEn=losses.length?` The current sweeps away ${joinList(lossesEn,"en")}.${remainingSuffixEn}${oxLoss?` ${oxenJournalStatus("en")}`:""}`:"";
       addJournal(bilingual(`La traversée de ${mark.name} échoue par ${depth.toFixed(1).replace(".",",")} m de profondeur : les cordes cèdent et le convoi regagne la rive de départ.${lossSuffixFr}`,`The crossing of ${landmarkName(mark)} fails at a depth of ${depth.toFixed(1)} m: the ropes give way and the wagon party returns to the original bank.${lossSuffixEn}`));toast(bilingual("Le courant a repoussé le convoi.","The current drove the wagon party back."));
       queueRiverOutcome(mark,"float-accident",{method:"Chariot calfaté",days:1,food:travelFood.consumed,weather:crossingWeather,retry:true,previousDepth:depth,text:bilingual("Les cordes ont cédé. Après avoir lutté contre le courant, le convoi a regagné la rive de départ.","The ropes gave way. After struggling against the current, the wagon party returned to the original bank."),result:losses.length?bilingual(`Échec de la traversée · Profondeur : ${depth.toFixed(1).replace(".",",")} m · Pertes : ${joinList(losses,"fr")}`,`Crossing failed · Depth: ${depth.toFixed(1)} m · Losses: ${joinList(lossesEn,"en")}`):bilingual(`Échec de la traversée · Profondeur : ${depth.toFixed(1).replace(".",",")} m · Groupe très éprouvé`,`Crossing failed · Depth: ${depth.toFixed(1)} m · Party severely exhausted`)});
     }else{
-      addJournal(losses.length?bilingual(`À ${mark.name}, le chariot a pris l’eau par ${depth.toFixed(1).replace(".",",")} m de profondeur. Le courant emporte ${joinList(losses,"fr")}.${oxLoss?` ${oxenJournalStatus("fr")}`:""}`,`At ${landmarkName(mark)}, the wagon took on water at a depth of ${depth.toFixed(1)} m. The current swept away ${joinList(lossesEn,"en")}.${oxLoss?` ${oxenJournalStatus("en")}`:""}`):bilingual(`Le chariot a pris l’eau à ${mark.name}, sans perte de chargement.`,`The wagon took on water at ${landmarkName(mark)}, without losing any cargo.`));toast("Le courant a secoué le convoi.");
+      addJournal(losses.length?bilingual(`À ${mark.name}, le chariot a pris l’eau par ${depth.toFixed(1).replace(".",",")} m de profondeur. Le courant emporte ${joinList(losses,"fr")}.${remainingSuffixFr}${oxLoss?` ${oxenJournalStatus("fr")}`:""}`,`At ${landmarkName(mark)}, the wagon took on water at a depth of ${depth.toFixed(1)} m. The current swept away ${joinList(lossesEn,"en")}.${remainingSuffixEn}${oxLoss?` ${oxenJournalStatus("en")}`:""}`):bilingual(`Le chariot a pris l’eau à ${mark.name}, sans perte de chargement.`,`The wagon took on water at ${landmarkName(mark)}, without losing any cargo.`));toast("Le courant a secoué le convoi.");
       queueRiverOutcome(mark,"float-accident",{method:"Chariot calfaté",days:1,food:travelFood.consumed,weather:crossingWeather,text:"Le chariot a pris l’eau dans le courant avant d’atteindre difficilement l’autre rive.",result:losses.length?bilingual(`Profondeur : ${depth.toFixed(1).replace(".",",")} m · Pertes : ${joinList(losses,"fr")}`,`Depth: ${depth.toFixed(1)} m · Losses: ${joinList(lossesEn,"en")}`):bilingual(`Profondeur : ${depth.toFixed(1).replace(".",",")} m · Aucune provision perdue, mais le groupe a été éprouvé`,`Depth: ${depth.toFixed(1)} m · No supplies lost, but the party was shaken`)});
     }
   } else {addJournal(bilingual(`Le chariot a traversé ${mark.name} à flot sans incident, par ${depth.toFixed(1).replace(".",",")} m de profondeur.`,`The wagon floated across ${landmarkName(mark)} without incident at a depth of ${depth.toFixed(1)} m.`));queueRiverOutcome(mark,"float-success",{method:"Chariot calfaté",days:1,food:travelFood.consumed,weather:crossingWeather,text:"Le chariot a flotté jusqu’à l’autre rive sous le contrôle des cordes et des bœufs.",result:bilingual(`Traversée réussie sans perte · Profondeur : ${depth.toFixed(1).replace(".",",")} m`,`Successful crossing without loss · Depth: ${depth.toFixed(1)} m`)})}
@@ -1133,20 +1141,45 @@ function restAtFort(mark){
   performRest(2,true);refreshFortArrivalArt(mark);
 }
 
+function fortPurchaseKey(mark,key){return `${mark.visual}:${key}`}
+function fortPurchasePrice(mark,key,baseCost){return Math.round(baseCost*Math.pow(1.2,game.fortPurchases?.[fortPurchaseKey(mark,key)]??0))}
+function recordFortPurchase(mark,key){game.fortPurchases??={};const priceKey=fortPurchaseKey(mark,key);game.fortPurchases[priceKey]=(game.fortPurchases[priceKey]??0)+1}
+function fortStockText(key,language=currentLanguage){
+  const quantity=Math.round(game.cart[key]);
+  if(key==="boeufs")return language==="en"?`${quantity} ${quantity===1?"ox":"oxen"}`:`${quantity} bœuf${quantity>1?"s":""}`;
+  return itemQuantityFor(key,quantity,language);
+}
+function fortPurchaseAction(mark,item){
+  let lastPurchase=null;
+  const action={
+    keepOpen:true,
+    disabled:()=>game.money<fortPurchasePrice(mark,item.key,item.baseCost)||game.cart[item.key]+item.qty>SHOP[item.key].max,
+    action:()=>{
+      const cost=fortPurchasePrice(mark,item.key,item.baseCost);game.money-=cost;game.cart[item.key]+=item.qty;recordFortPurchase(mark,item.key);lastPurchase={cost,money:game.money};
+      addJournal(bilingual(`Achat à ${mark.name} : ${item.label} pour ${cost} $. Nouveau stock : ${fortStockText(item.key,"fr")}. Argent restant : ${game.money} $.`,`Purchase at ${landmarkName(mark)}: ${item.labelEn} for $${cost}. New stock: ${fortStockText(item.key,"en")}. Money remaining: $${game.money}.`));
+    },
+    feedback:()=>lastPurchase?bilingual(`Achat effectué : ${item.label} pour ${lastPurchase.cost} $. Nouveau stock : ${fortStockText(item.key,"fr")}. Il reste ${lastPurchase.money} $.`,`Purchase complete: ${item.labelEn} for $${lastPurchase.cost}. New stock: ${fortStockText(item.key,"en")}. $${lastPurchase.money} remains.`):null
+  };
+  Object.defineProperty(action,"label",{get(){const cost=fortPurchasePrice(mark,item.key,item.baseCost);return bilingual(`Acheter ${item.label} (${cost} $)`,`Buy ${item.labelEn} ($${cost})`)}});
+  return action;
+}
+
 function fortEvent(mark,art=fortArrivalAsset(mark),recordArrival=true){
   if(recordArrival)addJournal(bilingual(`Arrivée à ${mark.name}.`,`Arrived at ${landmarkName(mark)}.`));
   const price=Math.round(1.3+game.km/KM_TOTAL*.7);
-  const foodCost=20*price, ammoCost=ammoPrice(6)*price;
   const equipment=shuffled([
-    {key:"boeufs",qty:2,cost:60*price,label:"2 bœufs",labelEn:"2 oxen"},
-    {key:"vetements",qty:2,cost:22*price,label:"2 couvertures",labelEn:"2 blankets"},
-    {key:"pieces",qty:1,cost:28*price,label:"1 pièce de rechange",labelEn:"1 spare part"},
-    {key:"medicaments",qty:2,cost:28*price,label:"2 remèdes",labelEn:"2 doses of medicine"}
+    {key:"boeufs",qty:2,baseCost:60*price,label:"2 bœufs",labelEn:"2 oxen"},
+    {key:"vetements",qty:2,baseCost:22*price,label:"2 couvertures",labelEn:"2 blankets"},
+    {key:"pieces",qty:1,baseCost:28*price,label:"1 pièce de rechange",labelEn:"1 spare part"},
+    {key:"medicaments",qty:2,baseCost:28*price,label:"2 remèdes",labelEn:"2 doses of medicine"}
   ]).slice(0,2);
+  const merchandise=[
+    {key:"vivres",qty:50,baseCost:SHOP.vivres.price*5*price,label:"50 kg de vivres",labelEn:"50 kg of food"},
+    {key:"munitions",qty:40,baseCost:ammoPrice(6)*price,label:"40 balles",labelEn:"40 bullets"},
+    ...equipment
+  ];
   const actions=[
-    {label:bilingual(`Acheter 50 kg de vivres (${foodCost} $)`,`Buy 50 kg of food ($${foodCost})`),keepOpen:true,disabled:()=>game.money<foodCost||game.cart.vivres+50>SHOP.vivres.max,action:()=>{game.money-=foodCost;loadFood(50);addJournal(bilingual(`Ravitaillement à ${mark.name}.`,`Resupplied at ${landmarkName(mark)}.`))},feedback:()=>bilingual(`Achat effectué : 50 kg de vivres. Vous avez maintenant ${itemQuantityFor("vivres",Math.round(game.cart.vivres),"fr")}.`,`Purchase complete: 50 kg of food. You now have ${itemQuantityFor("vivres",Math.round(game.cart.vivres),"en")}.`)},
-    {label:bilingual(`Acheter 40 balles (${ammoCost} $)`,`Buy 40 bullets ($${ammoCost})`),keepOpen:true,disabled:()=>game.money<ammoCost||game.cart.munitions+40>SHOP.munitions.max,action:()=>{game.money-=ammoCost;game.cart.munitions+=40;addJournal(bilingual(`Achat de munitions à ${mark.name}.`,`Bought ammunition at ${landmarkName(mark)}.`))},feedback:()=>bilingual(`Achat effectué : 40 balles. Vous avez maintenant ${itemQuantityFor("munitions",game.cart.munitions,"fr")}.`,`Purchase complete: 40 bullets. You now have ${itemQuantityFor("munitions",game.cart.munitions,"en")}.`)},
-    ...equipment.map(item=>({label:bilingual(`Acheter ${item.label} (${item.cost} $)`,`Buy ${item.labelEn} ($${item.cost})`),keepOpen:true,disabled:()=>game.money<item.cost||game.cart[item.key]+item.qty>SHOP[item.key].max,action:()=>{game.money-=item.cost;game.cart[item.key]+=item.qty;addJournal(bilingual(`Achat de ${item.label} à ${mark.name}.`,`Bought ${item.labelEn} at ${landmarkName(mark)}.`))},feedback:()=>bilingual(`Achat effectué : ${item.label}. Vous avez maintenant ${itemQuantityFor(item.key,game.cart[item.key],"fr")}.`,`Purchase complete: ${item.labelEn}. You now have ${itemQuantityFor(item.key,game.cart[item.key],"en")}.`)})),
+    ...merchandise.map(item=>fortPurchaseAction(mark,item)),
     {label:"Se reposer 2 jours",keepOpen:true,disabled:()=>game.cart.vivres<alive().length*4&&game.cart.boeufs<=1,action:()=>restAtFort(mark),feedback:fortRestFeedback},
     {label:"Inventaire",keepOpen:true,withInventory:false,action:showInventory},
     {label:"Repartir",primary:true,action:()=>addJournal(bilingual(`Départ de ${mark.name} : le convoi reprend la piste.`,`Departed ${landmarkName(mark)}: the wagon party returns to the trail.`))}

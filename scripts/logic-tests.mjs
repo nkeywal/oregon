@@ -36,6 +36,10 @@ test("all ammunition prices use the tripled price scale",()=>{
   assert.equal(scenario(`ammoPrice(18)`),54);
 });
 
+test("food costs fifty percent more than the previous price scale",()=>{
+  assert.equal(scenario(`SHOP.vivres.price`),6);
+});
+
 test("complete party loss uses art distinct from victory",()=>{
   const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);const victory=endingArtAsset(true);const stopped=endingArtAsset(false);game.party.forEach(p=>p.alive=false);const totalLoss=endingArtAsset(false);({victory,stopped,totalLoss})`);
   assert.equal(result.victory,"victory.webp");assert.equal(result.stopped,"trail.webp");assert.equal(result.totalLoss,"defeat.webp");assert.notEqual(result.totalLoss,result.victory);
@@ -70,6 +74,16 @@ test("partial shortages scale their penalty",()=>{
   assert.equal(result.health,92);assert.equal(result.food,0);
 });
 
+test("accidental cargo losses scale with the quantity carried",()=>{
+  const result=scenario(`Math.random=()=>.5;({small:proportionalLossAmount(100,.06,.15),large:proportionalLossAmount(400,.06,.15),parts:proportionalLossAmount(10,.25,.6)})`);
+  assert.equal(result.large,result.small*4);assert.ok(result.parts>=3&&result.parts<=6);
+});
+
+test("a wagon fall records both food lost and food remaining",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.vivres=200;Math.random=()=>.5;let actions;eventModal=(title,text,details,value)=>actions=value;eventPool().find(event=>event.eventId==="wagon")();const afterAccident=game.cart.vivres;actions[0].action();({loss:200-afterAccident,left:Math.round(game.cart.vivres),text:game.journal[0].text.fr})`);
+  assert.ok(result.loss>=12&&result.loss<=30);assert.match(result.text,new RegExp(`coûté ${result.loss} kg`));assert.match(result.text,new RegExp(`reste ${result.left} kg`));
+});
+
 test("weather is refreshed after elapsed non-travel days",()=>{
   assert.equal(scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);weatherForSeason=()=>WEATHER[1];consumeDelay(2,2);game.weather.name`),"Chaud");
 });
@@ -102,7 +116,7 @@ test("incident outcomes merge into their original dated journal entry",()=>{
 
 test("resolved incident entries keep the outcome without repeating the introduction",()=>{
   const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.vivres=0;game.cart.boeufs=4;const elements={};document.querySelector=selector=>elements[selector]??=(selector==="#dialogue-evenement"?{open:false,showModal(){this.open=true},close(){this.open=false}}:selector==="#event-actions"?{innerHTML:"",appendChild(button){game.button=button}}:{textContent:"",style:{},classList:{add(){},remove(){},toggle(){}},setAttribute(){}});document.createElement=()=>({type:"",className:"",textContent:"",disabled:false,addEventListener(type,fn){this.click=fn}});updateUI=()=>{};setTrailScene=()=>{};returnToTrailTop=()=>{};Math.random=()=>0;const event=eventPool().find(candidate=>candidate.eventId==="encounter");event();game.button.click();({count:game.journal.length,text:languageText(game.journal[0].text)})`);
-  assert.equal(result.count,1);assert.equal(result.text,"Une famille généreuse nous a ravitaillés.");assert.doesNotMatch(result.text,/bonne rencontre|partagent/i);
+  assert.equal(result.count,1);assert.match(result.text,/donné 10 kg de vivres/);assert.match(result.text,/désormais 10 kg/);assert.doesNotMatch(result.text,/bonne rencontre|partagent/i);
 });
 
 test("contagious disease identifies every affected traveler",()=>{
@@ -135,6 +149,17 @@ test("terrain and trail quality change travel speed",()=>{
 test("daily distance combines oxen, weather, and route difficulty",()=>{
   const result=scenario(`({plain:plannedDailyDistance(PACES.soutenu,WEATHER[0],routeSegmentAt(500),6),snow:plannedDailyDistance(PACES.soutenu,WEATHER[4],routeSegmentAt(500),6),mountains:plannedDailyDistance(PACES.soutenu,WEATHER[0],routeSegmentAt(2700),6),fewOxen:plannedDailyDistance(PACES.soutenu,WEATHER[0],routeSegmentAt(500),3)})`);
   assert.ok(result.plain>result.snow);assert.ok(result.plain>result.mountains);assert.ok(result.plain>result.fewOxen);
+});
+
+test("ox speed factor follows the documented linear formula and cap",()=>{
+  const result=scenario(`({one:oxenTravelFactor(1),four:oxenTravelFactor(4),six:oxenTravelFactor(6),eight:oxenTravelFactor(8),twelve:oxenTravelFactor(12),twenty:oxenTravelFactor(20)})`);
+  const close=(actual,expected)=>assert.ok(Math.abs(actual-expected)<1e-12,`${actual} != ${expected}`);
+  close(result.one,.525);close(result.four,.75);close(result.six,.9);close(result.eight,1.05);close(result.twelve,1.35);close(result.twenty,1.35);
+});
+
+test("profession does not alter incident probability",()=>{
+  const result=scenario(`const chance=profession=>{game=baseGame(["A","B","C","D","E"],profession,3);Object.assign(game.cart,{boeufs:6,pieces:2,vetements:5});return dailyIncidentChance(PACES.soutenu,WEATHER[0],ROUTE_SEGMENTS[0])};({farmer:chance("fermier"),carpenter:chance("charpentier"),banker:chance("banquier")})`);
+  assert.equal(result.farmer,result.carpenter);assert.equal(result.farmer,result.banker);
 });
 
 test("strenuous travel matches the historical 12 to 15 miles per travel day",()=>{
@@ -645,10 +670,18 @@ test("fort rest cost follows the current party size",()=>{
 });
 
 test("fort purchases confirm the item and updated stock",()=>{
-  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.money=1000;shuffled=items=>[items[3],...items.slice(0,3)];eventModal=(title,text,details,actions)=>{game.actions=actions};fortEvent(LANDMARKS.find(m=>m.kind==="fort"));const medicine=game.actions.find(action=>languageText(action.label,"fr").includes("remèdes"));const before=game.cart.medicaments;medicine.action();const confirmation=medicine.feedback();({before,after:game.cart.medicaments,fr:confirmation.fr,en:confirmation.en})`);
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.money=1000;shuffled=items=>[items[3],...items.slice(0,3)];eventModal=(title,text,details,actions)=>{game.actions=actions};fortEvent(LANDMARKS.find(m=>m.kind==="fort"));const medicine=game.actions.find(action=>languageText(action.label,"fr").includes("remèdes"));const before=game.cart.medicaments;medicine.action();const confirmation=medicine.feedback();({before,after:game.cart.medicaments,money:game.money,fr:confirmation.fr,en:confirmation.en,journal:game.journal[0].text})`);
   assert.equal(result.after,result.before+2);
-  assert.match(result.fr,/Achat effectué : 2 remèdes/);assert.match(result.fr,new RegExp(`maintenant ${result.after} doses`));
-  assert.match(result.en,/Purchase complete: 2 doses of medicine/);assert.match(result.en,new RegExp(`now have ${result.after} doses of medicine`));
+  assert.match(result.fr,/Achat effectué : 2 remèdes/);assert.match(result.fr,new RegExp(`Nouveau stock : ${result.after} doses`));assert.match(result.fr,new RegExp(`reste ${result.money} \\$.`));
+  assert.match(result.en,/Purchase complete: 2 doses of medicine/);assert.match(result.en,new RegExp(`New stock: ${result.after} doses of medicine`));
+  assert.match(result.journal.fr,/Achat à Fort/);assert.match(result.journal.fr,/Argent restant/);
+});
+
+test("each repeat purchase raises only that fort's item price by twenty percent",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.money=1000;game.km=2580;let actions;eventModal=(title,text,details,value)=>actions=value;const boise=LANDMARKS.find(mark=>mark.name==="Fort Boise"),kearny=LANDMARKS.find(mark=>mark.name==="Fort Kearny");fortEvent(boise);const food=actions.find(action=>languageText(action.label,"fr").includes("50 kg de vivres"));const first=languageText(food.label,"fr");food.action();const second=languageText(food.label,"fr");food.action();const third=languageText(food.label,"fr");({first,second,third,money:game.money,stock:game.cart.vivres,journal:game.journal[0].text.fr,otherFort:fortPurchasePrice(kearny,"vivres",60),counts:game.fortPurchases})`);
+  assert.match(result.first,/60 \$/);assert.match(result.second,/72 \$/);assert.match(result.third,/86 \$/);
+  assert.equal(result.money,868);assert.equal(result.stock,100);assert.match(result.journal,/72 \$/);assert.match(result.journal,/Nouveau stock : 100 kg de vivres/);assert.match(result.journal,/Argent restant : 868 \$/);
+  assert.equal(result.otherFort,60);assert.equal(Object.values(result.counts).reduce((sum,count)=>sum+count,0),2);
 });
 
 let passed=0;

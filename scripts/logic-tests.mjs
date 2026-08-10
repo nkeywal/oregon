@@ -405,6 +405,35 @@ test("daily incident rates match the individual specification",()=>{
   assert.equal(result.fever,.006);assert.equal(result.dysentery,.004);assert.equal(result.contagious,.005);
 });
 
+test("snakebite risk is per eligible traveler and follows temperature",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);const chance=weather=>incidentProbability("snakebite",{weather,route:ROUTE_SEGMENTS[0]});const mild=chance(WEATHER[0]),rain=chance(WEATHER[2]),hot=chance(WEATHER[1]),veryHot=chance({name:"Chaud",temp:35}),cold=chance(WEATHER[3]),snow=chance(WEATHER[4]);game.party[0].woundDays=2;const four=chance(WEATHER[0]);({mild,rain,hot,veryHot,cold,snow,four})`);
+  const expected=multiplier=>1-Math.pow(1-.00025*multiplier,5);
+  assert.ok(Math.abs(result.mild-expected(1))<1e-12);assert.equal(result.rain,result.mild);
+  assert.ok(Math.abs(result.hot-expected(1.5))<1e-12);assert.ok(Math.abs(result.veryHot-expected(2))<1e-12);
+  assert.equal(result.cold,0);assert.equal(result.snow,0);assert.ok(Math.abs(result.four-(1-Math.pow(1-.00025,4)))<1e-12);
+});
+
+test("snakebites can occur at rest but never at a fort or in cold weather",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);const mild=restEventPool().some(event=>event.eventId==="snakebite");game.weather=WEATHER[3];const cold=restEventPool().some(event=>event.eventId==="snakebite");let rolls=0;dailyIncidentOccurs=()=>{rolls++;return true};game.cart.vivres=100;performRest(2,true);({mild,cold,fortRolls:rolls})`);
+  assert.equal(result.mild,true);assert.equal(result.cold,false);assert.equal(result.fortRolls,0);
+});
+
+test("snakebite lasts eight days and medicine strongly limits its effects",()=>{
+  const result=scenario(`const run=treated=>{game=baseGame(["Lou"],"fermier",3);game.cart.medicaments=treated?1:0;Math.random=()=>.5;let actions,art;eventModal=(title,text,details,value,image)=>{actions=value;art=image};const patient=game.party[0];snakebiteEvent(patient);const initialDays=patient.woundDays;(treated?actions[0]:actions[1]).action();advanceDate(8);return {health:patient.health,state:patient.state,days:patient.woundDays,needs:patient.needsRemedy,medicine:game.cart.medicaments,art}};({treated:run(true),untreated:run(false)})`);
+  assert.equal(result.treated.art,"incident-snakebite.webp");assert.equal(result.treated.days,0);assert.equal(result.untreated.days,0);
+  assert.equal(result.treated.medicine,0);assert.equal(result.treated.needs,false);assert.ok(result.treated.health>result.untreated.health+30);
+});
+
+test("rest does not shorten the snakebite's eight calendar days",()=>{
+  const result=scenario(`game=baseGame(["Lou"],"fermier",3);game.cart.medicaments=1;game.cart.vivres=100;Math.random=()=>.5;let actions;eventModal=(title,text,details,value)=>actions=value;snakebiteEvent(game.party[0]);actions[0].action();dailyIncidentOccurs=()=>false;performRest(2,true);({days:game.party[0].woundDays,health:game.party[0].health})`);
+  assert.equal(result.days,6);assert.ok(result.health>0);
+});
+
+test("an untreated snakebite records the venom as a possible cause of death",()=>{
+  const result=scenario(`game=baseGame(["Lou"],"fermier",3);game.cart.medicaments=0;game.party[0].health=20;Math.random=()=>.5;let actions;eventModal=(title,text,details,value)=>actions=value;snakebiteEvent(game.party[0]);actions[1].action();({health:game.party[0].health,cause:game.party[0].deathCause})`);
+  assert.equal(result.health,0);assert.match(result.cause.fr,/morsure de serpent/);assert.match(result.cause.en,/snakebite/);
+});
+
 test("a daily theft rate of seven per thousand gives the intended journey exposure",()=>{
   const result=scenario(`const daily=INCIDENT_RULES.theft.rate;({expected:daily*150,atLeastOne:1-Math.pow(1-daily,150)})`);
   assert.ok(Math.abs(result.expected-1.05)<1e-12);assert.ok(result.atLeastOne>.651&&result.atLeastOne<.652);
@@ -696,11 +725,16 @@ test("fort rest cost follows the current party size",()=>{
 });
 
 test("fort purchases confirm the item and updated stock",()=>{
-  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.money=1000;shuffled=items=>[items[3],...items.slice(0,3)];eventModal=(title,text,details,actions)=>{game.actions=actions};fortEvent(LANDMARKS.find(m=>m.kind==="fort"));const medicine=game.actions.find(action=>languageText(action.label,"fr").includes("remèdes"));const before=game.cart.medicaments;medicine.action();const confirmation=medicine.feedback();({before,after:game.cart.medicaments,money:game.money,fr:confirmation.fr,en:confirmation.en,journal:game.journal[0].text})`);
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.money=1000;eventModal=(title,text,details,actions)=>{game.actions=actions};fortEvent(LANDMARKS.find(m=>m.kind==="fort"));const medicine=game.actions.find(action=>languageText(action.label,"fr").includes("remèdes"));const before=game.cart.medicaments;medicine.action();const confirmation=medicine.feedback();({before,after:game.cart.medicaments,money:game.money,fr:confirmation.fr,en:confirmation.en,journal:game.journal[0].text})`);
   assert.equal(result.after,result.before+2);
   assert.match(result.fr,/Achat effectué : 2 remèdes/);assert.match(result.fr,new RegExp(`Nouveau stock : ${result.after} doses`));assert.match(result.fr,new RegExp(`reste ${result.money} \\$.`));
   assert.match(result.en,/Purchase complete: 2 doses of medicine/);assert.match(result.en,new RegExp(`New stock: ${result.after} doses of medicine`));
   assert.match(result.journal.fr,/Achat à Fort/);assert.match(result.journal.fr,/Argent restant/);
+});
+
+test("every fort always sells medicine",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.money=1000;let actions;eventModal=(title,text,details,value)=>actions=value;LANDMARKS.filter(mark=>mark.kind==="fort").map(mark=>{fortEvent(mark);return {name:mark.name,medicine:actions.filter(action=>languageText(action.label,"fr").includes("remèdes")).length}})`);
+  assert.equal(result.length,3);for(const fort of result)assert.equal(fort.medicine,1,fort.name);
 });
 
 test("each repeat purchase raises only that fort's item price by twenty percent",()=>{

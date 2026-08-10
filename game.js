@@ -104,7 +104,7 @@ const INCIDENT_RULES = {
   axle:{basis:"distance",rate:.0002,pace:{prudent:.65,soutenu:1,epuisant:1.25}},
   "ox-injury":{basis:"distance",rate:.00023,pace:{prudent:.7,soutenu:1,epuisant:1.2}},
   attack:{basis:"day",rate:.005},theft:{basis:"day",rate:.007},encounter:{basis:"day",rate:.014},trade:{basis:"day",rate:.014},
-  fever:{basis:"day",rate:.006},dysentery:{basis:"day",rate:.004},contagious:{basis:"day",rate:.005},rain:{basis:"day",rate:.008},
+  fever:{basis:"day",rate:.006},dysentery:{basis:"day",rate:.004},contagious:{basis:"day",rate:.005},snakebite:{basis:"day",rate:.00025,perPerson:true},rain:{basis:"day",rate:.008},
   // Ces deux incidents préexistants restent rares et ne sont actifs que
   // lorsque eventPool confirme que le climat et l'équipement les permettent.
   "climate-injury":{basis:"day",rate:.004},blankets:{basis:"day",rate:.004}
@@ -129,7 +129,7 @@ function baseGame(names, profession, month) {
   const money = {fermier:800,charpentier:1000,banquier:1600}[profession];
   return {
     version:1, profession, money, initialMoney:money, cart:{...cart},
-    party:names.map(name => ({name,health:100,state:"En forme",alive:true,sickDays:0,treated:false,woundDays:0,needsRemedy:false,deathCause:null})),
+    party:names.map(name => ({name,health:100,state:"En forme",alive:true,sickDays:0,treated:false,woundDays:0,woundKind:null,needsRemedy:false,deathCause:null})),
     day:1, month:Number(month), year:1848, km:0, days:0, pace:"soutenu", rations:"normales",
     weather:{...WEATHER[0]}, weatherHistory:["Doux"], landmarkIndex:0, oxStrain:0, lastEvent:null, lastRestDay:null, restStreak:0, huntPressure:{}, fortPurchases:{}, journal:[], finished:false, score:0,
     pendingDeath:null, deathEventOpen:false, pendingRiverOutcome:null
@@ -386,7 +386,7 @@ function advanceDate(days,resting=false,atFort=false) {
     const lengths=[31,(game.year%4===0?29:28),31,30,31,30,31,31,30,31,30,31];
     if(game.day>lengths[game.month]){game.day=1;game.month++;if(game.month>11){game.month=0;game.year++;}}
     for(const p of alive()){
-      const previousCondition=p.state,wasSick=p.sickDays>0,wasWounded=(p.woundDays??0)>0;
+      const previousCondition=p.state,wasSick=p.sickDays>0,wasWounded=(p.woundDays??0)>0,previousWoundKind=p.woundKind;
       let dailyLoss=0;
       if(p.sickDays>0){
         const injury=["Blessé","Convalescent","Engelures","Piqûres"].includes(p.state);
@@ -395,12 +395,13 @@ function advanceDate(days,resting=false,atFort=false) {
         p.sickDays=Math.max(0,p.sickDays-(resting&&injury?(atFort?3:2):1));
       }
       if((p.woundDays??0)>0){
-        if(!resting)dailyLoss+=p.needsRemedy?2:1;
-        p.woundDays=Math.max(0,p.woundDays-(resting?(atFort?3:2):1));
+        const venom=p.woundKind==="snakebite";
+        if(!resting||venom)dailyLoss+=p.needsRemedy?2:1;
+        p.woundDays=Math.max(0,p.woundDays-(venom?1:resting?(atFort?3:2):1));
         if(p.woundDays<=0)p.needsRemedy=false;
       }
       p.health=clamp(p.health-dailyLoss,0,100);
-      if(p.health<=0&&dailyLoss>0&&!p.deathCause)p.deathCause=deathCauseFor({...p,state:previousCondition});
+      if(p.health<=0&&dailyLoss>0&&!p.deathCause)p.deathCause=previousWoundKind==="snakebite"?bilingual("des suites d’une morsure de serpent venimeux","from a venomous snakebite"):deathCauseFor({...p,state:previousCondition});
       if(p.sickDays<=0){
         p.treated=false;
         p.state=(p.woundDays??0)>0?(p.needsRemedy?"Blessé":"Convalescent"):"En forme";
@@ -411,9 +412,11 @@ function advanceDate(days,resting=false,atFort=false) {
         else recoveryJournal(p,previousCondition);
       }
       if(woundEnded&&!illnessEnded){
-        if(p.sickDays>0)addJournal(bilingual(`La blessure d’attaque de ${p.name} s’est refermée, mais ${p.name} reste malade.`,`${p.name}’s attack wound has healed, but ${p.name} remains ill.`));
+        if(previousWoundKind==="snakebite")addJournal(p.sickDays>0?bilingual(`Le venin ne menace plus ${p.name}, qui reste toutefois malade.`,`The venom no longer threatens ${p.name}, who nevertheless remains ill.`):bilingual(`${p.name} a enfin surmonté les suites de la morsure de serpent.`,`${p.name} has finally recovered from the snakebite.`));
+        else if(p.sickDays>0)addJournal(bilingual(`La blessure d’attaque de ${p.name} s’est refermée, mais ${p.name} reste malade.`,`${p.name}’s attack wound has healed, but ${p.name} remains ill.`));
         else addJournal(bilingual(`La blessure d’attaque de ${p.name} a fini par se refermer.`,`${p.name}’s attack wound has finally healed.`));
       }
+      if(woundEnded)p.woundKind=null;
     }
   }
 }
@@ -596,13 +599,16 @@ function incidentMultiplier(eventId,weather=game.weather,route=routeSegmentAt())
   if(eventId==="fever")multiplier*=(hot?1.25:cold?1.2:1)*Math.pow(1.15,humanLevel)*(shortOnBlankets?1.25:1);
   if(eventId==="dysentery")multiplier*=(hot?1.4:1)*Math.pow(1.15,humanLevel);
   if(eventId==="contagious")multiplier*=(cold?1.2:1)*Math.pow(1.15,humanLevel)*(shortOnBlankets?1.25:1);
+  if(eventId==="snakebite")multiplier*=cold?0:hot?(weather.temp>=34?2:1.5):1;
   return multiplier;
 }
 
 function incidentProbability(eventId,{distance=0,weather=game.weather,route=routeSegmentAt()}={}){
   const rule=INCIDENT_RULES[eventId];if(!rule)return 0;
   const unitChance=clamp(rule.rate*incidentMultiplier(eventId,weather,route),0,.95);
-  return rule.basis==="distance"?1-Math.pow(1-unitChance,Math.max(0,distance)):unitChance;
+  if(rule.basis==="distance")return 1-Math.pow(1-unitChance,Math.max(0,distance));
+  if(!rule.perPerson)return unitChance;
+  return 1-Math.pow(1-unitChance,snakebiteEligibleTravelers().length);
 }
 function dailyIncidentOccurs(_pace,weather,context={}){return selectDailyIncident({...context,weather})}
 
@@ -780,6 +786,7 @@ function showPendingDeathEvent(){
 }
 
 function eventEligibleTravelers(){return alive().filter(p=>p.sickDays<=0&&(p.woundDays??0)<=0&&!p.needsRemedy)}
+function snakebiteEligibleTravelers(){return alive().filter(p=>(p.woundDays??0)<=0&&!p.needsRemedy)}
 function taggedEvent(id,run){run.eventId=id;return run}
 
 function eventPool(weather=game.weather){
@@ -827,6 +834,8 @@ function eventPool(weather=game.weather){
     events.push(taggedEvent("dysentery",()=>dysenteryEvent(pick(patients))));
   }
   if(patients.length>=2)events.push(taggedEvent("contagious",()=>contagiousDiseaseEvent(patients)));
+  const snakebiteCandidates=snakebiteEligibleTravelers();
+  if(snakebiteCandidates.length&&!['Froid','Neige'].includes(weather.name))events.push(taggedEvent("snakebite",()=>snakebiteEvent(pick(snakebiteCandidates))));
   if(weather.name==="Pluvieux")events.push(taggedEvent("rain",()=>{
     const days=rand(2,4);
     eventModal("Pluies diluviennes","La boue avale les roues. Impossible d’avancer.",bilingual(`${days} jours de retard, mais le convoi reste à l’abri.`,`${days} days lost, but the wagon party remains sheltered.`),[
@@ -855,7 +864,7 @@ function randomEvent(selected=selectDailyIncident()){
   return true;
 }
 
-const REST_EVENT_IDS=new Set(["attack","theft","trade","encounter","fever","dysentery","contagious","rain","climate-injury","blankets"]);
+const REST_EVENT_IDS=new Set(["attack","theft","trade","encounter","fever","dysentery","contagious","snakebite","rain","climate-injury","blankets"]);
 
 function restEventPool(){return eventPool().filter(event=>REST_EVENT_IDS.has(event.eventId))}
 
@@ -884,6 +893,7 @@ function restEventJournalLabel(eventId,language=currentLanguage){
     fever:{fr:"une forte fièvre",en:"a high fever"},
     dysentery:{fr:"un cas de dysenterie",en:"a case of dysentery"},
     contagious:{fr:"une maladie contagieuse",en:"a contagious illness"},
+    snakebite:{fr:"une morsure de serpent venimeux",en:"a venomous snakebite"},
     "climate-injury":{fr:"une blessure liée au climat",en:"a weather-related injury"},
     blankets:{fr:"la perte de couvertures",en:"the loss of blankets"}
   };
@@ -958,6 +968,22 @@ function dysenteryEvent(p=pick(eventEligibleTravelers())){
     {label:"Faire halte 2 jours",action:()=>{consumeDelay(2);if(p.health>0)p.health=clamp(p.health+2,1,100);p.sickDays=Math.max(p.sickDays,15);addJournal(bilingual(`Le convoi s’est arrêté pour soigner la dysenterie de ${p.name}. Deux jours ne suffisent pas à la faire disparaître.`,`The wagon party stopped to treat ${p.name}’s dysentery. Two days are not enough for it to pass.`))}},
     {label:"Continuer",action:()=>{p.health=clamp(p.health-8,0,100);addJournal(bilingual(`${p.name} reste gravement atteint de dysenterie.`,`${p.name} remains seriously ill with dysentery.`))}}
   ],"incident-dysentery.webp");
+}
+
+function snakebiteEvent(p=pick(snakebiteEligibleTravelers())){
+  if(!p)return;
+  p.health=clamp(p.health-rand(10,16),0,100);p.woundDays=8;p.woundKind="snakebite";p.needsRemedy=true;
+  if(p.sickDays<=0)p.state="Blessé";
+  eventModal(bilingual("Morsure de serpent venimeux","Venomous snakebite"),bilingual(`${p.name} a été mordu à la jambe par un serpent à sonnette.`,`${p.name} was bitten on the leg by a rattlesnake.`),bilingual("Le venin agira pendant huit jours. Un remède peut en limiter fortement les effets.","The venom will affect the traveler for eight days. Medicine can greatly limit its effects."),[
+    {label:remedyLabel(bilingual("Administrer un remède","Administer medicine")),disabled:game.cart.medicaments<1,action:()=>{
+      game.cart.medicaments--;p.health=clamp(p.health+10,1,100);p.needsRemedy=false;if(p.sickDays<=0)p.state="Convalescent";
+      addJournal(bilingual(`${p.name} a reçu un remède contre le venin, mais restera en convalescence pendant huit jours.`,`${p.name} received medicine for the venom but will remain in recovery for eight days.`));
+    }},
+    {label:bilingual("Immobiliser la jambe sans remède","Immobilize the leg without medicine"),action:()=>{
+      p.health=clamp(p.health-22,0,100);if(p.health<=0)p.deathCause=bilingual("des suites d’une morsure de serpent venimeux","from a venomous snakebite");
+      addJournal(bilingual(`Sans remède, le venin affaiblit gravement ${p.name}.`, `Without medicine, the venom leaves ${p.name} severely weakened.`));
+    }}
+  ],"incident-snakebite.webp");
 }
 
 function climateInjuryEvent(p=pick(eventEligibleTravelers()),coldWeather=null){
@@ -1203,12 +1229,12 @@ function fortEvent(mark,art=fortArrivalAsset(mark),recordArrival=true){
   const equipment=shuffled([
     {key:"boeufs",qty:2,baseCost:60*price,label:"2 bœufs",labelEn:"2 oxen"},
     {key:"vetements",qty:2,baseCost:22*price,label:"2 couvertures",labelEn:"2 blankets"},
-    {key:"pieces",qty:1,baseCost:28*price,label:"1 pièce de rechange",labelEn:"1 spare part"},
-    {key:"medicaments",qty:2,baseCost:28*price,label:"2 remèdes",labelEn:"2 doses of medicine"}
+    {key:"pieces",qty:1,baseCost:28*price,label:"1 pièce de rechange",labelEn:"1 spare part"}
   ]).slice(0,2);
   const merchandise=[
     {key:"vivres",qty:50,baseCost:SHOP.vivres.price*5*price,label:"50 kg de vivres",labelEn:"50 kg of food"},
     {key:"munitions",qty:40,baseCost:ammoPrice(6)*price,label:"40 balles",labelEn:"40 bullets"},
+    {key:"medicaments",qty:2,baseCost:28*price,label:"2 remèdes",labelEn:"2 doses of medicine"},
     ...equipment
   ];
   const actions=[
@@ -1217,7 +1243,7 @@ function fortEvent(mark,art=fortArrivalAsset(mark),recordArrival=true){
     {label:"Inventaire",keepOpen:true,withInventory:false,action:showInventory},
     {label:"Repartir",primary:true,action:()=>addJournal(bilingual(`Départ de ${mark.name} : le convoi reprend la piste.`,`Departed ${landmarkName(mark)}: the wagon party returns to the trail.`))}
   ];
-  eventModal(bilingual(mark.name,landmarkName(mark)),"Palissades, forge et odeur de pain frais : une halte bienvenue.","Le stock d’équipement varie à chaque fort. Vous pouvez effectuer plusieurs achats avant de repartir.",actions,art);
+  eventModal(bilingual(mark.name,landmarkName(mark)),"Palissades, forge et odeur de pain frais : une halte bienvenue.","Chaque fort vend des remèdes ; le reste du stock d’équipement varie. Vous pouvez effectuer plusieurs achats avant de repartir.",actions,art);
 }
 
 function eventModal(title,text,details,actions,art="trail"){

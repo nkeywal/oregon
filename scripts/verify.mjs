@@ -19,7 +19,7 @@ const localFiles=[...html.matchAll(/(?:src|href)="([^"#]+)"/g)]
 
 const stages=["kansas","fort-kearny","chimney-rock","fort-laramie","independence-rock","south-pass","snake","fort-boise","dalles","willamette"];
 const climates=["mild","cold","hot","rain"];
-const incidents=["attack","axle","bites","blankets","contagious","dysentery","encounter","fever","frostbite","injury","ox-injury","ox-slaughter","rain","theft","trade","wagon"];
+const incidents=["attack","axle","bites","blankets","contagious","dysentery","encounter","fever","frostbite","injury","ox-injury","ox-slaughter","rain","snakebite","theft","trade","wagon"];
 const rivers=["kansas","snake","dalles"];
 const forts=["fort-kearny","fort-laramie","fort-boise"];
 const riverOutcomes=["ferry","float-accident","float-success","wait"];

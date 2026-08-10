@@ -94,9 +94,20 @@ const WEATHER = [
 const MONTHLY_BASE_TEMPERATURE = [-2,1,7,13,18,24,28,27,21,14,6,0];
 // Calibré sur 12 à 15 miles par journée de marche en moyenne sur l'ensemble de la piste.
 const PACES = {
-  prudent:{km:117,health:1,food:.8,incident:.38,strain:-1},
-  soutenu:{km:153,health:-1,food:1,incident:.62,strain:1},
-  epuisant:{km:189,health:-7,food:1.45,incident:.92,strain:3}
+  prudent:{km:117,health:1,food:.8,strain:-1},
+  soutenu:{km:153,health:-1,food:1,strain:1},
+  epuisant:{km:189,health:-7,food:1.45,strain:3}
+};
+const INCIDENT_RULES = {
+  wagon:{basis:"distance",rate:.00049,pace:{prudent:.45,soutenu:1,epuisant:1.35}},
+  injury:{basis:"distance",rate:.00039,pace:{prudent:.55,soutenu:1,epuisant:1.3}},
+  axle:{basis:"distance",rate:.0002,pace:{prudent:.65,soutenu:1,epuisant:1.25}},
+  "ox-injury":{basis:"distance",rate:.00023,pace:{prudent:.7,soutenu:1,epuisant:1.2}},
+  attack:{basis:"day",rate:.005},theft:{basis:"day",rate:.007},encounter:{basis:"day",rate:.014},trade:{basis:"day",rate:.014},
+  fever:{basis:"day",rate:.006},dysentery:{basis:"day",rate:.004},contagious:{basis:"day",rate:.005},rain:{basis:"day",rate:.008},
+  // Ces deux incidents préexistants restent rares et ne sont actifs que
+  // lorsque eventPool confirme que le climat et l'équipement les permettent.
+  "climate-injury":{basis:"day",rate:.004},blankets:{basis:"day",rate:.004}
 };
 // Fonte printanière, étiage estival et réaction aux conditions des derniers jours.
 const RIVER_SEASON_LEVEL = [-.15,-.1,.05,.25,.4,.3,.05,-.2,-.25,-.1,-.05,-.1];
@@ -564,16 +575,36 @@ function leaveTown(){
   showScreen("ecran-voyage");updateUI();
 }
 
-function dailyIncidentChance(pace,weather,route=routeSegmentAt()){
-  const weatherRisk={Doux:0,Chaud:.04,Pluvieux:.08,Froid:.04,Neige:.1}[weather.name]||0;
-  const blanketShortage=alive().length?Math.max(0,alive().length-game.cart.vetements)/alive().length:0;
-  const blanketRisk=blanketShortage*(weather.name==="Neige"?.14:weather.temp<=5?.1:weather.name==="Pluvieux"?.06:0);
-  const equipmentRisk=(game.cart.pieces===0?.07:0)+(game.cart.boeufs<4?.06:0)+blanketRisk;
-  const journeyChance=clamp(pace.incident+weatherRisk+equipmentRisk+route.risk+game.oxStrain*.012,.24,.97);
-  return 1-Math.pow(1-journeyChance,1/5);
+function humanFatigueLevel(){return Math.min(3,Math.floor(travelerFatigueRisk()*4))}
+function oxFatigueLevel(){return Math.min(3,Math.floor(clamp(game.oxStrain,0,10)/3))}
+function cargoLoadRatio(){
+  const weight=game.cart.vivres+game.cart.munitions*.03+game.cart.vetements*4+game.cart.pieces*25+game.cart.medicaments*.5;
+  return weight/800;
+}
+function difficultTerrain(route=routeSegmentAt()){return route.risk>=.06}
+
+function incidentMultiplier(eventId,weather=game.weather,route=routeSegmentAt()){
+  const pace=game.pace,hard=difficultTerrain(route),heavy=cargoLoadRatio()>.8;
+  const humanLevel=humanFatigueLevel(),oxLevel=oxFatigueLevel();
+  const snow=weather.name==="Neige",cold=weather.name==="Froid"||snow,rain=weather.name==="Pluvieux",hot=weather.name==="Chaud";
+  const shortOnBlankets=(cold||snow)&&game.cart.vetements<alive().length;
+  let multiplier=INCIDENT_RULES[eventId]?.pace?.[pace]??1;
+  if(eventId==="wagon")multiplier*=(hard?1.5:1)*(rain?1.35:snow?1.5:1)*(heavy?1.15:1);
+  if(eventId==="injury")multiplier*=(hard?1.4:1)*(rain?1.15:snow?1.25:1)*Math.pow(1.15,humanLevel);
+  if(eventId==="axle")multiplier*=(hard?1.6:1)*(rain?1.1:snow?1.2:1)*(heavy?1.2:1);
+  if(eventId==="ox-injury")multiplier*=(hard?1.4:1)*(hot?1.25:snow?1.2:cold?1.1:1)*Math.pow(1.12,oxLevel);
+  if(eventId==="fever")multiplier*=(hot?1.25:cold?1.2:1)*Math.pow(1.15,humanLevel)*(shortOnBlankets?1.25:1);
+  if(eventId==="dysentery")multiplier*=(hot?1.4:1)*Math.pow(1.15,humanLevel);
+  if(eventId==="contagious")multiplier*=(cold?1.2:1)*Math.pow(1.15,humanLevel)*(shortOnBlankets?1.25:1);
+  return multiplier;
 }
 
-function dailyIncidentOccurs(pace,weather){return Math.random()<dailyIncidentChance(pace,weather)}
+function incidentProbability(eventId,{distance=0,weather=game.weather,route=routeSegmentAt()}={}){
+  const rule=INCIDENT_RULES[eventId];if(!rule)return 0;
+  const unitChance=clamp(rule.rate*incidentMultiplier(eventId,weather,route),0,.95);
+  return rule.basis==="distance"?1-Math.pow(1-unitChance,Math.max(0,distance)):unitChance;
+}
+function dailyIncidentOccurs(_pace,weather,context={}){return selectDailyIncident({...context,weather})}
 
 function weatherExposurePenalty(weather,hasBlanket){
   if(hasBlanket)return 0;
@@ -659,7 +690,8 @@ function travel(daysToTravel=5){
     if(game.finished)return;
     if(game.km>=KM_TOTAL){addTravelJournal(distance,travelDays,travelWeatherBreakdown,travelRoute);finish(true);return;}
     if(next&&game.km>=next.km){addTravelJournal(distance,travelDays,travelWeatherBreakdown,travelRoute);game.landmarkIndex++;landmark(next);updateUI();return;}
-    if(dailyIncidentOccurs(pace,travelWeather)){addTravelJournal(distance,travelDays,travelWeatherBreakdown,travelRoute);randomEvent();updateUI();return;}
+    const incident=dailyIncidentOccurs(pace,travelWeather,{distance:dayDistance,route:travelRoute});
+    if(incident){addTravelJournal(distance,travelDays,travelWeatherBreakdown,travelRoute);randomEvent(incident===true?undefined:incident);updateUI();return;}
     refreshWeather();
   }
   const travelEntry=addTravelJournal(distance,travelDays,travelWeatherBreakdown,travelRoute);quietTravelEvent(distance,Math.round(foodConsumed),travelDays,travelEntry);updateUI();
@@ -749,20 +781,10 @@ function showPendingDeathEvent(){
 
 function eventEligibleTravelers(){return alive().filter(p=>p.sickDays<=0&&(p.woundDays??0)<=0&&!p.needsRemedy)}
 function taggedEvent(id,run){run.eventId=id;return run}
-const EVENT_SELECTION_WEIGHTS={attack:.95};
-const PACE_SENSITIVE_EVENTS=new Set(["wagon","axle","injury","ox-injury"]);
-// L'excès de risque des allures rapides est concentré sur les accidents liés
-// au déplacement. Les risques quotidiens de vol, rencontre, maladie et attaque
-// restent ainsi proches de ceux de l'allure prudente.
-const PACE_EVENT_SELECTION_SCALE={prudent:1,soutenu:2.3633,epuisant:3.129};
-function eventSelectionWeight(event){
-  const base=EVENT_SELECTION_WEIGHTS[event.eventId]??1;
-  return PACE_SENSITIVE_EVENTS.has(event.eventId)?base*PACE_EVENT_SELECTION_SCALE[game.pace]:base;
-}
 
-function eventPool(){
+function eventPool(weather=game.weather){
   if(game.finished||!alive().length)return [];
-  const patients=eventEligibleTravelers(),route=routeSegmentAt();
+  const patients=eventEligibleTravelers();
   const wagonEvent=taggedEvent("wagon",()=>{
       const loss=proportionalLossAmount(game.cart.vivres,.06,.15);game.cart.vivres-=loss;
       const lossText=loss>0?`${loss} kg de vivres ${loss===1?"est perdu":"sont perdus"}.`:"Les réserves de vivres étaient déjà vides : rien n’a pu être perdu.";
@@ -799,54 +821,46 @@ function eventPool(){
         {label:"Les remercier",action:()=>addJournal(found?bilingual(`Une famille généreuse nous a donné ${found} kg de vivres ; les réserves contiennent désormais ${Math.round(game.cart.vivres)} kg.`,`A generous family gave us ${found} kg of food; the stores now contain ${Math.round(game.cart.vivres)} kg.`):bilingual("Une famille généreuse nous a conseillé sur la route à venir.","A generous family shared advice about the road ahead."))}
       ],"incident-encounter.webp");
     }),taggedEvent("theft",theftEvent),taggedEvent("trade",tradeEvent),taggedEvent("attack",attackEvent)];
-  let injuryEventChoice=null,oxEventChoice=null;
   if(patients.length){
     events.push(taggedEvent("fever",()=>feverEvent(pick(patients))));
-    injuryEventChoice=taggedEvent("injury",()=>injuryEvent(pick(patients)));events.push(injuryEventChoice);
+    events.push(taggedEvent("injury",()=>injuryEvent(pick(patients))));
     events.push(taggedEvent("dysentery",()=>dysenteryEvent(pick(patients))));
   }
   if(patients.length>=2)events.push(taggedEvent("contagious",()=>contagiousDiseaseEvent(patients)));
-  if(game.weather.name==="Pluvieux")events.push(taggedEvent("rain",()=>{
+  if(weather.name==="Pluvieux")events.push(taggedEvent("rain",()=>{
     const days=rand(2,4);
     eventModal("Pluies diluviennes","La boue avale les roues. Impossible d’avancer.",bilingual(`${days} jours de retard, mais le convoi reste à l’abri.`,`${days} days lost, but the wagon party remains sheltered.`),[
       {label:"Attendre l’éclaircie",action:()=>{consumeDelay(days);addJournal(bilingual(`${days} jours perdus dans les pluies diluviennes.`,`${days} days lost in torrential rain.`))}}
     ],"incident-rain.webp");
   }));
-  if(game.cart.vetements>0&&(game.weather.temp<=5||game.weather.name==="Pluvieux"))events.push(taggedEvent("blankets",blanketLossEvent));
-  if(patients.length&&((game.weather.temp<=5&&game.cart.vetements<alive().length)||game.weather.temp>=27))events.push(taggedEvent("climate-injury",()=>climateInjuryEvent(pick(patients))));
-  if(game.cart.boeufs>0){oxEventChoice=taggedEvent("ox-injury",oxInjuryEvent);events.push(oxEventChoice)}
-  if(game.pace==="soutenu")events.push(wagonEvent,...(injuryEventChoice?[injuryEventChoice]:[]));
-  if(game.pace==="epuisant"){
-    events.push(wagonEvent,wagonEvent,axleEvent,axleEvent,...(injuryEventChoice?[injuryEventChoice,injuryEventChoice]:[]));
-    if(oxEventChoice)events.push(oxEventChoice,oxEventChoice,oxEventChoice);
-  }
-  if(route.risk>=.06)events.push(wagonEvent);
-  if(route.risk>=.1)events.push(axleEvent);
-  if(oxEventChoice&&game.oxStrain>=6)events.push(oxEventChoice,oxEventChoice,oxEventChoice);
+  if(game.cart.vetements>0&&(weather.temp<=5||weather.name==="Pluvieux"))events.push(taggedEvent("blankets",blanketLossEvent));
+  if(patients.length&&((weather.temp<=5&&game.cart.vetements<alive().length)||weather.temp>=27))events.push(taggedEvent("climate-injury",()=>climateInjuryEvent(pick(patients),weather.temp<=5)));
+  if(game.cart.boeufs>0)events.push(taggedEvent("ox-injury",oxInjuryEvent));
   return events;
 }
 
-function selectEvent(events){
-  if(!events.length)return null;
-  const withoutRepeat=events.filter(event=>event.eventId!==game.lastEvent);
-  return weightedPick((withoutRepeat.length?withoutRepeat:events).map(event=>({value:event,weight:eventSelectionWeight(event)})));
+function selectDailyIncident({distance=0,weather=game.weather,route=routeSegmentAt(),resting=false}={}){
+  const events=eventPool(weather).filter(event=>!resting||REST_EVENT_IDS.has(event.eventId));
+  const triggered=[];
+  for(const event of events){
+    const probability=incidentProbability(event.eventId,{distance,weather,route});
+    if(probability>0&&Math.random()<probability)triggered.push({value:event,weight:probability});
+  }
+  return triggered.length?weightedPick(triggered):null;
 }
 
-function randomEvent(){
-  const selected=selectEvent(eventPool());if(!selected)return;
+function randomEvent(selected=selectDailyIncident()){
+  if(!selected)return false;
   game.lastEvent=selected.eventId;selected();
+  return true;
 }
 
-const REST_EVENT_IDS=new Set(["attack","theft","trade","encounter","fever","dysentery","contagious","climate-injury","blankets"]);
+const REST_EVENT_IDS=new Set(["attack","theft","trade","encounter","fever","dysentery","contagious","rain","climate-injury","blankets"]);
 
 function restEventPool(){return eventPool().filter(event=>REST_EVENT_IDS.has(event.eventId))}
 
 function selectRestEvent(){
-  // Le choix se fait dans le même ensemble pondéré qu'en voyage afin que la
-  // probabilité quotidienne de chaque événement reste identique. Un accident
-  // propre au déplacement devient simplement une journée calme au camp.
-  const selected=selectEvent(eventPool());
-  return selected&&REST_EVENT_IDS.has(selected.eventId)?selected:null;
+  return selectDailyIncident({distance:0,weather:game.weather,route:routeSegmentAt(),resting:true});
 }
 
 function groupJournalSummary(){
@@ -877,7 +891,7 @@ function restEventJournalLabel(eventId,language=currentLanguage){
 }
 
 function performRest(days=2,atFort=false){
-  const streak=game.lastRestDay===game.days?(game.restStreak??0)+1:1,pace=PACES[game.pace];
+  const streak=game.lastRestDay===game.days?(game.restStreak??0)+1:1;
   let rested=0,selected=null;
   for(let day=0;day<days;day++){
     const restWeather=game.weather;consumeDelay(1,2,true,true,atFort);rested++;
@@ -887,7 +901,7 @@ function performRest(days=2,atFort=false){
     });
     updateDeaths();
     if(game.pendingDeath||game.finished)break;
-    if(!atFort&&dailyIncidentOccurs(pace,restWeather)){selected=selectRestEvent();if(selected)break;}
+    if(!atFort){const incident=dailyIncidentOccurs(null,restWeather,{distance:0,route:routeSegmentAt(),resting:true});selected=incident===true?selectRestEvent():incident;if(selected)break;}
   }
   const portion=rested/Math.max(1,days);
   game.oxStrain=clamp(game.oxStrain-3*portion,0,10);
@@ -946,9 +960,9 @@ function dysenteryEvent(p=pick(eventEligibleTravelers())){
   ],"incident-dysentery.webp");
 }
 
-function climateInjuryEvent(p=pick(eventEligibleTravelers())){
+function climateInjuryEvent(p=pick(eventEligibleTravelers()),coldWeather=null){
   if(!p)return;
-  const cold=game.weather.temp<=5,damage=cold?rand(14,23):rand(8,16);
+  const cold=coldWeather??(game.weather.temp<=5),damage=cold?rand(14,23):rand(8,16);
   p.health=clamp(p.health-damage,0,100);p.state=cold?"Engelures":"Piqûres";p.sickDays=cold?11:7;
   const title=cold?"Engelures":"Piqûres d’insectes";
   const text=bilingual(cold?`${p.name} souffre d’engelures après une longue exposition au froid.`:`${p.name} est couvert de piqûres douloureuses après une halte sous une chaleur étouffante.`,cold?`${p.name} suffers from frostbite after prolonged exposure to the cold.`:`${p.name} is covered in painful insect bites after a stop in oppressive heat.`);

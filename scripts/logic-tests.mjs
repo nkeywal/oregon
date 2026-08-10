@@ -158,7 +158,7 @@ test("ox speed factor follows the requested thresholds and cap",()=>{
 });
 
 test("profession does not alter incident probability",()=>{
-  const result=scenario(`const chance=profession=>{game=baseGame(["A","B","C","D","E"],profession,3);Object.assign(game.cart,{boeufs:6,pieces:2,vetements:5});return dailyIncidentChance(PACES.soutenu,WEATHER[0],ROUTE_SEGMENTS[0])};({farmer:chance("fermier"),carpenter:chance("charpentier"),banker:chance("banquier")})`);
+  const result=scenario(`const chance=profession=>{game=baseGame(["A","B","C","D","E"],profession,3);Object.assign(game.cart,{boeufs:6,pieces:2,vetements:5});game.pace="soutenu";return incidentProbability("wagon",{distance:30,weather:WEATHER[0],route:ROUTE_SEGMENTS[0]})};({farmer:chance("fermier"),carpenter:chance("charpentier"),banker:chance("banquier")})`);
   assert.equal(result.farmer,result.carpenter);assert.equal(result.farmer,result.banker);
 });
 
@@ -360,9 +360,10 @@ test("rest days use daily incident rolls but exclude trail accidents",()=>{
   for(const id of ["attack","theft"])assert.ok(result.allowed.includes(id));
 });
 
-test("rest keeps each event's travel-day weight instead of redistributing trail accidents",()=>{
-  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{vivres:100,boeufs:6,pieces:2,vetements:5});let offered=[];selectEvent=events=>{offered=events.map(event=>event.eventId);return events.find(event=>event.eventId==="wagon")};const selected=selectRestEvent();({offered,selected})`);
-  assert.ok(result.offered.includes("attack"));assert.ok(result.offered.includes("wagon"));assert.equal(result.selected,null);
+test("distance-based incidents have zero probability during rest",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.fromEntries(["wagon","axle","injury","ox-injury","attack","theft"].map(id=>[id,incidentProbability(id,{distance:0,weather:WEATHER[0],route:ROUTE_SEGMENTS[0]})]))`);
+  for(const id of ["wagon","axle","injury","ox-injury"])assert.equal(result[id],0);
+  assert.equal(result.attack,.005);assert.equal(result.theft,.007);
 });
 
 test("five travel days get five rolls while two rest days get only two",()=>{
@@ -398,20 +399,38 @@ test("later attacks cause more casualties and more severe wounds",()=>{
   assert.ok(result.late.lethalChance-result.heavy.lethalChance<=.04);assert.ok(result.late.damageBonus-result.heavy.damageBonus<=4);
 });
 
-test("five-day incident settings are converted into daily probabilities",()=>{
-  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{pieces:3,boeufs:6,vetements:5});const daily=dailyIncidentChance(PACES.prudent,WEATHER[0],{risk:0});({daily,five:1-Math.pow(1-daily,5)})`);
-  assert.ok(result.daily>0&&result.daily<.38);assert.ok(Math.abs(result.five-.38)<1e-12);
+test("daily incident rates match the individual specification",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.fromEntries(["attack","theft","encounter","trade","fever","dysentery","contagious"].map(id=>[id,incidentProbability(id,{distance:30,weather:WEATHER[0],route:ROUTE_SEGMENTS[0]})]))`);
+  assert.equal(result.attack,.005);assert.equal(result.theft,.007);assert.equal(result.encounter,.014);assert.equal(result.trade,.014);
+  assert.equal(result.fever,.006);assert.equal(result.dysentery,.004);assert.equal(result.contagious,.005);
 });
 
-test("grueling pace remains both harsher and much more eventful",()=>{
-  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{pieces:3,boeufs:6,vetements:5});const fiveDay=pace=>1-Math.pow(1-dailyIncidentChance(PACES[pace],WEATHER[0],{risk:0}),5);({prudent:fiveDay("prudent"),soutenu:fiveDay("soutenu"),epuisant:fiveDay("epuisant"),health:{prudent:PACES.prudent.health,soutenu:PACES.soutenu.health,epuisant:PACES.epuisant.health},strain:{prudent:PACES.prudent.strain,soutenu:PACES.soutenu.strain,epuisant:PACES.epuisant.strain}})`);
-  assert.ok(result.epuisant>=.9&&result.epuisant>result.soutenu&&result.soutenu>result.prudent);
-  assert.ok(result.health.epuisant<result.health.soutenu&&result.strain.epuisant>result.strain.soutenu);
+test("a daily theft rate of seven per thousand gives the intended journey exposure",()=>{
+  const result=scenario(`const daily=INCIDENT_RULES.theft.rate;({expected:daily*150,atLeastOne:1-Math.pow(1-daily,150)})`);
+  assert.ok(Math.abs(result.expected-1.05)<1e-12);assert.ok(result.atLeastOne>.651&&result.atLeastOne<.652);
 });
 
-test("missing equipment increases incident risk in relevant conditions",()=>{
-  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{pieces:3,boeufs:6,vetements:5});const baseline=dailyIncidentChance(PACES.soutenu,WEATHER[0]);game.cart.pieces=0;const noParts=dailyIncidentChance(PACES.soutenu,WEATHER[0]);game.weather=WEATHER[3];game.cart.vetements=0;const exposed=dailyIncidentChance(PACES.soutenu,WEATHER[3]);({baseline,noParts,exposed})`);
-  assert.ok(result.noParts>result.baseline);assert.ok(result.exposed>result.noParts);
+test("distance incident rates and pace multipliers match the specification",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.fromEntries(Object.entries(INCIDENT_RULES).filter(([,rule])=>rule.basis==="distance").map(([id,rule])=>[id,{rate:rule.rate,pace:rule.pace}]))`);
+  assert.equal(result.wagon.rate,.00049);assert.deepEqual({...result.wagon.pace},{prudent:.45,soutenu:1,epuisant:1.35});
+  assert.equal(result.injury.rate,.00039);assert.deepEqual({...result.injury.pace},{prudent:.55,soutenu:1,epuisant:1.3});
+  assert.equal(result.axle.rate,.0002);assert.deepEqual({...result.axle.pace},{prudent:.65,soutenu:1,epuisant:1.25});
+  assert.equal(result["ox-injury"].rate,.00023);assert.deepEqual({...result["ox-injury"].pace},{prudent:.7,soutenu:1,epuisant:1.2});
+});
+
+test("per-kilometer risks compound over the distance actually traveled",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.pace="soutenu";Object.assign(game.cart,{vivres:0,munitions:0,vetements:5,pieces:0,medicaments:0});({none:incidentProbability("wagon",{distance:0,weather:WEATHER[0],route:ROUTE_SEGMENTS[0]}),thirty:incidentProbability("wagon",{distance:30,weather:WEATHER[0],route:ROUTE_SEGMENTS[0]})})`);
+  assert.equal(result.none,0);assert.ok(Math.abs(result.thirty-(1-Math.pow(1-.00049,30)))<1e-12);
+});
+
+test("human fatigue modifiers compound by discrete levels",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.pace="soutenu";const fresh=incidentMultiplier("fever",WEATHER[0],ROUTE_SEGMENTS[0]);game.party.forEach(person=>person.health=35);const level=humanFatigueLevel(),tired=incidentMultiplier("fever",WEATHER[0],ROUTE_SEGMENTS[0]);({fresh,tired,level})`);
+  assert.ok(result.level>=2);assert.ok(Math.abs(result.tired/result.fresh-Math.pow(1.15,result.level))<1e-12);
+});
+
+test("cold blanket shortages raise disease risk but spare parts do not alter it",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{pieces:3,boeufs:6,vetements:5});const prepared=incidentProbability("fever",{weather:WEATHER[3]});game.cart.pieces=0;const noParts=incidentProbability("fever",{weather:WEATHER[3]});game.cart.vetements=0;const exposed=incidentProbability("fever",{weather:WEATHER[3]});({prepared,noParts,exposed})`);
+  assert.equal(result.prepared,result.noParts);assert.ok(result.exposed>result.noParts);
 });
 
 test("event conditions follow weather and available equipment",()=>{
@@ -438,28 +457,24 @@ test("an empty party cannot continue without a pending death report",()=>{
   assert.equal(result.failed,true);assert.equal(result.finished,true);assert.equal(result.win,false);
 });
 
-test("grueling pace weights breakdowns, injuries, and ox trouble",()=>{
-  const counts=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.pace="epuisant";game.cart.boeufs=6;const pool=eventPool();Object.fromEntries([...new Set(pool.map(e=>e.eventId))].map(id=>[id,pool.filter(e=>e.eventId===id).length]))`);
-  assert.equal(counts.wagon,3);assert.equal(counts.axle,3);assert.equal(counts.injury,3);assert.equal(counts["ox-injury"],4);
+test("grueling pace raises travel accidents but not thefts or attacks",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{boeufs:6,pieces:3,vetements:5});const rate=(pace,id)=>{game.pace=pace;return incidentProbability(id,{distance:30,weather:WEATHER[0],route:ROUTE_SEGMENTS[0]})};({wagon:[rate("prudent","wagon"),rate("soutenu","wagon"),rate("epuisant","wagon")],theft:[rate("prudent","theft"),rate("soutenu","theft"),rate("epuisant","theft")],attack:[rate("prudent","attack"),rate("soutenu","attack"),rate("epuisant","attack")]})`);
+  assert.ok(result.wagon[0]<result.wagon[1]&&result.wagon[1]<result.wagon[2]);assert.equal(new Set(result.theft).size,1);assert.equal(new Set(result.attack).size,1);
 });
 
-test("high ox strain further increases ox injury weight",()=>{
-  assert.equal(scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.pace="epuisant";game.cart.boeufs=6;game.oxStrain=7;eventPool().filter(e=>e.eventId==="ox-injury").length`),7);
+test("ox fatigue compounds ox injury risk by twelve percent per level",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.pace="soutenu";game.oxStrain=0;const fresh=incidentMultiplier("ox-injury",WEATHER[0],ROUTE_SEGMENTS[0]);game.oxStrain=7;const tired=incidentMultiplier("ox-injury",WEATHER[0],ROUTE_SEGMENTS[0]);({fresh,tired})`);
+  assert.ok(Math.abs(result.tired/result.fresh-Math.pow(1.12,2))<1e-12);
 });
 
-test("the same random event cannot occur twice in succession",()=>{
-  assert.equal(scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);eventModal=()=>{};let previous=null,valid=true;for(let i=0;i<200;i++){randomEvent();if(game.lastEvent===previous)valid=false;previous=game.lastEvent}valid`),true);
+test("individual rolls allow the same incident on consecutive days",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);const theft=eventPool().find(event=>event.eventId==="theft");eventModal=()=>{};randomEvent(theft);const first=game.lastEvent;randomEvent(theft);({first,second:game.lastEvent})`);
+  assert.equal(result.first,"theft");assert.equal(result.second,"theft");
 });
 
-test("attacks have a slightly lower selection weight than other incidents",()=>{
-  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);const pool=eventPool();({attack:eventSelectionWeight(pool.find(event=>event.eventId==="attack")),theft:eventSelectionWeight(pool.find(event=>event.eventId==="theft")),encounter:eventSelectionWeight(pool.find(event=>event.eventId==="encounter"))})`);
-  assert.equal(result.attack,.95);assert.equal(result.theft,1);assert.equal(result.encounter,1);
-});
-
-test("faster paces add travel accidents without raising theft risk",()=>{
-  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{boeufs:6,pieces:3,vetements:5});game.weather=WEATHER[0];const rate=pace=>{game.pace=pace;const events=eventPool(),total=events.reduce((sum,event)=>sum+eventSelectionWeight(event),0),daily=dailyIncidentChance(PACES[pace],WEATHER[0],{risk:0}),theft=events.find(event=>event.eventId==="theft");return {theft:daily*eventSelectionWeight(theft)/total,wagon:daily*events.filter(event=>event.eventId==="wagon").reduce((sum,event)=>sum+eventSelectionWeight(event),0)/total}};({prudent:rate("prudent"),normal:rate("soutenu"),grueling:rate("epuisant")})`);
-  assert.ok(Math.abs(result.prudent.theft-result.normal.theft)<.0001);assert.ok(Math.abs(result.prudent.theft-result.grueling.theft)<.0001);
-  assert.ok(result.normal.wagon>result.prudent.wagon);assert.ok(result.grueling.wagon>result.normal.wagon);
+test("terrain, weather, and load modifiers compound only relevant accidents",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.pace="soutenu";Object.assign(game.cart,{vivres:0,munitions:0,vetements:5,pieces:0,medicaments:0});const base=incidentMultiplier("wagon",WEATHER[0],ROUTE_SEGMENTS[0]);Object.assign(game.cart,{vivres:700});const hardRain=incidentMultiplier("wagon",WEATHER[2],ROUTE_SEGMENTS[8]);({base,hardRain})`);
+  assert.equal(result.base,1);assert.ok(Math.abs(result.hardRain-1.5*1.35*1.15)<1e-12);
 });
 
 test("medical incidents always retain a non-medicine alternative",()=>{
@@ -668,11 +683,11 @@ test("food loading never exceeds capacity",()=>{
   assert.equal(result.loaded,5);assert.equal(result.left,800);
 });
 
-test("prepared complete journeys stay near the historical window despite accumulated stops",()=>{
+test("prepared complete journeys preserve pace difficulty under individual incident risks",()=>{
   const result=scenario(`let seed=1848;Math.random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296};finish=win=>{game.finished=true;game.testWin=win};updateUI=()=>{};setTrailScene=()=>{};showLandmarkArt=()=>{};toast=()=>{};returnToTrailTop=()=>{};refreshFortArrivalArt=()=>{};queueRiverOutcome=()=>{};startAttack=()=>{};eventModal=(title,text,details,actions)=>{let action=actions.find(candidate=>!actionDisabled(candidate));if(String(languageText(title)).includes("Fort"))action=actions.find(candidate=>languageText(candidate.label)==="Repartir")||action;if(!action)throw new Error("No playable event action");action.action();updateDeaths();checkJourneyFailure()};const runs={prudent:[],soutenu:[],epuisant:[]};for(const pace of Object.keys(runs))for(let attempt=0;attempt<40;attempt++){game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{boeufs:8,vivres:700,munitions:300,vetements:8,pieces:5,medicaments:8});game.money=300;game.pace=pace;game.weather=weatherForPosition(game.month,game.day,game.year,0,[]);game.weatherHistory=[game.weather.name];let turns=0;while(!game.finished&&turns++<500){if(game.cart.vivres<100&&game.cart.munitions>=5){game.cart.munitions-=5;loadFood(55)}const average=alive().reduce((sum,traveler)=>sum+traveler.health,0)/alive().length;if(average<48&&game.cart.vivres>=alive().length*4)rest();else travel()}if(game.testWin)runs[pace].push(game.days)}for(const values of Object.values(runs))values.sort((a,b)=>a-b);const percentile=(values,p)=>values[Math.floor((values.length-1)*p)];({wins:Object.fromEntries(Object.entries(runs).map(([pace,values])=>[pace,values.length])),prudent:{p10:percentile(runs.prudent,.1),p75:percentile(runs.prudent,.75)},soutenu:{p10:percentile(runs.soutenu,.1),p75:percentile(runs.soutenu,.75)}})`);
-  assert.ok(result.wins.prudent>=30,JSON.stringify(result));assert.ok(result.wins.soutenu>=4,JSON.stringify(result));
-  assert.ok(result.wins.epuisant<=2&&result.wins.epuisant<result.wins.soutenu,JSON.stringify(result));
-  assert.ok(result.prudent.p10>=120&&result.prudent.p75<=210,JSON.stringify(result));assert.ok(result.soutenu.p10>=120&&result.soutenu.p75<=210,JSON.stringify(result));
+  assert.ok(result.wins.prudent>=35,JSON.stringify(result));assert.ok(result.wins.soutenu>=20&&result.wins.soutenu<result.wins.prudent,JSON.stringify(result));
+  assert.ok(result.wins.epuisant<=30&&result.wins.epuisant<result.wins.soutenu,JSON.stringify(result));
+  assert.ok(result.prudent.p10>=120&&result.prudent.p75<=210,JSON.stringify(result));assert.ok(result.soutenu.p10>=120&&result.soutenu.p75<=230,JSON.stringify(result));
 });
 
 test("fort rest cost follows the current party size",()=>{

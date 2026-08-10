@@ -16,7 +16,7 @@ The initial request can be summarized as follows: make an Oregon Trail-like game
 
 - The LLM chose an art direction inspired by WPA posters and screen-printed gouache, then applied it across the game.
 - The project starts from a very broad request: “implement an Oregon Trail-like game, with a genuine art direction, in pure HTML.”
-- The total work represents approximately twenty hours spread over three weeks. The exact token total is neither exposed by the interface nor stored in the repository. The only available measurement comes from one particular `/goal` run, which recorded 99,843 tokens; this partial figure therefore does not represent the project’s total consumption.
+- The total work represents approximately twenty hours spread over three weeks.
 - The LLM implements a complete game, chooses the gouache style itself, and takes the historical journey from Independence to Oregon together with some mechanisms from the original game—occupation and merchandise choices—while introducing its own ideas, such as travelers who give away food or a completely different hunting mini-game. However, there is no meaningful initial balancing.
 - Image-generation requests work well: the style remains consistent from one image to the next and the art direction is preserved correctly.
 - Broad requests such as “balance the game” fail. The LLM implements a stochastic simulator, runs trials, and adjusts some parameters, but the game nevertheless remains trivial.
@@ -24,6 +24,28 @@ The initial request can be summarized as follows: make an Oregon Trail-like game
 - An interesting point: when asked to add Indian attacks, the LLM deliberately designs a defensive mini-game so as not to present the Indians as aggressors, and uses the term “Native” rather than “Indian.” It nevertheless makes the requested changes when explicitly asked to do so.
 - Overall, the LLM introduces no simple coding bugs. There are nevertheless logical inconsistencies, such as killing a character and then healing that character afterward. The LLM does not detect these by itself during phases such as “/goal check and solve the problems before production.” Presentation bugs also remain, such as incorrectly rounded numbers like `23.000001`.
 - Work on the game’s mechanics and difficulty therefore remains to be done. When left to design on its own, the LLM tends to implement mechanisms that are too simple. The result can be improved by guiding it more thoroughly beforehand so that it proposes richer mechanisms, rather than letting it implement a first version and correcting it afterward.
+
+### Token estimate
+
+This estimate was provided by ChatGPT. It is certain that the entire program was produced in one single conversation, deliberately kept uncompacted from beginning to end. Ignoring image generation completely, ChatGPT estimates that this one conversation processed approximately 330 million tokens:
+
+| Token type | Estimated volume |
+|---|---:|
+| Cached input | ≈ 319 M |
+| Non-cached input | ≈ 10.2 M |
+| Output | ≈ 1.17 M |
+| **Total** | **≈ 330 M** |
+
+Using the GPT-5.6 Sol rates assumed in this estimate, the API-equivalent cost would be:
+
+| Token type | Calculation | Estimated cost |
+|---|---:|---:|
+| Non-cached input | 10.2 M × $5/M | ≈ $51 |
+| Cached input | 319 M × $0.50/M | ≈ $160 |
+| Output | 1.17 M × $30/M | ≈ $35 |
+| **Total** |  | **≈ $246** |
+
+This gives an order of magnitude of $245–250 in API-equivalent cost for text and code, excluding image generation. It is an estimate, not an observed billing measurement.
 
 ### How to read this document
 

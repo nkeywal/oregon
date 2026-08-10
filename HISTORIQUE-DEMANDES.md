@@ -16,7 +16,7 @@ La demande initiale peut se résumer ainsi : faire un Oregon Trail-like, en HTML
 
 - Le LLM a choisi une direction artistique inspirée des affiches WPA et de la gouache sérigraphiée, puis l’a appliquée à l’ensemble du jeu.
 - On part d’une demande très générale : « implémenter un Oregon Trail-like, avec une vraie direction artistique, en pur HTML ».
-- Le travail total représente environ vingt heures réparties sur trois semaines. Le total exact de tokens n’est pas exposé par l’interface ni conservé dans le dépôt. La seule mesure disponible est celle d’une passe `/goal` particulière, qui a enregistré 99 843 tokens ; ce chiffre partiel ne représente donc pas la consommation totale du projet.
+- Le travail total représente environ vingt heures réparties sur trois semaines.
 - Le LLM implémente un jeu complet, choisit lui-même ce style gouache et prend le parcours historique d’Independence jusqu’à l’Oregon ainsi que certains mécanismes du jeu d’origine — choix des professions et marchandises — tout en introduisant ses propres idées, par exemple des voyageurs qui donnent des vivres ou un mini-jeu de chasse complètement différent. En revanche, il n’y a pas de réel équilibrage initial.
 - Les demandes de génération de dessins fonctionnent bien : le style reste cohérent d’une image à l’autre et la direction artistique est correctement conservée.
 - Les demandes générales du type « équilibre le jeu » échouent. Le LLM implémente un simulateur stochastique, lance des essais et ajuste certains paramètres, mais le jeu reste malgré tout trivial.
@@ -24,6 +24,28 @@ La demande initiale peut se résumer ainsi : faire un Oregon Trail-like, en HTML
 - Fait intéressant : lorsqu’on demande au LLM d’ajouter des attaques d’Indiens, il conçoit volontairement un mini-jeu défensif afin de ne pas présenter les Indiens comme les agresseurs et emploie le terme « Native » plutôt qu’« Indien ». Il effectue toutefois les changements demandés lorsqu’on lui demande explicitement de le faire.
 - Globalement, le LLM n’introduit aucun bug de code simple. Il subsiste malgré tout des incohérences de logique, par exemple faire mourir un personnage puis le faire guérir ensuite. Le LLM ne les détecte pas lui-même pendant les phases du type « /goal vérifie et résous les problèmes avant passage en production ». Il reste aussi des bugs de présentation, comme des nombres mal arrondis tels que `23.000001`.
 - Le travail sur les mécanismes et sur la difficulté du jeu reste donc à faire. Lorsqu’on le laisse concevoir seul, le LLM tend à implémenter des mécanismes trop simples. On peut améliorer le résultat en le guidant davantage en amont pour qu’il propose des mécanismes plus élaborés, plutôt que de le laisser implémenter une première version puis de la corriger ensuite.
+
+### Estimation des tokens
+
+Cette estimation a été fournie par ChatGPT. Il est certain que tout le programme a été réalisé au cours d’une seule conversation, volontairement conservée sans compaction du début à la fin. En ignorant complètement la génération des images, ChatGPT estime que cette conversation unique a représenté environ 330 millions de tokens traités :
+
+| Type de tokens | Volume estimé |
+|---|---:|
+| Entrée en cache | ≈ 319 M |
+| Entrée hors cache | ≈ 10,2 M |
+| Sortie | ≈ 1,17 M |
+| **Total** | **≈ 330 M** |
+
+Avec les tarifs retenus dans cette estimation pour GPT-5.6 Sol, l’équivalent API serait :
+
+| Type de tokens | Calcul | Coût estimé |
+|---|---:|---:|
+| Entrée hors cache | 10,2 M × 5 $/M | ≈ 51 $ |
+| Entrée en cache | 319 M × 0,50 $/M | ≈ 160 $ |
+| Sortie | 1,17 M × 30 $/M | ≈ 35 $ |
+| **Total** |  | **≈ 246 $** |
+
+Cela donne un ordre de grandeur de 245 à 250 $ d’équivalent API pour le texte et le code, hors génération des images. Il s’agit d’une estimation, pas d’une mesure de facturation observée.
 
 ### Comment lire ce document
 

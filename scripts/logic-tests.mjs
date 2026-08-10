@@ -54,6 +54,13 @@ test("resource quantities distinguish food, blankets, and spare parts",()=>{
   assert.equal(result.food,"25 kg de vivres");assert.equal(result.blanket,"1 couverture");assert.equal(result.part,"1 pièce");
 });
 
+test("displayed resource quantities never leak floating-point precision",()=>{
+  const result=scenario(`game=baseGame(["A"],"fermier",3);Object.assign(game.cart,{boeufs:2,vivres:1.375});let text;eventModal=(title,value)=>text=value;offerOxForFood(null,5);({text,foodFr:itemQuantityFor("vivres",3.625,"fr"),foodEn:itemQuantityFor("vivres",3.625,"en")})`);
+  assert.match(result.text.fr,/3,6 kg/);assert.match(result.text.en,/3\.6 kg/);
+  assert.equal(result.foodFr,"3,6 kg de vivres");assert.equal(result.foodEn,"3.6 kg of food");
+  assert.doesNotMatch(`${result.text.fr} ${result.text.en}`,/0000000/);
+});
+
 test("loss lists use a single final conjunction",()=>{
   assert.equal(scenario(`joinList(["vivres","balles","un bœuf"],"fr")`),"vivres, balles et un bœuf");
 });
@@ -74,8 +81,8 @@ test("accidental cargo losses scale with the quantity carried",()=>{
 });
 
 test("a wagon fall records both food lost and food remaining",()=>{
-  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.vivres=200;Math.random=()=>.5;let actions;eventModal=(title,text,details,value)=>actions=value;eventPool().find(event=>event.eventId==="wagon")();const afterAccident=game.cart.vivres;actions[0].action();({loss:200-afterAccident,left:Math.round(game.cart.vivres),text:game.journal[0].text.fr})`);
-  assert.ok(result.loss>=12&&result.loss<=30);assert.match(result.text,new RegExp(`coûté ${result.loss} kg`));assert.match(result.text,new RegExp(`reste ${result.left} kg`));
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.vivres=200;Math.random=()=>.5;let actions;eventModal=(title,text,details,value)=>actions=value;eventPool().find(event=>event.eventId==="wagon")();const afterAccident=game.cart.vivres;actions[0].action();({loss:200-afterAccident,left:journalNumber(game.cart.vivres,"fr"),text:game.journal[0].text.fr})`);
+  assert.ok(result.loss>=12&&result.loss<=30);assert.match(result.text,new RegExp(`coûté ${result.loss} kg`));assert.match(result.text,new RegExp(`reste ${result.left.replace(",","\\,")} kg`));
 });
 
 test("weather is refreshed after elapsed non-travel days",()=>{
@@ -755,8 +762,15 @@ test("the victory narrative remembers the player's original profession",()=>{
 
 test("finishing adds a final journal entry with people and place",()=>{
   const result=scenario(`renderFinish=()=>{};game=baseGame(["Alice","Benoît","Clara"],"fermier",3);game.km=KM_TOTAL;game.party[2].alive=false;finish(true);const success=game.journal[0].text;game=baseGame(["Diego","Emma"],"fermier",3);game.km=2675;game.party.forEach(traveler=>traveler.alive=false);finish(false);const failure=game.journal[0].text;({success,failure})`);
-  assert.match(result.success.fr,/Alice et Benoît atteignent la vallée de Willamette/);assert.match(result.success.en,/Alice and Benoît reach the Willamette Valley/);
+  assert.match(result.success.fr,/Alice \(bonne santé\) et Benoît \(bonne santé\) atteignent la vallée de Willamette/);assert.match(result.success.en,/Alice \(good health\) and Benoît \(good health\) reach the Willamette Valley/);
   assert.match(result.failure.fr,/kilomètre 2675/);assert.match(result.failure.fr,/Blue Mountains/);assert.match(result.failure.en,/wagon party vanished/);
+});
+
+test("the Oregon arrival journal records every survivor's condition and remaining cargo",()=>{
+  const result=scenario(`renderFinish=()=>{};game=baseGame(["Camille","Lou","Charlie","Alix","Sacha"],"fermier",3);game.km=KM_TOTAL;game.money=37;Object.assign(game.cart,{boeufs:4,vivres:123.625,munitions:60,vetements:3,pieces:2,medicaments:1});Object.assign(game.party[0],{health:88,state:"En forme"});Object.assign(game.party[1],{health:41,state:"Blessé",sickDays:4});Object.assign(game.party[2],{health:63,state:"En forme"});game.party[3].alive=false;game.party[3].state="Décédé";Object.assign(game.party[4],{health:22,state:"Dysenterie",sickDays:5});finish(true);game.journal[0].text`);
+  for(const detail of ["Camille (bonne santé)","Lou (blessé ; état général : très faible)","Charlie (fatigué)","Sacha (dysenterie ; état général : très faible)","4 bœufs","123,6 kg de vivres","60 balles","3 couvertures","2 pièces de rechange","1 remède","37 $ restent"])assert.ok(result.fr.includes(detail),`missing French arrival detail: ${detail}`);
+  for(const detail of ["Camille (good health)","Lou (injured; overall condition: very weak)","Charlie (tired)","Sacha (dysentery; overall condition: very weak)","4 oxen","123.6 kg of food","60 bullets","3 blankets","2 spare parts","1 dose of medicine","$37 remains"])assert.ok(result.en.includes(detail),`missing English arrival detail: ${detail}`);
+  assert.doesNotMatch(`${result.fr} ${result.en}`,/Alix \(/);assert.doesNotMatch(`${result.fr} ${result.en}`,/%|points? de santé|health points?/i);
 });
 
 test("the visible score keeps death penalties internal",()=>{
@@ -792,7 +806,7 @@ test("a death exactly at a landmark does not create a zero-kilometer travel day"
 
 test("reaching Oregon before a death report does not add a zero-kilometer day afterward",()=>{
   const result=scenario(`game=baseGame(["Camille","Lou","Sacha"],"fermier",3);Object.assign(game.cart,{boeufs:6,vivres:100});game.km=KM_TOTAL;game.days=161;game.party[2].alive=false;game.pendingDeath=game.party[2];let deathReports=0;showPendingDeathEvent=()=>{deathReports++;game.pendingDeath=null;return true};updateUI=()=>{};renderFinish=()=>{};travel();const before={finished:game.finished,days:game.days};travel();({before,finished:game.finished,days:game.days,deathReports,zero:game.journal.some(entry=>/^0 km parcourus/.test(entry.text.fr)),final:game.journal[0].text.fr})`);
-  assert.equal(result.before.finished,false);assert.equal(result.deathReports,1);assert.equal(result.finished,true);assert.equal(result.days,161);assert.equal(result.zero,false);assert.match(result.final,/Camille et Lou atteignent la vallée de Willamette/);
+  assert.equal(result.before.finished,false);assert.equal(result.deathReports,1);assert.equal(result.finished,true);assert.equal(result.days,161);assert.equal(result.zero,false);assert.match(result.final,/Camille \(bonne santé\) et Lou \(bonne santé\) atteignent la vallée de Willamette/);
 });
 
 test("river depth stays physical across seasonal and weather variation",()=>{

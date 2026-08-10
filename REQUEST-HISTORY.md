@@ -308,6 +308,7 @@ The requests included:
 - Opening the journal with the occupation, selected loadout, and cash remaining upon departure from Independence.
 - Recording food consumed and remaining for every travel leg.
 - Avoiding headings and sentences that repeat the same information twice, especially when a traveler dies.
+- Naming every survivor with their qualitative health condition upon reaching Oregon and listing the wagon’s full remaining inventory, including cash.
 
 ## Final score
 
@@ -335,6 +336,7 @@ Later requests also included:
 - “Compagnon·ne” → “Compagnon.”
 - “Voyageur·se” → “Voyageur.”
 - Correct plural handling, including the singular form after zero in French.
+- Readable, localized rounding for every calculated quantity, without stray decimals leaking from internal calculations.
 - Removal of the explanatory pace text.
 - Renaming the game “Oregon Vibe” in both French and English.
 - A complete French and English interface.

@@ -186,7 +186,7 @@ function journalNumber(value,language="fr") {
 function unitLabelFor(item,quantity,language=currentLanguage) { return language==="en"?(quantity<=1?item.unitEn:item.pluralEn):quantity<=1?item.unit:item.plural; }
 function unitLabel(item,quantity) { return unitLabelFor(item,quantity); }
 function itemQuantityFor(key,quantity,language=currentLanguage) {
-  const quantityText=`${quantity} ${unitLabelFor(SHOP[key],quantity,language)}`;
+  const quantityText=`${journalNumber(quantity,language)} ${unitLabelFor(SHOP[key],quantity,language)}`;
   if(key==="vivres")return language==="en"?`${quantityText} of food`:`${quantityText} de vivres`;
   return language==="en"&&key==="medicaments"?`${quantityText} of medicine`:quantityText;
 }
@@ -550,7 +550,7 @@ function updateUI() {
   $("#date").textContent=formatDate();
   $("#distance-label").textContent=`${Math.round(game.km).toLocaleString(currentLocale())} / ${KM_TOTAL.toLocaleString(currentLocale())} km`;
   $("#barre-progression").style.width=`${clamp(game.km/KM_TOTAL*100,0,100)}%`;
-  $("#stat-vivres").textContent=`${Math.round(game.cart.vivres)} kg`;
+  $("#stat-vivres").textContent=`${journalNumber(game.cart.vivres,currentLanguage)} kg`;
   $("#stat-argent").textContent=money(game.money);
   $("#stat-munitions").textContent=game.cart.munitions;
   $("#stat-pieces").textContent=game.cart.pieces;
@@ -782,8 +782,8 @@ function slaughterOxForFood(requiredFood=1){
 
 function offerOxForFood(afterFeeding=null,requiredFood=1,afterRefusal=null){
   if(game.cart.vivres>=requiredFood||game.cart.boeufs<=1)return false;
-  const missing=Math.max(0,Math.ceil(requiredFood-game.cart.vivres)),empty=game.cart.vivres<=0;
-  eventModal(bilingual(empty?"Les vivres sont épuisés":"Les vivres ne suffisent pas",empty?"The food stores are empty":"The food stores are insufficient"),bilingual(empty?"Le groupe n’a plus rien à manger. Un bœuf pourrait être abattu pour nourrir le convoi.":`Il manque ${missing} kg de vivres pour poursuivre. Un bœuf pourrait compléter les réserves.`,empty?"The party has nothing left to eat. An ox could be slaughtered to feed the wagon party.":`${missing} kg of food are missing to continue. An ox could replenish the stores.`),bilingual(`Il resterait ${game.cart.boeufs-1} bœuf${game.cart.boeufs-1>1?"s":""} pour tirer le chariot.`,`There would be ${game.cart.boeufs-1} ${game.cart.boeufs-1===1?"ox":"oxen"} left to pull the wagon.`),[
+  const missing=Math.max(0,requiredFood-game.cart.vivres),missingFr=journalNumber(missing,"fr"),missingEn=journalNumber(missing,"en"),empty=game.cart.vivres<=0;
+  eventModal(bilingual(empty?"Les vivres sont épuisés":"Les vivres ne suffisent pas",empty?"The food stores are empty":"The food stores are insufficient"),bilingual(empty?"Le groupe n’a plus rien à manger. Un bœuf pourrait être abattu pour nourrir le convoi.":`Il manque ${missingFr} kg de vivres pour poursuivre. Un bœuf pourrait compléter les réserves.`,empty?"The party has nothing left to eat. An ox could be slaughtered to feed the wagon party.":`${missingEn} kg of food ${Math.abs(missing-1)<.0001?"is":"are"} missing to continue. An ox could replenish the stores.`),bilingual(`Il resterait ${game.cart.boeufs-1} bœuf${game.cart.boeufs-1>1?"s":""} pour tirer le chariot.`,`There would be ${game.cart.boeufs-1} ${game.cart.boeufs-1===1?"ox":"oxen"} left to pull the wagon.`),[
     {label:bilingual("Abattre un bœuf","Slaughter an ox"),action:()=>slaughterOxForFood(requiredFood),afterClose:afterFeeding},
     {label:bilingual("Conserver l’attelage","Keep the team"),action:()=>addJournal(bilingual(empty?"Le convoi a conservé son attelage et affronte désormais la faim.":"Le convoi a conservé son attelage malgré le manque de vivres.",empty?"The wagon party kept its team and now faces starvation.":"The wagon party kept its team despite the shortage of food.")),afterClose:afterRefusal??(()=>resolveStarvation(false))}
   ],"incident-ox-slaughter.webp");
@@ -881,7 +881,7 @@ function eventPool(weather=game.weather){
       const lossText=loss>0?`${loss} kg de vivres ${loss===1?"est perdu":"sont perdus"}.`:"Les réserves de vivres étaient déjà vides : rien n’a pu être perdu.";
       const lossTextEn=loss>0?`${loss} kg of food ${loss===1?"is":"are"} lost.`:"The food stores were already empty: nothing could be lost.";
       eventModal(bilingual("Mauvaise piste","Rough trail"),bilingual(`Le chariot s’est renversé dans une ornière. ${lossText}`,`The wagon overturned in a rut. ${lossTextEn}`),bilingual("Une journée sera nécessaire pour tout remettre en ordre.","One day will be needed to put everything back in order."),[
-        {label:"Réparer et repartir",foodDays:1,action:()=>{consumeDelay(1);addJournal(loss>0?bilingual(`Une chute de chariot nous a coûté ${loss} kg de vivres. Il reste ${Math.round(game.cart.vivres)} kg de vivres dans le chariot.`,`A wagon fall cost us ${loss} kg of food. ${Math.round(game.cart.vivres)} kg of food remain in the wagon.`):bilingual("Le chariot s’est renversé, sans perte de vivres.","The wagon overturned without losing any food."))}}
+        {label:"Réparer et repartir",foodDays:1,action:()=>{consumeDelay(1);addJournal(loss>0?bilingual(`Une chute de chariot nous a coûté ${loss} kg de vivres. Il reste ${journalNumber(game.cart.vivres,"fr")} kg de vivres dans le chariot.`,`A wagon fall cost us ${loss} kg of food. ${journalNumber(game.cart.vivres,"en")} kg of food remain in the wagon.`):bilingual("Le chariot s’est renversé, sans perte de vivres.","The wagon overturned without losing any food."))}}
       ],"incident-wagon.webp");
     });
   const axleEvent=taggedEvent("axle",()=>{
@@ -899,7 +899,7 @@ function eventPool(weather=game.weather){
             consumeDelay(4);const actualFood=Math.min(game.cart.vivres,discardedFood);game.cart.vivres-=actualFood;game.cart.vetements-=discardedBlankets;
             alive().forEach(p=>p.health=clamp(p.health-7,0,100));
             const losses=[];if(actualFood)losses.push(`${actualFood} kg de vivres`);if(discardedBlankets)losses.push("une couverture");
-            const remainingFr=`Il reste ${Math.round(game.cart.vivres)} kg de vivres et ${game.cart.vetements} couverture${game.cart.vetements>1?"s":""}.`,remainingEn=`${Math.round(game.cart.vivres)} kg of food and ${game.cart.vetements} blanket${game.cart.vetements===1?"":"s"} remain.`;
+            const remainingFr=`Il reste ${journalNumber(game.cart.vivres,"fr")} kg de vivres et ${game.cart.vetements} couverture${game.cart.vetements>1?"s":""}.`,remainingEn=`${journalNumber(game.cart.vivres,"en")} kg of food and ${game.cart.vetements} blanket${game.cart.vetements===1?"":"s"} remain.`;
             addJournal(bilingual(`Faute de pièce, le chariot a été allégé${losses.length?` de ${losses.join(" et ")}`:""} pour reprendre la piste. ${remainingFr}`,`Without a spare part, the wagon was lightened${losses.length?` by discarding ${losses.map(loss=>languageText(loss,"en")).join(" and ")}`:""} to return to the trail. ${remainingEn}`));
           }}
         ],"incident-axle.webp");
@@ -909,7 +909,7 @@ function eventPool(weather=game.weather){
       const found=loadFood(rand(10,25));
       const details=found?bilingual(`Vous recevez ${found} kg de vivres et quelques conseils.`,`You receive ${found} kg of food and some advice.`):bilingual("Le chariot est déjà plein : vous échangez plutôt des conseils sur la piste.","The wagon is already full, so you exchange advice about the trail instead.");
       eventModal("Une bonne rencontre","Des voyageurs revenant de l’Oregon partagent leurs provisions.",details,[
-        {label:"Les remercier",action:()=>addJournal(found?bilingual(`Une famille généreuse nous a donné ${found} kg de vivres ; les réserves contiennent désormais ${Math.round(game.cart.vivres)} kg.`,`A generous family gave us ${found} kg of food; the stores now contain ${Math.round(game.cart.vivres)} kg.`):bilingual("Une famille généreuse nous a conseillé sur la route à venir.","A generous family shared advice about the road ahead."))}
+        {label:"Les remercier",action:()=>addJournal(found?bilingual(`Une famille généreuse nous a donné ${found} kg de vivres ; les réserves contiennent désormais ${journalNumber(game.cart.vivres,"fr")} kg.`,`A generous family gave us ${found} kg of food; the stores now contain ${journalNumber(game.cart.vivres,"en")} kg.`):bilingual("Une famille généreuse nous a conseillé sur la route à venir.","A generous family shared advice about the road ahead."))}
       ],"incident-encounter.webp");
     }),taggedEvent("theft",theftEvent),taggedEvent("trade",tradeEvent),taggedEvent("attack",attackEvent)];
   if(patients.length){
@@ -1295,7 +1295,7 @@ function riverRisk(mark,depth,crossingWeather=weatherVisual()){
     const losses=[],lossesEn=[],remaining=[],remainingEn=[];
     for(const loss of cargoLosses){
       if(!loss.amount)continue;
-      game.cart[loss.key]-=loss.amount;losses.push(itemQuantityFor(loss.key,loss.amount,"fr"));lossesEn.push(itemQuantityFor(loss.key,loss.amount,"en"));remaining.push(itemQuantityFor(loss.key,Math.round(game.cart[loss.key]),"fr"));remainingEn.push(itemQuantityFor(loss.key,Math.round(game.cart[loss.key]),"en"));
+      game.cart[loss.key]-=loss.amount;losses.push(itemQuantityFor(loss.key,loss.amount,"fr"));lossesEn.push(itemQuantityFor(loss.key,loss.amount,"en"));remaining.push(itemQuantityFor(loss.key,game.cart[loss.key],"fr"));remainingEn.push(itemQuantityFor(loss.key,game.cart[loss.key],"en"));
     }
     const maxOxLoss=game.cart.boeufs,oxLossChance=crossingFailed?clamp(.38+depth*.12+fatigue*.18,.42,.82):clamp(.18+depth*.12+fatigue*.08,.2,.52);
     const oxLoss=maxOxLoss&&Math.random()<oxLossChance?proportionalLossAmount(maxOxLoss,crossingFailed?.2:.1,crossingFailed?.45:.3):0;
@@ -1335,7 +1335,7 @@ function fortPriceMultiplier(mark){return FORT_PRICE_MULTIPLIERS[mark.visual]??1
 function fortBaseCost(mark,key,quantity){return SHOP[key].price*quantity/SHOP[key].step*fortPriceMultiplier(mark)}
 function recordFortPurchase(mark,key){if(key==="vivres")return;game.fortPurchases??={};const priceKey=fortPurchaseKey(mark,key);game.fortPurchases[priceKey]=(game.fortPurchases[priceKey]??0)+1}
 function fortStockText(key,language=currentLanguage){
-  const quantity=Math.round(game.cart[key]);
+  const quantity=game.cart[key];
   if(key==="boeufs")return language==="en"?`${quantity} ${quantity===1?"ox":"oxen"}`:`${quantity} bœuf${quantity>1?"s":""}`;
   return itemQuantityFor(key,quantity,language);
 }
@@ -1432,7 +1432,7 @@ function refreshEventModalLanguage(){
   const {title,text,details,buttons,withInventory,feedback}=activeEventModal;
   $("#event-title").textContent=languageText(title);$("#event-text").textContent=languageText(text);
   const base=languageText(details);
-  $("#event-details").textContent=withInventory?(currentLanguage==="en"?`${base} You have ${money(game.money)}, ${itemQuantity("vivres",Math.round(game.cart.vivres))}, and ${itemQuantity("munitions",game.cart.munitions)} left.`:`${base} Il vous reste ${money(game.money)}, ${itemQuantity("vivres",Math.round(game.cart.vivres))} et ${itemQuantity("munitions",game.cart.munitions)}.`):base;
+  $("#event-details").textContent=withInventory?(currentLanguage==="en"?`${base} You have ${money(game.money)}, ${itemQuantity("vivres",game.cart.vivres)}, and ${itemQuantity("munitions",game.cart.munitions)} left.`:`${base} Il vous reste ${money(game.money)}, ${itemQuantity("vivres",game.cart.vivres)} et ${itemQuantity("munitions",game.cart.munitions)}.`):base;
   const feedbackElement=$("#event-feedback"),feedbackText=typeof feedback==="function"?feedback():feedback;
   feedbackElement.hidden=!feedbackText;feedbackElement.textContent=feedbackText?languageText(feedbackText):"";
   buttons.forEach(({action,button})=>{button.textContent=languageText(action.label);button.disabled=actionDisabled(action)});
@@ -1506,7 +1506,7 @@ function showJournal(){
 function renderInfoView(){
   if(activeInfoView==="inventory"){
   $("#info-title").textContent=languageText("Inventaire du chariot");
-  $("#info-content").innerHTML=`<table class="inventory-table"><tbody>${Object.entries(SHOP).map(([k,v])=>`<tr><td>${languageText(v.label)}</td><td>${game.cart[k]} ${unitLabel(v,game.cart[k])}</td></tr>`).join("")}<tr><td>${languageText("Argent restant")}</td><td>${money(game.money)}</td></tr></tbody></table><p>${languageText("Le chariot transporte aussi vos outils, de la vaisselle et les souvenirs du voyage.")}</p>`;
+  $("#info-content").innerHTML=`<table class="inventory-table"><tbody>${Object.entries(SHOP).map(([k,v])=>`<tr><td>${languageText(v.label)}</td><td>${journalNumber(game.cart[k],currentLanguage)} ${unitLabel(v,game.cart[k])}</td></tr>`).join("")}<tr><td>${languageText("Argent restant")}</td><td>${money(game.money)}</td></tr></tbody></table><p>${languageText("Le chariot transporte aussi vos outils, de la vaisselle et les souvenirs du voyage.")}</p>`;
   }else if(activeInfoView==="map"){
   $("#info-title").textContent=languageText("Carte de la piste");
   $("#info-content").innerHTML=renderTrailMap();
@@ -1536,11 +1536,20 @@ function finishNarrative(win,message=""){
   return bilingual(`${arrival.fr} Les survivants ont une dernière pensée pour ${lostFr}, ${lost.length===1?"disparu":"disparus"} sur la piste.`,`${arrival.en} The survivors spare a final thought for ${lostEn}, ${lost.length===1?"lost":"all lost"} on the trail.`);
 }
 
+function arrivalPartyCondition(language="fr"){
+  return joinList(alive().map(traveler=>{
+    const healthFr=healthLabel(traveler.health)[0],health=language==="en"?({"Bonne santé":"good health","Fatigué":"tired","Très faible":"very weak","Décédé":"dead"}[healthFr]??healthFr):healthFr.toLocaleLowerCase("fr-FR");
+    if(traveler.state==="En forme")return `${traveler.name} (${health})`;
+    const condition=language==="en"?({Blessé:"injured",Convalescent:"recovering",Fièvre:"fever",Dysenterie:"dysentery",Engelures:"frostbite",Piqûres:"infected bites",Malade:"sick"}[traveler.state]??traveler.state.toLowerCase()):traveler.state.toLocaleLowerCase("fr-FR");
+    return language==="en"?`${traveler.name} (${condition}; overall condition: ${health})`:`${traveler.name} (${condition} ; état général : ${health})`;
+  }),language);
+}
+
 function finalJourneyJournal(win){
   const survivors=alive().map(traveler=>traveler.name);
   if(win){
-    const namesFr=joinList(survivors,"fr"),namesEn=joinList(survivors,"en");
-    return addJournalStandalone(bilingual(`${namesFr} ${survivors.length===1?"atteint":"atteignent"} la vallée de Willamette : le convoi est arrivé en Oregon.`,`${namesEn} ${survivors.length===1?"reaches":"reach"} the Willamette Valley: the wagon party has arrived in Oregon.`));
+    const cashFr=`${journalNumber(game.money,"fr")} $ ${game.money===1?"reste":"restent"} en caisse`,cashEn=`$${journalNumber(game.money,"en")} remains in cash`;
+    return addJournalStandalone(bilingual(`${arrivalPartyCondition("fr")} ${survivors.length===1?"atteint":"atteignent"} la vallée de Willamette : le convoi est arrivé en Oregon. Le chariot conserve ${cargoJournalSummary("fr")} ; ${cashFr}.`,`${arrivalPartyCondition("en")} ${survivors.length===1?"reaches":"reach"} the Willamette Valley: the wagon party has arrived in Oregon. The wagon still carries ${cargoJournalSummary("en")}; ${cashEn}.`));
   }
   const route=routeSegmentAt(),km=Math.round(game.km);
   if(survivors.length){

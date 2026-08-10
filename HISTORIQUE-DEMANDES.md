@@ -308,6 +308,7 @@ Il a été demandé :
 - D’ouvrir le journal par la profession, le chargement choisi et l’argent restant au départ d’Independence.
 - D’indiquer pour chaque étape les vivres consommés et ceux qui restent dans le chariot.
 - D’éviter les titres et phrases répétant deux fois la même information, notamment lors d’un décès.
+- De nommer, à l’arrivée en Oregon, chaque survivant avec son état de santé qualitatif et de dresser l’inventaire final du chariot, argent compris.
 
 ## Score final
 
@@ -335,6 +336,7 @@ Les demandes ultérieures comprennent également :
 - « Compagnon·ne » → « Compagnon ».
 - « Voyageur·se » → « Voyageur ».
 - Gestion correcte des pluriels, y compris le singulier après zéro.
+- Arrondi lisible et localisé de toutes les quantités calculées, sans décimales parasites issues des calculs internes.
 - Suppression du texte explicatif associé au rythme.
 - Renommage du jeu en « Oregon Vibe » en français et en anglais.
 - Interface complète en français et en anglais.

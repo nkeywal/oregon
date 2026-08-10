@@ -94,9 +94,9 @@ const WEATHER = [
 const MONTHLY_BASE_TEMPERATURE = [-2,1,7,13,18,24,28,27,21,14,6,0];
 // Calibré sur 12 à 15 miles par journée de marche en moyenne sur l'ensemble de la piste.
 const PACES = {
-  prudent:{km:130,health:1,food:.8,incident:.38,strain:-1},
-  soutenu:{km:170,health:-1,food:1,incident:.62,strain:1},
-  epuisant:{km:210,health:-7,food:1.45,incident:.92,strain:3}
+  prudent:{km:117,health:1,food:.8,incident:.38,strain:-1},
+  soutenu:{km:153,health:-1,food:1,incident:.62,strain:1},
+  epuisant:{km:189,health:-7,food:1.45,incident:.92,strain:3}
 };
 // Fonte printanière, étiage estival et réaction aux conditions des derniers jours.
 const RIVER_SEASON_LEVEL = [-.15,-.1,.05,.25,.4,.3,.05,-.2,-.25,-.1,-.05,-.1];
@@ -229,7 +229,16 @@ function proportionalLossAmount(quantity,minRate,maxRate,minimum=1){
 function travelWeatherFactor(weather) { return {Doux:1,Chaud:.85,Pluvieux:.8,Froid:.9,Neige:.65}[weather.name]??1; }
 function routeSegmentAt(km=game?.km??0){return ROUTE_SEGMENTS.find(segment=>km>=segment.start&&km<segment.end)||ROUTE_SEGMENTS.at(-1)}
 function routeTravelFactor(route=routeSegmentAt()){return route.speed}
-function oxenTravelFactor(oxen=game.cart.boeufs){return clamp(.45+oxen*.075,.5,1.35)}
+function oxenTravelFactor(oxen=game.cart.boeufs){
+  if(oxen<=0)return .5;
+  const anchors=[[1,.6],[2,.75],[4,.9],[6,1],[8,1.05]];
+  if(oxen>=8)return 1.05;
+  for(let index=1;index<anchors.length;index++){
+    const [upperOxen,upperFactor]=anchors[index],[lowerOxen,lowerFactor]=anchors[index-1];
+    if(oxen<=upperOxen)return lowerFactor+(upperFactor-lowerFactor)*(oxen-lowerOxen)/(upperOxen-lowerOxen);
+  }
+  return 1.05;
+}
 function plannedDailyDistance(pace,weather,route=routeSegmentAt(),oxen=game.cart.boeufs){
   const oxFactor=oxenTravelFactor(oxen);
   return Math.max(1,Math.round(pace.km/5*oxFactor*travelWeatherFactor(weather)*routeTravelFactor(route)));

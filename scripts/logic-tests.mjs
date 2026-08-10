@@ -151,10 +151,10 @@ test("daily distance combines oxen, weather, and route difficulty",()=>{
   assert.ok(result.plain>result.snow);assert.ok(result.plain>result.mountains);assert.ok(result.plain>result.fewOxen);
 });
 
-test("ox speed factor follows the documented linear formula and cap",()=>{
-  const result=scenario(`({one:oxenTravelFactor(1),four:oxenTravelFactor(4),six:oxenTravelFactor(6),eight:oxenTravelFactor(8),twelve:oxenTravelFactor(12),twenty:oxenTravelFactor(20)})`);
+test("ox speed factor follows the requested thresholds and cap",()=>{
+  const result=scenario(`({one:oxenTravelFactor(1),two:oxenTravelFactor(2),three:oxenTravelFactor(3),four:oxenTravelFactor(4),five:oxenTravelFactor(5),six:oxenTravelFactor(6),seven:oxenTravelFactor(7),eight:oxenTravelFactor(8),twelve:oxenTravelFactor(12),twenty:oxenTravelFactor(20)})`);
   const close=(actual,expected)=>assert.ok(Math.abs(actual-expected)<1e-12,`${actual} != ${expected}`);
-  close(result.one,.525);close(result.four,.75);close(result.six,.9);close(result.eight,1.05);close(result.twelve,1.35);close(result.twenty,1.35);
+  close(result.one,.6);close(result.two,.75);close(result.three,.825);close(result.four,.9);close(result.five,.95);close(result.six,1);close(result.seven,1.025);close(result.eight,1.05);close(result.twelve,1.05);close(result.twenty,1.05);
 });
 
 test("profession does not alter incident probability",()=>{
@@ -163,7 +163,7 @@ test("profession does not alter incident probability",()=>{
 });
 
 test("strenuous travel matches the historical 12 to 15 miles per travel day",()=>{
-  const result=scenario(`const oxFactor=clamp(.45+6*.075,.5,1.35),representativeWeather=.92;const days=ROUTE_SEGMENTS.reduce((total,route)=>total+(route.end-route.start)/(PACES.soutenu.km/5*oxFactor*route.speed*representativeWeather),0);({days,kmPerDay:KM_TOTAL/days})`);
+  const result=scenario(`const oxFactor=oxenTravelFactor(6),representativeWeather=.92;const days=ROUTE_SEGMENTS.reduce((total,route)=>total+(route.end-route.start)/(PACES.soutenu.km/5*oxFactor*route.speed*representativeWeather),0);({days,kmPerDay:KM_TOTAL/days})`);
   assert.ok(result.kmPerDay>=12*1.60934);assert.ok(result.kmPerDay<=15*1.60934);assert.ok(result.days>=120&&result.days<=150);
 });
 

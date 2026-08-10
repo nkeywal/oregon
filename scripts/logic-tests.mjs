@@ -686,6 +686,12 @@ test("the victory narrative names survivors and remembers the dead",()=>{
   assert.doesNotMatch(result.intact.fr,/dernière pensée/);assert.match(result.intact.en,/Alice, Benoît, Clara, Diego and Emma finally look/);
 });
 
+test("the victory narrative remembers the player's original profession",()=>{
+  const result=scenario(`const narrative=profession=>{game=baseGame(["Camille","Lou","Charlie","Alix","Sacha"],profession,3);game.days=194;return finishNarrative(true)};({farmer:narrative("fermier"),carpenter:narrative("charpentier"),banker:narrative("banquier")})`);
+  assert.match(result.farmer.fr,/vous n’êtes plus le fermier que vous étiez dans l’Est/);assert.match(result.carpenter.fr,/vous n’êtes plus le charpentier/);assert.match(result.banker.fr,/Après 194 jours sur la piste, vous n’êtes plus le banquier/);
+  assert.match(result.banker.en,/you are no longer the banker you once were back East/);assert.match(result.banker.fr,/Votre nouvelle vie commence/);
+});
+
 test("finishing adds a final journal entry with people and place",()=>{
   const result=scenario(`renderFinish=()=>{};game=baseGame(["Alice","Benoît","Clara"],"fermier",3);game.km=KM_TOTAL;game.party[2].alive=false;finish(true);const success=game.journal[0].text;game=baseGame(["Diego","Emma"],"fermier",3);game.km=2675;game.party.forEach(traveler=>traveler.alive=false);finish(false);const failure=game.journal[0].text;({success,failure})`);
   assert.match(result.success.fr,/Alice et Benoît atteignent la vallée de Willamette/);assert.match(result.success.en,/Alice and Benoît reach the Willamette Valley/);

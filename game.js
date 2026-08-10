@@ -1429,11 +1429,17 @@ function showHelp(){
   openGuide("ecran-voyage");
 }
 
+function professionNarrativeLabel(profession=game.profession,language=currentLanguage){
+  const labels={fermier:{fr:"fermier",en:"farmer"},charpentier:{fr:"charpentier",en:"carpenter"},banquier:{fr:"banquier",en:"banker"}};
+  return labels[profession]?.[language]??labels.fermier[language];
+}
+
 function finishNarrative(win,message=""){
   if(!win)return message||bilingual("La faim, la maladie et la route ont eu raison de votre expédition.","Hunger, disease, and the road defeated your expedition.");
   const survivors=alive().map(traveler=>traveler.name),lost=game.party.filter(traveler=>!traveler.alive).map(traveler=>traveler.name);
   const namesFr=joinList(survivors,"fr"),namesEn=joinList(survivors,"en");
-  const arrival=bilingual(`${namesFr} ${survivors.length===1?"contemple":"contemplent"} enfin la vallée. Après ${game.days} jours sur la piste, une nouvelle vie commence.`,`${namesEn} finally ${survivors.length===1?"looks":"look"} upon the valley. After ${game.days} days on the trail, a new life begins.`);
+  const professionFr=professionNarrativeLabel(game.profession,"fr"),professionEn=professionNarrativeLabel(game.profession,"en");
+  const arrival=bilingual(`${namesFr} ${survivors.length===1?"contemple":"contemplent"} enfin la vallée. Après ${game.days} jours sur la piste, vous n’êtes plus le ${professionFr} que vous étiez dans l’Est. Votre nouvelle vie commence.`,`${namesEn} finally ${survivors.length===1?"looks":"look"} upon the valley. After ${game.days} days on the trail, you are no longer the ${professionEn} you once were back East. Your new life begins.`);
   if(!lost.length)return arrival;
   const lostFr=joinList(lost,"fr"),lostEn=joinList(lost,"en");
   return bilingual(`${arrival.fr} Les survivants ont une dernière pensée pour ${lostFr}, ${lost.length===1?"disparu":"disparus"} sur la piste.`,`${arrival.en} The survivors spare a final thought for ${lostEn}, ${lost.length===1?"lost":"all lost"} on the trail.`);

@@ -93,9 +93,9 @@ const WEATHER = [
 const MONTHLY_BASE_TEMPERATURE = [-2,1,7,13,18,24,28,27,21,14,6,0];
 // Calibré sur 12 à 15 miles par journée de marche en moyenne sur l'ensemble de la piste.
 const PACES = {
-  prudent:{km:117,health:1,food:.8,strain:-1},
+  prudent:{km:117,health:1,food:.95,strain:-1},
   soutenu:{km:153,health:-1,food:1,strain:1},
-  epuisant:{km:189,health:-7,food:1.45,strain:3}
+  epuisant:{km:189,health:-7,food:1.1,strain:3}
 };
 const INCIDENT_RULES = {
   wagon:{basis:"distance",rate:.00049,pace:{prudent:.45,soutenu:1,epuisant:1.35}},
@@ -920,7 +920,7 @@ function performRest(days=2,atFort=false){
   const streak=game.lastRestDay===game.days?(game.restStreak??0)+1:1;
   let rested=0,selected=null,blanketRecoveryStrained=false;
   for(let day=0;day<days;day++){
-    const restWeather=game.weather;consumeDelay(1,2,true,true,atFort);rested++;
+    const restWeather=game.weather;consumeDelay(1,dailyFoodPerPerson(),true,true,atFort);rested++;
     const restingTravelers=alive(),blankets=Math.min(game.cart.vetements,restingTravelers.length);
     restingTravelers.forEach((traveler,index)=>{
       const hasBlanket=atFort||blankets>=restingTravelers.length||((index+game.days)%restingTravelers.length)<blankets;
@@ -1237,7 +1237,7 @@ function reopenFort(mark){
 }
 
 function restAtFort(mark){
-  const required=alive().length*4;
+  const required=alive().length*dailyFoodPerPerson()*2;
   if(game.cart.vivres<required){
     setTimeout(()=>offerOxForFood(()=>{performRest(2,true);reopenFort(mark)},required,()=>reopenFort(mark)),0);
     return;
@@ -1292,7 +1292,7 @@ function fortEvent(mark,art=fortArrivalAsset(mark),recordArrival=true){
   ];
   const actions=[
     ...merchandise.map(item=>fortPurchaseAction(mark,item)),
-    {label:"Se reposer 2 jours",keepOpen:true,disabled:()=>game.cart.vivres<alive().length*4&&game.cart.boeufs<=1,action:()=>restAtFort(mark),feedback:fortRestFeedback},
+    {label:"Se reposer 2 jours",keepOpen:true,disabled:()=>game.cart.vivres<alive().length*dailyFoodPerPerson()*2&&game.cart.boeufs<=1,action:()=>restAtFort(mark),feedback:fortRestFeedback},
     {label:"Inventaire",keepOpen:true,withInventory:false,action:showInventory},
     {label:"Repartir",primary:true,action:()=>addJournal(bilingual(`Départ de ${mark.name} : le convoi reprend la piste.`,`Departed ${landmarkName(mark)}: the wagon party returns to the trail.`))}
   ];
@@ -1349,7 +1349,7 @@ function refreshEventModalLanguage(){
 
 function rest(){
   if(checkJourneyFailure())return;
-  const required=alive().length*4;
+  const required=alive().length*dailyFoodPerPerson()*2;
   if(game.cart.vivres<required){
     if(!offerOxForFood(()=>rest(),required,()=>{updateUI();returnToTrailTop()}))toast("Pas assez de vivres pour camper deux jours.");
     return;
@@ -1577,14 +1577,14 @@ function startHunt(){
 }
 
 function completeHuntDay(){
-  const food=consumeDelay(1,2,false);
+  const food=consumeDelay(1,dailyFoodPerPerson(),false);
   refreshWeather();
   const deceased=updateDeaths();
   return {food,deceased};
 }
 
 function resolveHuntDay(loot){
-  const loaded=loadFood(loot),requiredFood=alive().length*2;
+  const loaded=loadFood(loot),requiredFood=alive().length*dailyFoodPerPerson();
   if(game.cart.vivres<requiredFood&&game.cart.boeufs>1){game.pendingHuntDay={requiredFood};return {loaded,food:null,deceased:null,pending:true}}
   return {loaded,...completeHuntDay(),pending:false};
 }

@@ -145,6 +145,11 @@ test("daily distance combines oxen, weather, and route difficulty",()=>{
   assert.ok(result.plain>result.snow);assert.ok(result.plain>result.mountains);assert.ok(result.plain>result.fewOxen);
 });
 
+test("travel food multipliers follow the selected pace",()=>{
+  const result=scenario(`({prudent:PACES.prudent.food,soutenu:PACES.soutenu.food,epuisant:PACES.epuisant.food})`);
+  assert.deepEqual({...result},{prudent:.95,soutenu:1,epuisant:1.1});
+});
+
 test("ox speed factor follows the requested thresholds and cap",()=>{
   const result=scenario(`({one:oxenTravelFactor(1),two:oxenTravelFactor(2),three:oxenTravelFactor(3),four:oxenTravelFactor(4),five:oxenTravelFactor(5),six:oxenTravelFactor(6),seven:oxenTravelFactor(7),eight:oxenTravelFactor(8),twelve:oxenTravelFactor(12),twenty:oxenTravelFactor(20)})`);
   const close=(actual,expected)=>assert.ok(Math.abs(actual-expected)<1e-12,`${actual} != ${expected}`);
@@ -619,12 +624,12 @@ test("clicking hunt starts the mini-game before a day elapses",()=>{
 
 test("hunted meat is loaded before the hunting day consumes food",()=>{
   const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.vivres=0;weatherForSeason=()=>WEATHER[0];const outcome=resolveHuntDay(25);({days:game.days,loaded:outcome.loaded,consumed:outcome.food.consumed,missing:outcome.food.missing,food:game.cart.vivres,health:game.party[0].health})`);
-  assert.equal(result.days,1);assert.equal(result.loaded,25);assert.equal(result.consumed,10);assert.equal(result.missing,0);assert.equal(result.food,15);assert.equal(result.health,100);
+  assert.equal(result.days,1);assert.equal(result.loaded,25);assert.equal(result.consumed,7.5);assert.equal(result.missing,0);assert.equal(result.food,17.5);assert.equal(result.health,100);
 });
 
 test("a hunting-day death is queued only after the meat has been added",()=>{
   const result=scenario(`game=baseGame(["Lou","B","C","D","E"],"fermier",3);game.cart.vivres=0;const patient=game.party[0];patient.health=2;patient.state="Dysenterie";patient.sickDays=2;weatherForSeason=()=>WEATHER[0];const outcome=resolveHuntDay(20);({loaded:outcome.loaded,food:game.cart.vivres,pending:game.pendingDeath?.name,alive:patient.alive})`);
-  assert.equal(result.loaded,20);assert.equal(result.food,10);assert.equal(result.pending,"Lou");assert.equal(result.alive,false);
+  assert.equal(result.loaded,20);assert.equal(result.food,12.5);assert.equal(result.pending,"Lou");assert.equal(result.alive,false);
 });
 
 test("an ox can feed an empty wagon only when another ox remains",()=>{
@@ -664,7 +669,12 @@ test("an empty wagon is offered an ox after a fruitless hunt",()=>{
 
 test("a meager hunt postpones hunger damage until the ox choice",()=>{
   const result=scenario(`game=baseGame(["Lou","B","C","D","E"],"fermier",3);Object.assign(game.cart,{boeufs:3,vivres:0});game.party[0].health=2;const outcome=resolveHuntDay(3);({pending:outcome.pending,days:game.days,food:game.cart.vivres,alive:game.party[0].alive,required:game.pendingHuntDay.requiredFood})`);
-  assert.equal(result.pending,true);assert.equal(result.days,0);assert.equal(result.food,3);assert.equal(result.alive,true);assert.equal(result.required,10);
+  assert.equal(result.pending,true);assert.equal(result.days,0);assert.equal(result.food,3);assert.equal(result.alive,true);assert.equal(result.required,7.5);
+});
+
+test("rest and hunting consume the selected ration level",()=>{
+  const result=scenario(`const run=rations=>{game=baseGame(["A","B","C","D","E"],"fermier",3);game.rations=rations;game.cart.vivres=100;game.cart.vetements=5;dailyIncidentOccurs=()=>false;const beforeRest=game.cart.vivres;performRest(2,true);const rest=beforeRest-game.cart.vivres,beforeHunt=game.cart.vivres;completeHuntDay();return {rest,hunt:beforeHunt-game.cart.vivres}};({copieuses:run("copieuses"),normales:run("normales"),maigres:run("maigres")})`);
+  assert.deepEqual({...result.copieuses},{rest:20,hunt:10});assert.deepEqual({...result.normales},{rest:15,hunt:7.5});assert.deepEqual({...result.maigres},{rest:10,hunt:5});
 });
 
 test("each death applies an explicit final score penalty",()=>{
@@ -792,7 +802,7 @@ test("food loading never exceeds capacity",()=>{
 });
 
 test("well-prepared journeys preserve historical durations after stronger rest",()=>{
-  const result=scenario(`let seed=1848;Math.random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296};finish=win=>{game.finished=true;game.testWin=win};updateUI=()=>{};setTrailScene=()=>{};showLandmarkArt=()=>{};toast=()=>{};returnToTrailTop=()=>{};refreshFortArrivalArt=()=>{};queueRiverOutcome=()=>{};startAttack=()=>{};eventModal=(title,text,details,actions)=>{let action=actions.find(candidate=>!actionDisabled(candidate));if(String(languageText(title)).includes("Fort"))action=actions.find(candidate=>languageText(candidate.label)==="Repartir")||action;if(!action)throw new Error("No playable event action");action.action();updateDeaths();checkJourneyFailure()};const runs={prudent:[],soutenu:[],epuisant:[]};for(const pace of Object.keys(runs))for(let attempt=0;attempt<40;attempt++){game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{boeufs:8,vivres:700,munitions:300,vetements:8,pieces:5,medicaments:8});game.money=300;game.pace=pace;game.weather=weatherForPosition(game.month,game.day,game.year,0,[]);game.weatherHistory=[game.weather.name];let turns=0;while(!game.finished&&turns++<500){if(game.cart.vivres<100&&game.cart.munitions>=5){game.cart.munitions-=5;loadFood(55)}const average=alive().reduce((sum,traveler)=>sum+traveler.health,0)/alive().length;if(average<48&&game.cart.vivres>=alive().length*4)rest();else travel()}if(game.testWin)runs[pace].push(game.days)}for(const values of Object.values(runs))values.sort((a,b)=>a-b);const percentile=(values,p)=>values[Math.floor((values.length-1)*p)];const summary=values=>({p10:percentile(values,.1),p75:percentile(values,.75)});({wins:Object.fromEntries(Object.entries(runs).map(([pace,values])=>[pace,values.length])),prudent:summary(runs.prudent),soutenu:summary(runs.soutenu),epuisant:summary(runs.epuisant)})`);
+  const result=scenario(`let seed=1848;Math.random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296};finish=win=>{game.finished=true;game.testWin=win};updateUI=()=>{};setTrailScene=()=>{};showLandmarkArt=()=>{};toast=()=>{};returnToTrailTop=()=>{};refreshFortArrivalArt=()=>{};queueRiverOutcome=()=>{};startAttack=()=>{};eventModal=(title,text,details,actions)=>{let action=actions.find(candidate=>!actionDisabled(candidate));if(String(languageText(title)).includes("Fort"))action=actions.find(candidate=>languageText(candidate.label)==="Repartir")||action;if(!action)throw new Error("No playable event action");action.action();updateDeaths();checkJourneyFailure()};const runs={prudent:[],soutenu:[],epuisant:[]};for(const pace of Object.keys(runs))for(let attempt=0;attempt<40;attempt++){game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{boeufs:8,vivres:700,munitions:300,vetements:8,pieces:5,medicaments:8});game.money=300;game.pace=pace;game.weather=weatherForPosition(game.month,game.day,game.year,0,[]);game.weatherHistory=[game.weather.name];let turns=0;while(!game.finished&&turns++<500){if(game.cart.vivres<100&&game.cart.munitions>=5){game.cart.munitions-=5;loadFood(55)}const average=alive().reduce((sum,traveler)=>sum+traveler.health,0)/alive().length;if(average<48&&game.cart.vivres>=alive().length*dailyFoodPerPerson()*2)rest();else travel()}if(game.testWin)runs[pace].push(game.days)}for(const values of Object.values(runs))values.sort((a,b)=>a-b);const percentile=(values,p)=>values[Math.floor((values.length-1)*p)];const summary=values=>({p10:percentile(values,.1),p75:percentile(values,.75)});({wins:Object.fromEntries(Object.entries(runs).map(([pace,values])=>[pace,values.length])),prudent:summary(runs.prudent),soutenu:summary(runs.soutenu),epuisant:summary(runs.epuisant)})`);
   for(const wins of Object.values(result.wins))assert.ok(wins>=35,JSON.stringify(result));
   assert.ok(result.prudent.p10>result.soutenu.p10&&result.prudent.p10>result.epuisant.p10,JSON.stringify(result));
   assert.ok(result.epuisant.p75>=result.soutenu.p75,JSON.stringify(result));
@@ -800,7 +810,7 @@ test("well-prepared journeys preserve historical durations after stronger rest",
 });
 
 test("fort rest cost follows the current party size",()=>{
-  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.vivres=18;eventModal=(title,text,details,actions)=>{game.actions=actions};fortEvent(LANDMARKS.find(m=>m.kind==="fort"));const restAction=game.actions.find(action=>String(action.label).includes("reposer"));const before=actionDisabled(restAction);game.party[4].alive=false;const after=actionDisabled(restAction);({before,after})`);
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.vivres=14;eventModal=(title,text,details,actions)=>{game.actions=actions};fortEvent(LANDMARKS.find(m=>m.kind==="fort"));const restAction=game.actions.find(action=>String(action.label).includes("reposer"));const before=actionDisabled(restAction);game.party[4].alive=false;const after=actionDisabled(restAction);({before,after})`);
   assert.equal(result.before,true);assert.equal(result.after,false);
 });
 

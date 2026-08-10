@@ -36,7 +36,7 @@ test("Independence uses the requested purchase units and prices",()=>{
 
 test("complete party loss uses art distinct from victory",()=>{
   const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);const victory=endingArtAsset(true);const stopped=endingArtAsset(false);game.party.forEach(p=>p.alive=false);const totalLoss=endingArtAsset(false);({victory,stopped,totalLoss})`);
-  assert.equal(result.victory,"victory.webp");assert.equal(result.stopped,"trail.webp");assert.equal(result.totalLoss,"defeat.webp");assert.notEqual(result.totalLoss,result.victory);
+  assert.equal(result.victory,"victory.webp");assert.equal(result.stopped,"trail.webp");assert.equal(result.totalLoss,"incident-death-last.webp");assert.notEqual(result.totalLoss,result.victory);
 });
 
 test("calendar handles the 1848 leap day",()=>{
@@ -521,6 +521,12 @@ test("declining a trade records the exact rejected offer",()=>{
   assert.match(result.sell.fr,/refusé de vendre 1 pièce de rechange contre 20 \$/);assert.match(result.sell.en,/declined to sell 1 spare part for \$20/);
 });
 
+test("trail ammunition offers follow the rebalanced ammunition economy",()=>{
+  const result=scenario(`const offerFor=(money,ammo,random)=>{game=baseGame(["A","B","C","D","E"],"fermier",3);game.money=money;game.cart.munitions=ammo;Math.random=()=>random;let text,actions;eventModal=(title,value,details,choices)=>{text=value;actions=choices};tradeEvent();return {text,accept:actions[0]}};const buying=offerFor(1000,0,.2);const selling=offerFor(0,100,.5);buying.accept.action();selling.accept.action();({buy:buying.text,sell:selling.text})`);
+  assert.match(result.buy.fr,/40 balles pour 8 \$/);assert.match(result.buy.en,/40 bullets for \$8/);
+  assert.match(result.sell.fr,/5 \$ pour 30 balles/);assert.match(result.sell.en,/\$5 for 30 bullets/);
+});
+
 test("one resolution kills at most one traveler",()=>{
   const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.party.forEach(p=>{p.health=0;p.state="Fièvre";p.sickDays=3;p.deathCause=bilingual("de la fièvre","from fever")});const deceased=updateDeaths();({dead:game.party.filter(p=>!p.alive).length,critical:game.party.filter(p=>p.alive&&p.health===1).length,pending:game.pendingDeath.name,deceased:deceased.name,survivors:game.party.filter(p=>p.alive).map(p=>({state:p.state,cause:p.deathCause}))})`);
   assert.equal(result.dead,1);assert.equal(result.critical,4);assert.equal(result.pending,result.deceased);
@@ -749,6 +755,11 @@ test("every fort always sells medicine",()=>{
 test("forts sell standard units and individual oxen",()=>{
   const result=scenario(`game=baseGame(["A","B","C","D","E"],"banquier",3);game.money=2000;shuffled=items=>items;let actions;eventModal=(title,text,details,value)=>actions=value;fortEvent(LANDMARKS.find(mark=>mark.kind==="fort"));const before={...game.cart};for(const fragment of ["10 kg de vivres","20 balles","1 remède","1 bœuf","1 couverture"]){const action=actions.find(candidate=>languageText(candidate.label,"fr").includes(fragment));if(!action)throw new Error(fragment);action.action()}({vivres:game.cart.vivres-before.vivres,munitions:game.cart.munitions-before.munitions,medicaments:game.cart.medicaments-before.medicaments,boeufs:game.cart.boeufs-before.boeufs,vetements:game.cart.vetements-before.vetements})`);
   assert.equal(result.vivres,10);assert.equal(result.munitions,20);assert.equal(result.medicaments,1);assert.equal(result.boeufs,1);assert.equal(result.vetements,1);
+});
+
+test("a fort keeps the same equipment assortment when reopened",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.money=1000;let flip=false;shuffled=items=>{flip=!flip;return flip?[...items]:[...items].reverse()};let actions;eventModal=(title,text,details,value)=>actions=value;const mark=LANDMARKS.find(item=>item.name==="Fort Boise"),equipment=()=>actions.map(action=>languageText(action.label,"fr")).filter(label=>/bœuf|couverture|pièce de rechange/.test(label));fortEvent(mark);const first=equipment();reopenFort(mark);const second=equipment();({first,second,stored:game.fortAssortments[mark.visual]})`);
+  assert.deepEqual([...result.first],[...result.second]);assert.equal(result.stored.length,2);
 });
 
 test("each repeat purchase raises only that fort's item price by twenty percent",()=>{

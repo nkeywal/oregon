@@ -3,8 +3,6 @@
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const KM_TOTAL = 3200;
-const AMMO_PRICE_MULTIPLIER = 3;
-function ammoPrice(basePrice){return basePrice*AMMO_PRICE_MULTIPLIER}
 const MONTHS = ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
 const MONTHS_EN = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const ENDING_RANKS = [
@@ -131,7 +129,7 @@ function baseGame(names, profession, month) {
     version:1, profession, money, initialMoney:money, cart:{...cart},
     party:names.map(name => ({name,health:100,state:"En forme",alive:true,sickDays:0,treated:false,woundDays:0,woundKind:null,needsRemedy:false,deathCause:null})),
     day:1, month:Number(month), year:1848, km:0, days:0, pace:"soutenu", rations:"normales",
-    weather:{...WEATHER[0]}, weatherHistory:["Doux"], landmarkIndex:0, oxStrain:0, lastEvent:null, lastRestDay:null, restStreak:0, huntPressure:{}, fortPurchases:{}, journal:[], finished:false, score:0,
+    weather:{...WEATHER[0]}, weatherHistory:["Doux"], landmarkIndex:0, oxStrain:0, lastEvent:null, lastRestDay:null, restStreak:0, huntPressure:{}, fortPurchases:{}, fortAssortments:{}, journal:[], finished:false, score:0,
     pendingDeath:null, deathEventOpen:false, pendingRiverOutcome:null, pendingHuntDay:null
   };
 }
@@ -730,9 +728,9 @@ function slaughterOxForFood(requiredFood=1){
 function offerOxForFood(afterFeeding=null,requiredFood=1,afterRefusal=null){
   if(game.cart.vivres>=requiredFood||game.cart.boeufs<=1)return false;
   const missing=Math.max(0,Math.ceil(requiredFood-game.cart.vivres)),empty=game.cart.vivres<=0;
-  eventModal(bilingual(empty?"Les vivres sont épuisés":"Les vivres ne suffisent pas",empty?"The food stores are empty":"The food stores are insufficient"),bilingual(empty?"Le groupe n’a plus rien à manger. Un bœuf pourrait être abattu pour nourrir le convoi.":`Il manque ${missing} kg de vivres pour la halte prévue. Un bœuf pourrait compléter les réserves.`,empty?"The party has nothing left to eat. An ox could be slaughtered to feed the wagon party.":`${missing} kg of food are missing for the planned halt. An ox could replenish the stores.`),bilingual(`Il resterait ${game.cart.boeufs-1} bœuf${game.cart.boeufs-1>1?"s":""} pour tirer le chariot.`,`There would be ${game.cart.boeufs-1} ${game.cart.boeufs-1===1?"ox":"oxen"} left to pull the wagon.`),[
+  eventModal(bilingual(empty?"Les vivres sont épuisés":"Les vivres ne suffisent pas",empty?"The food stores are empty":"The food stores are insufficient"),bilingual(empty?"Le groupe n’a plus rien à manger. Un bœuf pourrait être abattu pour nourrir le convoi.":`Il manque ${missing} kg de vivres pour poursuivre. Un bœuf pourrait compléter les réserves.`,empty?"The party has nothing left to eat. An ox could be slaughtered to feed the wagon party.":`${missing} kg of food are missing to continue. An ox could replenish the stores.`),bilingual(`Il resterait ${game.cart.boeufs-1} bœuf${game.cart.boeufs-1>1?"s":""} pour tirer le chariot.`,`There would be ${game.cart.boeufs-1} ${game.cart.boeufs-1===1?"ox":"oxen"} left to pull the wagon.`),[
     {label:bilingual("Abattre un bœuf","Slaughter an ox"),action:()=>slaughterOxForFood(requiredFood),afterClose:afterFeeding},
-    {label:bilingual("Conserver l’attelage","Keep the team"),action:()=>addJournal(bilingual(empty?"Le convoi a conservé son attelage et affronte désormais la faim.":"Le convoi a conservé son attelage et renoncé à se reposer.",empty?"The wagon party kept its team and now faces starvation.":"The wagon party kept its team and gave up the planned rest.")),afterClose:afterRefusal??(()=>resolveStarvation(false))}
+    {label:bilingual("Conserver l’attelage","Keep the team"),action:()=>addJournal(bilingual(empty?"Le convoi a conservé son attelage et affronte désormais la faim.":"Le convoi a conservé son attelage malgré le manque de vivres.",empty?"The wagon party kept its team and now faces starvation.":"The wagon party kept its team despite the shortage of food.")),afterClose:afterRefusal??(()=>resolveStarvation(false))}
   ],"incident-ox-slaughter.webp");
   return true;
 }
@@ -1048,13 +1046,13 @@ function theftEvent(){
 function tradeEvent(){
   const offers=[
     {mode:"buy",key:"vivres",qty:50,price:34,label:"50 kg de vivres"},
-    {mode:"buy",key:"munitions",qty:40,price:ammoPrice(18),label:"40 balles"},
+    {mode:"buy",key:"munitions",qty:40,price:8,label:"40 balles"},
     {mode:"buy",key:"pieces",qty:1,price:28,label:"1 pièce de rechange"},
     {mode:"buy",key:"medicaments",qty:2,price:30,label:"2 remèdes"},
     {mode:"buy",key:"boeufs",qty:2,price:85,label:"2 bœufs"},
     {mode:"buy",key:"vetements",qty:2,price:24,label:"2 couvertures"},
     {mode:"sell",key:"vivres",qty:40,price:22,label:"40 kg de vivres"},
-    {mode:"sell",key:"munitions",qty:30,price:ammoPrice(14),label:"30 balles"},
+    {mode:"sell",key:"munitions",qty:30,price:5,label:"30 balles"},
     {mode:"sell",key:"vetements",qty:1,price:14,label:"1 couverture"},
     {mode:"sell",key:"pieces",qty:1,price:20,label:"1 pièce de rechange"},
     {mode:"sell",key:"medicaments",qty:1,price:18,label:"1 remède"}
@@ -1228,14 +1226,21 @@ function fortPurchaseAction(mark,item){
   return action;
 }
 
+function fortEquipment(mark){
+  const catalog={
+    boeufs:{key:"boeufs",qty:1,baseCost:25,label:"1 bœuf",labelEn:"1 ox"},
+    vetements:{key:"vetements",qty:1,baseCost:11,label:"1 couverture",labelEn:"1 blanket"},
+    pieces:{key:"pieces",qty:1,baseCost:28,label:"1 pièce de rechange",labelEn:"1 spare part"}
+  };
+  game.fortAssortments??={};
+  const keys=game.fortAssortments[mark.visual]??=shuffled(Object.keys(catalog)).slice(0,2);
+  return keys.map(key=>catalog[key]);
+}
+
 function fortEvent(mark,art=fortArrivalAsset(mark),recordArrival=true){
   if(recordArrival)addJournal(bilingual(`Arrivée à ${mark.name}.`,`Arrived at ${landmarkName(mark)}.`));
   const price=Math.round(1.3+game.km/KM_TOTAL*.7);
-  const equipment=shuffled([
-    {key:"boeufs",qty:1,baseCost:25*price,label:"1 bœuf",labelEn:"1 ox"},
-    {key:"vetements",qty:1,baseCost:11*price,label:"1 couverture",labelEn:"1 blanket"},
-    {key:"pieces",qty:1,baseCost:28*price,label:"1 pièce de rechange",labelEn:"1 spare part"}
-  ]).slice(0,2);
+  const equipment=fortEquipment(mark).map(item=>({...item,baseCost:item.baseCost*price}));
   const merchandise=[
     {key:"vivres",qty:SHOP.vivres.step,baseCost:SHOP.vivres.price*price,label:"10 kg de vivres",labelEn:"10 kg of food"},
     {key:"munitions",qty:SHOP.munitions.step,baseCost:SHOP.munitions.price*price,label:"20 balles",labelEn:"20 bullets"},
@@ -1424,14 +1429,14 @@ function finish(win,message=""){
   game.score=score;game.finishState={win,message,deaths,deathPenalty,baseDeathPenalty,professionMultiplier};finalJourneyJournal(win);renderFinish();
 }
 
-function endingArtAsset(win,survivors=alive().length){return win?"victory.webp":survivors===0?"defeat.webp":"trail.webp"}
+function endingArtAsset(win,survivors=alive().length){return win?"victory.webp":survivors===0?"incident-death-last.webp":"trail.webp"}
 
 function renderFinish(){
   const {win,message}=game.finishState,score=game.score;
   const totalLoss=!win&&alive().length===0;
   $("#ecran-fin").classList.toggle("defeat",!win);$("#ecran-fin").classList.toggle("total-loss",totalLoss);
   $("#fin-art").style.backgroundImage=`url('assets/${endingArtAsset(win)}')`;
-  $("#fin-art").setAttribute("aria-label",currentLanguage==="en"?(win?"The wagon party reaches Oregon":totalLoss?"The abandoned wagon and the graves of the lost wagon party":"The wagon party can go no farther"):(win?"Le convoi atteint l’Oregon":totalLoss?"Le chariot abandonné et les tombes du convoi disparu":"Le convoi ne peut plus poursuivre sa route"));
+  $("#fin-art").setAttribute("aria-label",currentLanguage==="en"?(win?"The wagon party reaches Oregon":totalLoss?"The last traveler lies beside the abandoned wagon, with no one left to bury them":"The wagon party can go no farther"):(win?"Le convoi atteint l’Oregon":totalLoss?"Le dernier voyageur gît près du chariot abandonné, sans personne pour l’ensevelir":"Le convoi ne peut plus poursuivre sa route"));
   $("#fin-kicker").textContent=languageText(win?"Vallée de Willamette · Oregon":"La piste s’arrête ici");
   $("#titre-fin").textContent=languageText(win?"Vous avez atteint l’Oregon":"Le convoi n’ira pas plus loin");
   $("#texte-fin").textContent=languageText(finishNarrative(win,message));
@@ -1581,11 +1586,12 @@ function shoot(touchAssist=false){
 
 function endHunt(){
   if(!hunt?.running)return;
-  const result={shots:hunt.shots,remaining:game.cart.munitions,loot:hunt.loot,kills:{...hunt.kills},siteKey:hunt.siteKey,background:hunt.background};hunt.running=false;recordHuntPressure(result.siteKey,result.kills);
+  const result={shots:hunt.shots,remaining:game.cart.munitions,loot:hunt.loot,kills:{...hunt.kills},siteKey:hunt.siteKey,background:hunt.background,weather:weatherVisual()};hunt.running=false;recordHuntPressure(result.siteKey,result.kills);
   const consequences=resolveHuntDay(result.loot);result.loot=consequences.loaded;
   addJournal(result.loot?bilingual(`La chasse rapporte ${result.loot} kg de viande pour ${result.shots} balle${result.shots>1?"s":""} tirée${result.shots>1?"s":""}.`,`The hunt yielded ${result.loot} kg of meat for ${result.shots} bullet${result.shots===1?"":"s"} fired.`):bilingual("La chasse ne rapporte rien cette fois.","The hunt yielded nothing this time."));
   $("#dialogue-chasse").close();updateUI();hunt=null;
-  $("#dialogue-bilan-chasse .hunt-result-art").style.backgroundImage=`url('assets/${result.background}')`;
+  const resultArt=$("#dialogue-bilan-chasse .hunt-result-art");resultArt.style.backgroundImage=`url('assets/${result.background}')`;
+  resultArt.setAttribute("aria-label",currentLanguage==="en"?`The hunting ground in ${languageText(result.weather.label,"en")}`:`Le terrain de chasse par ${languageText(result.weather.label,"fr")}`);
   $("#bilan-balles-tirees").textContent=result.shots;$("#bilan-balles-restantes").textContent=result.remaining;$("#bilan-viande").textContent=result.loot;
   $("#dialogue-bilan-chasse").showModal();
 }

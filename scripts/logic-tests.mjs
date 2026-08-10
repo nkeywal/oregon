@@ -349,7 +349,17 @@ test("rest summaries identify the event that interrupted the halt",()=>{
 
 test("rest recovery mainly benefits exhausted travelers",()=>{
   const result=scenario(`game=baseGame(["A","B"],"fermier",3);game.party[0].health=95;game.party[1].health=35;({rested:restRecovery(game.party[0]),exhausted:restRecovery(game.party[1]),repeat:restRecovery(game.party[1],3)})`);
-  assert.ok(result.exhausted>result.rested*3);assert.ok(result.repeat<result.exhausted/2);
+  assert.ok(result.exhausted>result.rested*3);assert.equal(result.exhausted,10);assert.equal(result.repeat,6.5);
+});
+
+test("rest uses the requested diminishing curve and a twenty-five percent fort bonus",()=>{
+  const result=scenario(`game=baseGame(["Lou"],"fermier",3);const lou=game.party[0];lou.health=35;const normal=[1,2,3,4,5].map(streak=>restRecovery(lou,streak,false));const fort=[1,2,3,4,5].map(streak=>restRecovery(lou,streak,true));({normal,fort})`);
+  assert.deepEqual([...result.normal],[10,8,6.5,5.5,5.5]);assert.deepEqual([...result.fort],[12.5,10,8,7,7]);
+});
+
+test("illness damage continues during rest without reducing its physical benefit",()=>{
+  const result=scenario(`game=baseGame(["Healthy","Sick"],"fermier",3);const healthy=game.party[0],sick=game.party[1];healthy.health=35;Object.assign(sick,{health:35,state:"Dysenterie",sickDays:10});({healthy:restRecovery(healthy),sick:restRecovery(sick)})`);
+  assert.equal(result.healthy,10);assert.equal(result.sick,10);
 });
 
 test("rest days use daily incident rolls but exclude trail accidents",()=>{
@@ -689,6 +699,16 @@ test("a changing forecast affects each day and is detailed in the journal",()=>{
   assert.equal(result.km,128);assert.equal(result.text,"128 km parcourus en 5 jours : 60 km par temps modéré, 19 km par temps de neige, 25 km par temps très chaud et 24 km par temps pluvieux. Allure : normale. Terrain : Prairies du Kansas ; terrain ondulé ; piste bien marquée ; climat continental humide.");
 });
 
+test("a death exactly at a landmark does not create a zero-kilometer travel day",()=>{
+  const result=scenario(`game=baseGame(["Lou","Alix"],"fermier",3);Object.assign(game.cart,{boeufs:6,vivres:100});game.km=LANDMARKS[0].km;game.landmarkIndex=0;let reached=null;landmark=mark=>reached=mark.name;updateUI=()=>{};travel();({days:game.days,km:game.km,index:game.landmarkIndex,reached,journal:game.journal})`);
+  assert.equal(result.days,0);assert.equal(result.km,165);assert.equal(result.index,1);assert.equal(result.reached,"Rivière Kansas");assert.equal(result.journal.length,0);
+});
+
+test("reaching Oregon before a death report does not add a zero-kilometer day afterward",()=>{
+  const result=scenario(`game=baseGame(["Camille","Lou","Sacha"],"fermier",3);Object.assign(game.cart,{boeufs:6,vivres:100});game.km=KM_TOTAL;game.days=161;game.party[2].alive=false;game.pendingDeath=game.party[2];let deathReports=0;showPendingDeathEvent=()=>{deathReports++;game.pendingDeath=null;return true};updateUI=()=>{};renderFinish=()=>{};travel();const before={finished:game.finished,days:game.days};travel();({before,finished:game.finished,days:game.days,deathReports,zero:game.journal.some(entry=>/^0 km parcourus/.test(entry.text.fr)),final:game.journal[0].text.fr})`);
+  assert.equal(result.before.finished,false);assert.equal(result.deathReports,1);assert.equal(result.finished,true);assert.equal(result.days,161);assert.equal(result.zero,false);assert.match(result.final,/Camille et Lou atteignent la vallée de Willamette/);
+});
+
 test("river depth stays physical across seasonal and weather variation",()=>{
   const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);const mark=LANDMARKS.find(m=>m.kind==="river");let min=10,max=0;for(const month of [0,3,7,10])for(const weather of WEATHER){game.month=month;game.weather=weather;for(let i=0;i<50;i++){const depth=riverDepth(mark);min=Math.min(min,depth);max=Math.max(max,depth)}}({min,max})`);
   assert.ok(result.min>=.3);assert.ok(result.max<=3.4);assert.ok(result.max>result.min);
@@ -746,11 +766,12 @@ test("food loading never exceeds capacity",()=>{
   assert.equal(result.loaded,5);assert.equal(result.left,800);
 });
 
-test("prepared complete journeys preserve pace difficulty under individual incident risks",()=>{
-  const result=scenario(`let seed=1848;Math.random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296};finish=win=>{game.finished=true;game.testWin=win};updateUI=()=>{};setTrailScene=()=>{};showLandmarkArt=()=>{};toast=()=>{};returnToTrailTop=()=>{};refreshFortArrivalArt=()=>{};queueRiverOutcome=()=>{};startAttack=()=>{};eventModal=(title,text,details,actions)=>{let action=actions.find(candidate=>!actionDisabled(candidate));if(String(languageText(title)).includes("Fort"))action=actions.find(candidate=>languageText(candidate.label)==="Repartir")||action;if(!action)throw new Error("No playable event action");action.action();updateDeaths();checkJourneyFailure()};const runs={prudent:[],soutenu:[],epuisant:[]};for(const pace of Object.keys(runs))for(let attempt=0;attempt<40;attempt++){game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{boeufs:8,vivres:700,munitions:300,vetements:8,pieces:5,medicaments:8});game.money=300;game.pace=pace;game.weather=weatherForPosition(game.month,game.day,game.year,0,[]);game.weatherHistory=[game.weather.name];let turns=0;while(!game.finished&&turns++<500){if(game.cart.vivres<100&&game.cart.munitions>=5){game.cart.munitions-=5;loadFood(55)}const average=alive().reduce((sum,traveler)=>sum+traveler.health,0)/alive().length;if(average<48&&game.cart.vivres>=alive().length*4)rest();else travel()}if(game.testWin)runs[pace].push(game.days)}for(const values of Object.values(runs))values.sort((a,b)=>a-b);const percentile=(values,p)=>values[Math.floor((values.length-1)*p)];({wins:Object.fromEntries(Object.entries(runs).map(([pace,values])=>[pace,values.length])),prudent:{p10:percentile(runs.prudent,.1),p75:percentile(runs.prudent,.75)},soutenu:{p10:percentile(runs.soutenu,.1),p75:percentile(runs.soutenu,.75)}})`);
-  assert.ok(result.wins.prudent>=35,JSON.stringify(result));assert.ok(result.wins.soutenu>=20&&result.wins.soutenu<result.wins.prudent,JSON.stringify(result));
-  assert.ok(result.wins.epuisant<=30&&result.wins.epuisant<result.wins.soutenu,JSON.stringify(result));
-  assert.ok(result.prudent.p10>=120&&result.prudent.p75<=210,JSON.stringify(result));assert.ok(result.soutenu.p10>=120&&result.soutenu.p75<=260,JSON.stringify(result));
+test("well-prepared journeys preserve historical durations after stronger rest",()=>{
+  const result=scenario(`let seed=1848;Math.random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296};finish=win=>{game.finished=true;game.testWin=win};updateUI=()=>{};setTrailScene=()=>{};showLandmarkArt=()=>{};toast=()=>{};returnToTrailTop=()=>{};refreshFortArrivalArt=()=>{};queueRiverOutcome=()=>{};startAttack=()=>{};eventModal=(title,text,details,actions)=>{let action=actions.find(candidate=>!actionDisabled(candidate));if(String(languageText(title)).includes("Fort"))action=actions.find(candidate=>languageText(candidate.label)==="Repartir")||action;if(!action)throw new Error("No playable event action");action.action();updateDeaths();checkJourneyFailure()};const runs={prudent:[],soutenu:[],epuisant:[]};for(const pace of Object.keys(runs))for(let attempt=0;attempt<40;attempt++){game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{boeufs:8,vivres:700,munitions:300,vetements:8,pieces:5,medicaments:8});game.money=300;game.pace=pace;game.weather=weatherForPosition(game.month,game.day,game.year,0,[]);game.weatherHistory=[game.weather.name];let turns=0;while(!game.finished&&turns++<500){if(game.cart.vivres<100&&game.cart.munitions>=5){game.cart.munitions-=5;loadFood(55)}const average=alive().reduce((sum,traveler)=>sum+traveler.health,0)/alive().length;if(average<48&&game.cart.vivres>=alive().length*4)rest();else travel()}if(game.testWin)runs[pace].push(game.days)}for(const values of Object.values(runs))values.sort((a,b)=>a-b);const percentile=(values,p)=>values[Math.floor((values.length-1)*p)];const summary=values=>({p10:percentile(values,.1),p75:percentile(values,.75)});({wins:Object.fromEntries(Object.entries(runs).map(([pace,values])=>[pace,values.length])),prudent:summary(runs.prudent),soutenu:summary(runs.soutenu),epuisant:summary(runs.epuisant)})`);
+  for(const wins of Object.values(result.wins))assert.ok(wins>=35,JSON.stringify(result));
+  assert.ok(result.prudent.p10>result.soutenu.p10&&result.prudent.p10>result.epuisant.p10,JSON.stringify(result));
+  assert.ok(result.epuisant.p75>=result.soutenu.p75,JSON.stringify(result));
+  assert.ok(result.prudent.p10>=120&&result.prudent.p75<=210,JSON.stringify(result));assert.ok(result.epuisant.p10>=100&&result.soutenu.p75<=210,JSON.stringify(result));
 });
 
 test("fort rest cost follows the current party size",()=>{

@@ -422,8 +422,9 @@ function advanceDate(days,resting=false,atFort=false) {
 }
 
 function restRecovery(traveler,streak=1,atFort=false){
-  const maximum=traveler.sickDays>0||(traveler.woundDays??0)>0?5.5:atFort?6:7;
-  const fatigueFactor=clamp((105-traveler.health)/55,.12,1),streakFactor=Math.pow(.62,Math.max(0,streak-1));
+  const fatigueFactor=clamp((105-traveler.health)/55,.12,1);
+  const streakFactors=[1,.8,.65,.55],streakFactor=streakFactors[Math.min(Math.max(0,streak-1),streakFactors.length-1)];
+  const maximum=10*(atFort?1.25:1);
   return Math.round(maximum*fatigueFactor*streakFactor*2)/2;
 }
 
@@ -662,6 +663,10 @@ function addTravelJournal(distance,days,weatherBreakdown=[],route=routeSegmentAt
 function travel(daysToTravel=5){
   if(game.finished)return;
   if(checkJourneyFailure())return;
+  if(game.pendingDeath){showPendingDeathEvent();updateUI();return;}
+  if(game.km>=KM_TOTAL){finish(true);return;}
+  const reached=LANDMARKS[game.landmarkIndex];
+  if(reached&&game.km>=reached.km){game.landmarkIndex++;landmark(reached);updateUI();return;}
   const pace=PACES[game.pace],travelRoute=routeSegmentAt();
   let distance=0,foodConsumed=0,travelDays=0;const travelWeatherBreakdown=[];
   for(let day=0;day<daysToTravel;day++){

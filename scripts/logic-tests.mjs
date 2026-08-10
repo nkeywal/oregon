@@ -757,16 +757,23 @@ test("forts sell standard units and individual oxen",()=>{
   assert.equal(result.vivres,10);assert.equal(result.munitions,20);assert.equal(result.medicaments,1);assert.equal(result.boeufs,1);assert.equal(result.vetements,1);
 });
 
+test("fort prices rise from Independence toward Oregon with exact multipliers",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);const prices=Object.fromEntries(LANDMARKS.filter(mark=>mark.kind==="fort").map(mark=>[mark.name,{multiplier:fortPriceMultiplier(mark),food:fortPurchasePrice(mark,"vivres",fortBaseCost(mark,"vivres",10)),ammo:fortPurchasePrice(mark,"munitions",fortBaseCost(mark,"munitions",20)),ox:fortPurchasePrice(mark,"boeufs",fortBaseCost(mark,"boeufs",1)),blanket:fortPurchasePrice(mark,"vetements",fortBaseCost(mark,"vetements",1)),part:fortPurchasePrice(mark,"pieces",fortBaseCost(mark,"pieces",1)),medicine:fortPurchasePrice(mark,"medicaments",fortBaseCost(mark,"medicaments",1))}]));prices`);
+  assert.deepEqual({...result["Fort Kearny"]},{multiplier:1.25,food:5,ammo:3,ox:31,blanket:13,part:23,medicine:15});
+  assert.deepEqual({...result["Fort Laramie"]},{multiplier:1.5,food:6,ammo:3,ox:38,blanket:15,part:27,medicine:18});
+  assert.deepEqual({...result["Fort Boise"]},{multiplier:2,food:8,ammo:4,ox:50,blanket:20,part:36,medicine:24});
+});
+
 test("a fort keeps the same equipment assortment when reopened",()=>{
   const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.money=1000;let flip=false;shuffled=items=>{flip=!flip;return flip?[...items]:[...items].reverse()};let actions;eventModal=(title,text,details,value)=>actions=value;const mark=LANDMARKS.find(item=>item.name==="Fort Boise"),equipment=()=>actions.map(action=>languageText(action.label,"fr")).filter(label=>/bœuf|couverture|pièce de rechange/.test(label));fortEvent(mark);const first=equipment();reopenFort(mark);const second=equipment();({first,second,stored:game.fortAssortments[mark.visual]})`);
   assert.deepEqual([...result.first],[...result.second]);assert.equal(result.stored.length,2);
 });
 
 test("each repeat purchase raises only that fort's item price by twenty percent",()=>{
-  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.money=1000;game.km=2580;let actions;eventModal=(title,text,details,value)=>actions=value;const boise=LANDMARKS.find(mark=>mark.name==="Fort Boise"),kearny=LANDMARKS.find(mark=>mark.name==="Fort Kearny");fortEvent(boise);const food=actions.find(action=>languageText(action.label,"fr").includes("10 kg de vivres"));const first=languageText(food.label,"fr");food.action();const second=languageText(food.label,"fr");food.action();const third=languageText(food.label,"fr");({first,second,third,money:game.money,stock:game.cart.vivres,journal:game.journal[0].text.fr,otherFort:fortPurchasePrice(kearny,"vivres",8),counts:game.fortPurchases})`);
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.money=1000;game.km=2580;let actions;eventModal=(title,text,details,value)=>actions=value;const boise=LANDMARKS.find(mark=>mark.name==="Fort Boise"),kearny=LANDMARKS.find(mark=>mark.name==="Fort Kearny");fortEvent(boise);const food=actions.find(action=>languageText(action.label,"fr").includes("10 kg de vivres"));const first=languageText(food.label,"fr");food.action();const second=languageText(food.label,"fr");food.action();const third=languageText(food.label,"fr");({first,second,third,money:game.money,stock:game.cart.vivres,journal:game.journal[0].text.fr,otherFort:fortPurchasePrice(kearny,"vivres",fortBaseCost(kearny,"vivres",10)),counts:game.fortPurchases})`);
   assert.match(result.first,/8 \$/);assert.match(result.second,/10 \$/);assert.match(result.third,/12 \$/);
   assert.equal(result.money,982);assert.equal(result.stock,20);assert.match(result.journal,/10 \$/);assert.match(result.journal,/Nouveau stock : 20 kg de vivres/);assert.match(result.journal,/Argent restant : 982 \$/);
-  assert.equal(result.otherFort,8);assert.equal(Object.values(result.counts).reduce((sum,count)=>sum+count,0),2);
+  assert.equal(result.otherFort,5);assert.equal(Object.values(result.counts).reduce((sum,count)=>sum+count,0),2);
 });
 
 let passed=0;

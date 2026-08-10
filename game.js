@@ -70,6 +70,7 @@ const LANDMARKS = [
   {km:2580,name:"Fort Boise",kind:"fort",visual:"fort-boise"},
   {km:2920,name:"The Dalles",kind:"river",baseDepth:2.1,seasonalFlow:1.25,weatherResponse:1,visual:"dalles"}
 ];
+const FORT_PRICE_MULTIPLIERS={"fort-kearny":1.25,"fort-laramie":1.5,"fort-boise":2};
 const FINAL_STAGE = {km:KM_TOTAL,name:"Vallée de Willamette",visual:"willamette"};
 
 const ROUTE_SEGMENTS = [
@@ -1205,6 +1206,8 @@ function restAtFort(mark){
 
 function fortPurchaseKey(mark,key){return `${mark.visual}:${key}`}
 function fortPurchasePrice(mark,key,baseCost){return Math.round(baseCost*Math.pow(1.2,game.fortPurchases?.[fortPurchaseKey(mark,key)]??0))}
+function fortPriceMultiplier(mark){return FORT_PRICE_MULTIPLIERS[mark.visual]??1}
+function fortBaseCost(mark,key,quantity){return SHOP[key].price*quantity/SHOP[key].step*fortPriceMultiplier(mark)}
 function recordFortPurchase(mark,key){game.fortPurchases??={};const priceKey=fortPurchaseKey(mark,key);game.fortPurchases[priceKey]=(game.fortPurchases[priceKey]??0)+1}
 function fortStockText(key,language=currentLanguage){
   const quantity=Math.round(game.cart[key]);
@@ -1228,9 +1231,9 @@ function fortPurchaseAction(mark,item){
 
 function fortEquipment(mark){
   const catalog={
-    boeufs:{key:"boeufs",qty:1,baseCost:25,label:"1 bœuf",labelEn:"1 ox"},
-    vetements:{key:"vetements",qty:1,baseCost:11,label:"1 couverture",labelEn:"1 blanket"},
-    pieces:{key:"pieces",qty:1,baseCost:28,label:"1 pièce de rechange",labelEn:"1 spare part"}
+    boeufs:{key:"boeufs",qty:1,label:"1 bœuf",labelEn:"1 ox"},
+    vetements:{key:"vetements",qty:1,label:"1 couverture",labelEn:"1 blanket"},
+    pieces:{key:"pieces",qty:1,label:"1 pièce de rechange",labelEn:"1 spare part"}
   };
   game.fortAssortments??={};
   const keys=game.fortAssortments[mark.visual]??=shuffled(Object.keys(catalog)).slice(0,2);
@@ -1239,12 +1242,11 @@ function fortEquipment(mark){
 
 function fortEvent(mark,art=fortArrivalAsset(mark),recordArrival=true){
   if(recordArrival)addJournal(bilingual(`Arrivée à ${mark.name}.`,`Arrived at ${landmarkName(mark)}.`));
-  const price=Math.round(1.3+game.km/KM_TOTAL*.7);
-  const equipment=fortEquipment(mark).map(item=>({...item,baseCost:item.baseCost*price}));
+  const equipment=fortEquipment(mark).map(item=>({...item,baseCost:fortBaseCost(mark,item.key,item.qty)}));
   const merchandise=[
-    {key:"vivres",qty:SHOP.vivres.step,baseCost:SHOP.vivres.price*price,label:"10 kg de vivres",labelEn:"10 kg of food"},
-    {key:"munitions",qty:SHOP.munitions.step,baseCost:SHOP.munitions.price*price,label:"20 balles",labelEn:"20 bullets"},
-    {key:"medicaments",qty:SHOP.medicaments.step,baseCost:14*price,label:"1 remède",labelEn:"1 dose of medicine"},
+    {key:"vivres",qty:SHOP.vivres.step,baseCost:fortBaseCost(mark,"vivres",SHOP.vivres.step),label:"10 kg de vivres",labelEn:"10 kg of food"},
+    {key:"munitions",qty:SHOP.munitions.step,baseCost:fortBaseCost(mark,"munitions",SHOP.munitions.step),label:"20 balles",labelEn:"20 bullets"},
+    {key:"medicaments",qty:SHOP.medicaments.step,baseCost:fortBaseCost(mark,"medicaments",SHOP.medicaments.step),label:"1 remède",labelEn:"1 dose of medicine"},
     ...equipment
   ];
   const actions=[

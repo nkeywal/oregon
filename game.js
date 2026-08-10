@@ -125,7 +125,7 @@ let journalMergeTarget = null;
 let queuedEventReturn = null;
 
 function baseGame(names, profession, month) {
-  const money = {fermier:500,charpentier:900,banquier:1500}[profession];
+  const money = {fermier:600,charpentier:900,banquier:1500}[profession];
   return {
     version:1, profession, money, initialMoney:money, cart:{...cart},
     party:names.map(name => ({name,health:100,state:"En forme",alive:true,sickDays:0,treated:false,woundDays:0,woundKind:null,needsRemedy:false,deathCause:null,pendingRecoveryCondition:null,pendingWoundRecoveryKind:null})),
@@ -1317,10 +1317,10 @@ function restAtFort(mark){
 }
 
 function fortPurchaseKey(mark,key){return `${mark.visual}:${key}`}
-function fortPurchasePrice(mark,key,baseCost){return Math.round(baseCost*Math.pow(1.2,game.fortPurchases?.[fortPurchaseKey(mark,key)]??0))}
+function fortPurchasePrice(mark,key,baseCost){return Math.round(baseCost*(key==="vivres"?1:Math.pow(1.2,game.fortPurchases?.[fortPurchaseKey(mark,key)]??0)))}
 function fortPriceMultiplier(mark){return FORT_PRICE_MULTIPLIERS[mark.visual]??1}
 function fortBaseCost(mark,key,quantity){return SHOP[key].price*quantity/SHOP[key].step*fortPriceMultiplier(mark)}
-function recordFortPurchase(mark,key){game.fortPurchases??={};const priceKey=fortPurchaseKey(mark,key);game.fortPurchases[priceKey]=(game.fortPurchases[priceKey]??0)+1}
+function recordFortPurchase(mark,key){if(key==="vivres")return;game.fortPurchases??={};const priceKey=fortPurchaseKey(mark,key);game.fortPurchases[priceKey]=(game.fortPurchases[priceKey]??0)+1}
 function fortStockText(key,language=currentLanguage){
   const quantity=Math.round(game.cart[key]);
   if(key==="boeufs")return language==="en"?`${quantity} ${quantity===1?"ox":"oxen"}`:`${quantity} bœuf${quantity>1?"s":""}`;

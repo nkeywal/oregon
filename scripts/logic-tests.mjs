@@ -26,7 +26,7 @@ test("initial state includes event cooldown",()=>{
 
 test("the initial wagon is empty and leaves the full budget to the player",()=>{
   const result=scenario(`const budget=profession=>baseGame(["A","B","C","D","E"],profession,3).money;game=baseGame(["A","B","C","D","E"],"fermier",3);({cart:game.cart,empty:Object.values(game.cart).every(quantity=>quantity===0),farmer:budget("fermier"),carpenter:budget("charpentier"),banker:budget("banquier")})`);
-  assert.equal(result.empty,true);assert.equal(result.farmer,500);assert.equal(result.carpenter,900);assert.equal(result.banker,1500);
+  assert.equal(result.empty,true);assert.equal(result.farmer,600);assert.equal(result.carpenter,900);assert.equal(result.banker,1500);
 });
 
 test("Independence uses the requested purchase units and prices",()=>{
@@ -869,11 +869,12 @@ test("a fort keeps the same equipment assortment when reopened",()=>{
   assert.deepEqual([...result.first],[...result.second]);assert.equal(result.stored.length,2);
 });
 
-test("each repeat purchase raises only that fort's item price by twenty percent",()=>{
-  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.money=1000;game.km=2580;let actions;eventModal=(title,text,details,value)=>actions=value;const boise=LANDMARKS.find(mark=>mark.name==="Fort Boise"),kearny=LANDMARKS.find(mark=>mark.name==="Fort Kearny");fortEvent(boise);const food=actions.find(action=>languageText(action.label,"fr").includes("10 kg de vivres"));const first=languageText(food.label,"fr");food.action();const second=languageText(food.label,"fr");food.action();const third=languageText(food.label,"fr");({first,second,third,money:game.money,stock:game.cart.vivres,journal:game.journal[0].text.fr,otherFort:fortPurchasePrice(kearny,"vivres",fortBaseCost(kearny,"vivres",10)),counts:game.fortPurchases})`);
-  assert.match(result.first,/8 \$/);assert.match(result.second,/10 \$/);assert.match(result.third,/12 \$/);
-  assert.equal(result.money,982);assert.equal(result.stock,20);assert.match(result.journal,/10 \$/);assert.match(result.journal,/Nouveau stock : 20 kg de vivres/);assert.match(result.journal,/Argent restant : 982 \$/);
-  assert.equal(result.otherFort,5);assert.equal(Object.values(result.counts).reduce((sum,count)=>sum+count,0),2);
+test("food keeps its fort price while repeat purchases still raise other goods",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.money=1000;game.km=2580;let actions;eventModal=(title,text,details,value)=>actions=value;const boise=LANDMARKS.find(mark=>mark.name==="Fort Boise"),kearny=LANDMARKS.find(mark=>mark.name==="Fort Kearny");fortEvent(boise);const food=actions.find(action=>languageText(action.label,"fr").includes("10 kg de vivres")),medicine=actions.find(action=>languageText(action.label,"fr").includes("1 remède"));const foodFirst=languageText(food.label,"fr");food.action();const foodSecond=languageText(food.label,"fr");food.action();const foodThird=languageText(food.label,"fr"),foodJournal=game.journal[0].text.fr,medicineFirst=languageText(medicine.label,"fr");medicine.action();const medicineSecond=languageText(medicine.label,"fr");({foodFirst,foodSecond,foodThird,foodJournal,medicineFirst,medicineSecond,money:game.money,stock:game.cart.vivres,otherFort:fortPurchasePrice(kearny,"vivres",fortBaseCost(kearny,"vivres",10)),counts:game.fortPurchases})`);
+  assert.match(result.foodFirst,/8 \$/);assert.match(result.foodSecond,/8 \$/);assert.match(result.foodThird,/8 \$/);
+  assert.equal(result.stock,20);assert.match(result.foodJournal,/8 \$/);assert.match(result.foodJournal,/Nouveau stock : 20 kg de vivres/);assert.match(result.foodJournal,/Argent restant : 984 \$/);
+  assert.match(result.medicineFirst,/24 \$/);assert.match(result.medicineSecond,/29 \$/);assert.equal(result.money,960);
+  assert.equal(result.otherFort,5);assert.equal(Object.values(result.counts).reduce((sum,count)=>sum+count,0),1);assert.ok(!Object.keys(result.counts).some(key=>key.endsWith(":vivres")));
 });
 
 let passed=0;

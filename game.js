@@ -586,20 +586,25 @@ function cargoLoadRatio(){
   return weight/800;
 }
 function difficultTerrain(route=routeSegmentAt()){return route.risk>=.06}
+function blanketShortageFactor(){
+  const survivors=alive().length;if(!survivors)return 1;
+  const uncovered=Math.max(0,survivors-Math.min(game.cart.vetements,survivors));
+  return 1+.25*uncovered/survivors;
+}
 
 function incidentMultiplier(eventId,weather=game.weather,route=routeSegmentAt()){
   const pace=game.pace,hard=difficultTerrain(route),heavy=cargoLoadRatio()>.8;
   const humanLevel=humanFatigueLevel(),oxLevel=oxFatigueLevel();
   const snow=weather.name==="Neige",cold=weather.name==="Froid"||snow,rain=weather.name==="Pluvieux",hot=weather.name==="Chaud";
-  const shortOnBlankets=(cold||snow)&&game.cart.vetements<alive().length;
+  const coldBlanketFactor=cold?blanketShortageFactor():1;
   let multiplier=INCIDENT_RULES[eventId]?.pace?.[pace]??1;
   if(eventId==="wagon")multiplier*=(hard?1.5:1)*(rain?1.35:snow?1.5:1)*(heavy?1.15:1);
   if(eventId==="injury")multiplier*=(hard?1.4:1)*(rain?1.15:snow?1.25:1)*Math.pow(1.15,humanLevel);
   if(eventId==="axle")multiplier*=(hard?1.6:1)*(rain?1.1:snow?1.2:1)*(heavy?1.2:1);
   if(eventId==="ox-injury")multiplier*=(hard?1.4:1)*(hot?1.25:snow?1.2:cold?1.1:1)*Math.pow(1.12,oxLevel);
-  if(eventId==="fever")multiplier*=(hot?1.25:cold?1.2:1)*Math.pow(1.15,humanLevel)*(shortOnBlankets?1.25:1);
+  if(eventId==="fever")multiplier*=(hot?1.25:cold?1.2:1)*Math.pow(1.15,humanLevel)*coldBlanketFactor;
   if(eventId==="dysentery")multiplier*=(hot?1.4:1)*Math.pow(1.15,humanLevel);
-  if(eventId==="contagious")multiplier*=(cold?1.2:1)*Math.pow(1.15,humanLevel)*(shortOnBlankets?1.25:1);
+  if(eventId==="contagious")multiplier*=(cold?1.2:1)*Math.pow(1.15,humanLevel)*coldBlanketFactor;
   if(eventId==="snakebite")multiplier*=cold?0:hot?(weather.temp>=34?2:1.5):1;
   return multiplier;
 }
@@ -616,8 +621,9 @@ function dailyIncidentOccurs(_pace,weather,context={}){return selectDailyInciden
 function weatherExposurePenalty(weather,hasBlanket){
   if(hasBlanket)return 0;
   if(weather.name==="Neige"||weather.temp<0)return 4;
-  if(weather.temp<=5)return 2;
-  if(weather.name==="Pluvieux")return 1;
+  if(weather.name==="Froid"||weather.temp<=5)return 3;
+  if(weather.name==="Pluvieux")return 2;
+  if(weather.name==="Doux")return 1;
   return 0;
 }
 
@@ -632,10 +638,10 @@ function travelWeatherLabel(weatherName,language=currentLanguage){
   return labels[weatherName]?.[language]??String(weatherName).toLowerCase();
 }
 
-function recordTravelWeather(breakdown,weather,distance){
+function recordTravelWeather(breakdown,weather,distance,uncovered=0){
   let entry=breakdown.find(item=>item.name===weather.name);
-  if(!entry){entry={name:weather.name,distance:0,days:0};breakdown.push(entry)}
-  entry.distance+=distance;entry.days++;
+  if(!entry){entry={name:weather.name,distance:0,days:0,uncovered:0};breakdown.push(entry)}
+  entry.distance+=distance;entry.days++;entry.uncovered+=uncovered;
 }
 
 function travelPaceLabel(pace=game.pace,language=currentLanguage){
@@ -657,7 +663,8 @@ function addTravelJournal(distance,days,weatherBreakdown=[],route=routeSegmentAt
   const weatherTextEn=breakdown.length===1?`in ${travelWeatherLabel(breakdown[0].name,"en")}`:`: ${detailsEn}`;
   const routeTextFr=` Allure : ${travelPaceLabel(game.pace,"fr")}. Terrain : ${route.terrain.fr} ; ${route.slope.fr} ; ${route.road.fr} ; climat ${route.climate.fr}.`;
   const routeTextEn=` Pace: ${travelPaceLabel(game.pace,"en")}. Terrain: ${route.terrain.en}; ${route.slope.en}; ${route.road.en}; ${route.climate.en} climate.`;
-  return addJournal(bilingual(`${distance} km parcourus en ${days} jour${days>1?"s":""} ${weatherTextFr}.${routeTextFr}${paceJournal}`,`${distance} km traveled in ${days} day${days===1?"":"s"} ${weatherTextEn}.${routeTextEn}${paceJournalEn}`));
+  const blanketExposure=breakdown.some(item=>(item.uncovered??0)>0),blanketFr=blanketExposure?" Le manque de couvertures a fragilisé le groupe.":"",blanketEn=blanketExposure?" Too few blankets weakened the party.":"";
+  return addJournal(bilingual(`${distance} km parcourus en ${days} jour${days>1?"s":""} ${weatherTextFr}.${routeTextFr}${paceJournal}${blanketFr}`,`${distance} km traveled in ${days} day${days===1?"":"s"} ${weatherTextEn}.${routeTextEn}${paceJournalEn}${blanketEn}`));
 }
 
 function travel(daysToTravel=5){
@@ -683,10 +690,10 @@ function travel(daysToTravel=5){
     const next=LANDMARKS[game.landmarkIndex];
     const remainingToStop=Math.min(next?next.km-game.km:Infinity,KM_TOTAL-game.km);
     const dayDistance=Math.max(0,Math.min(plannedDistance,remainingToStop));
-    game.km+=dayDistance;distance+=dayDistance;recordTravelWeather(travelWeatherBreakdown,travelWeather,dayDistance);advanceDate(1);travelDays++;
+    const travelers=alive(),blankets=Math.min(game.cart.vetements,travelers.length);
+    game.km+=dayDistance;distance+=dayDistance;recordTravelWeather(travelWeatherBreakdown,travelWeather,dayDistance,Math.max(0,travelers.length-blankets));advanceDate(1);travelDays++;
     const food=consumeFood(1,dailyFoodPerPerson()*pace.food),foodShortage=food.missing>0;
     foodConsumed+=food.consumed;game.oxStrain=clamp((game.oxStrain||0)+pace.strain/5+Math.max(0,6-game.cart.boeufs)*.04,0,10);
-    const travelers=alive(),blankets=Math.min(game.cart.vetements,travelers.length);
     travelers.forEach((p,index)=>{
       const rationHealth={copieuses:1,normales:-1,maigres:-5}[game.rations];
       // Les couvertures sont partagées à tour de rôle lorsque le groupe n'en a pas assez.
@@ -911,11 +918,15 @@ function restEventJournalLabel(eventId,language=currentLanguage){
 
 function performRest(days=2,atFort=false){
   const streak=game.lastRestDay===game.days?(game.restStreak??0)+1:1;
-  let rested=0,selected=null;
+  let rested=0,selected=null,blanketRecoveryStrained=false;
   for(let day=0;day<days;day++){
     const restWeather=game.weather;consumeDelay(1,2,true,true,atFort);rested++;
-    alive().forEach(traveler=>{
-      traveler.health=clamp(traveler.health+restRecovery(traveler,streak,atFort)/Math.max(1,days),0,100);
+    const restingTravelers=alive(),blankets=Math.min(game.cart.vetements,restingTravelers.length);
+    restingTravelers.forEach((traveler,index)=>{
+      const hasBlanket=atFort||blankets>=restingTravelers.length||((index+game.days)%restingTravelers.length)<blankets;
+      const exposurePenalty=atFort?0:weatherExposurePenalty(restWeather,hasBlanket);
+      if(exposurePenalty>0)blanketRecoveryStrained=true;
+      traveler.health=clamp(traveler.health+restRecovery(traveler,streak,atFort)/Math.max(1,days)-exposurePenalty,0,100);
       if(traveler.health>0&&traveler.deathCause)traveler.deathCause=null;
     });
     updateDeaths();
@@ -926,8 +937,9 @@ function performRest(days=2,atFort=false){
   game.oxStrain=clamp(game.oxStrain-3*portion,0,10);
   game.restStreak=streak;game.lastRestDay=game.days;
   const interruptionFr=selected?` La halte a été interrompue par ${restEventJournalLabel(selected.eventId,"fr")}.`:"",interruptionEn=selected?` The halt was interrupted by ${restEventJournalLabel(selected.eventId,"en")}.`:"";
+  const blanketFr=blanketRecoveryStrained?" Le manque de couvertures a fragilisé la récupération du groupe.":"",blanketEn=blanketRecoveryStrained?" Too few blankets hampered the party’s recovery.":"";
   const state=groupJournalSummary();
-  addJournal(bilingual(`${rested} jour${rested>1?"s":""} de repos ${rested===1?"a":"ont"} soulagé le groupe et l’attelage.${interruptionFr} ${state.fr}`,`${rested} day${rested===1?"":"s"} of rest eased the party and the oxen.${interruptionEn} ${state.en}`));
+  addJournal(bilingual(`${rested} jour${rested>1?"s":""} de repos ${rested===1?"a":"ont"} soulagé le groupe et l’attelage.${interruptionFr}${blanketFr} ${state.fr}`,`${rested} day${rested===1?"":"s"} of rest eased the party and the oxen.${interruptionEn}${blanketEn} ${state.en}`));
   return {days:rested,streak,event:selected};
 }
 
@@ -1505,10 +1517,10 @@ const HUNT_WEATHER={
 };
 
 const HUNT_SPECIES={
-  bison:{size:25,speed:[82,116],loot:[20,28],y:[205,330],hit:.86},
-  deer:{size:18,speed:[115,158],loot:[11,17],y:[180,320],hit:.77},
-  rabbit:{size:10,speed:[158,220],loot:[3,6],y:[315,370],hit:.68},
-  bird:{size:9,speed:[180,245],loot:[2,4],y:[65,175],hit:.66}
+  bison:{size:25,speed:[82,116],loot:[20,28],y:[205,330],hit:.86,kill:.2},
+  deer:{size:18,speed:[115,158],loot:[11,17],y:[180,320],hit:.77,kill:.4},
+  rabbit:{size:10,speed:[158,220],loot:[3,6],y:[315,370],hit:.68,kill:1},
+  bird:{size:9,speed:[180,245],loot:[2,4],y:[65,175],hit:.66,kill:1}
 };
 
 function huntTerrainProfile(route=routeSegmentAt()){return HUNT_TERRAIN[route.key]??HUNT_TERRAIN["great-plains"]}
@@ -1607,10 +1619,12 @@ function aimHuntAt(event){
   hunt.cross={x:(event.clientX-rect.left)*canvas.width/rect.width,y:(event.clientY-rect.top)*canvas.height/rect.height};
 }
 
+function shotKillsSpecies(species,roll=Math.random()){return roll<(HUNT_SPECIES[species]?.kill??0)}
+
 function shoot(touchAssist=false){
   if(!hunt?.running||game.cart.munitions<=0)return;hunt.shots++;game.cart.munitions--;
   const hit=hunt.animals.find(a=>Math.hypot(a.x-hunt.cross.x,a.y-hunt.cross.y)<a.size*HUNT_SPECIES[a.species].hit+(touchAssist?14:0));
-  if(hit){const species=hit.species,range=HUNT_SPECIES[species].loot,gain=Math.min(hunt.limit-hunt.loot,rand(...range));hunt.loot+=gain;hunt.kills[species]=(hunt.kills[species]??0)+1;resetAnimal(hit)}
+  if(hit&&shotKillsSpecies(hit.species)){const species=hit.species,range=HUNT_SPECIES[species].loot,gain=Math.min(hunt.limit-hunt.loot,rand(...range));hunt.loot+=gain;hunt.kills[species]=(hunt.kills[species]??0)+1;resetAnimal(hit)}
   $("#chasse-balles").textContent=game.cart.munitions;$("#chasse-butin").textContent=hunt.loot;
   if(hunt.loot>=hunt.limit)endHunt();
 }

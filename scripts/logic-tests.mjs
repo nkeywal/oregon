@@ -208,6 +208,12 @@ test("a depleted hunting ground still shows a rabbit and a bird",()=>{
   assert.ok(result.count>=2);assert.deepEqual([...result.guaranteed],["rabbit","bird"]);assert.ok(result.pool.includes("rabbit")&&result.pool.includes("bird"));
 });
 
+test("each accurate hunting shot uses the requested species kill chance",()=>{
+  const result=scenario(`({chances:Object.fromEntries(Object.entries(HUNT_SPECIES).map(([species,config])=>[species,config.kill])),rabbit:shotKillsSpecies("rabbit",.999),bird:shotKillsSpecies("bird",.999),bisonBelow:shotKillsSpecies("bison",.199),bisonAt:shotKillsSpecies("bison",.2),deerBelow:shotKillsSpecies("deer",.399),deerAt:shotKillsSpecies("deer",.4)})`);
+  assert.deepEqual({...result.chances},{bison:.2,deer:.4,rabbit:1,bird:1});assert.equal(result.rabbit,true);assert.equal(result.bird,true);
+  assert.equal(result.bisonBelow,true);assert.equal(result.bisonAt,false);assert.equal(result.deerBelow,true);assert.equal(result.deerAt,false);
+});
+
 test("French game abundance descriptions avoid the awkward 'gibier dispersé'",()=>{
   const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.km=2700;game.weather={...WEATHER[0]};({forecast:wildlifeDescription(routeSegmentAt(),"fr"),current:currentWildlifeDescription("fr")})`);
   assert.doesNotMatch(`${result.forecast} ${result.current}`,/gibier dispersé/i);assert.match(`${result.forecast} ${result.current}`,/gibier peu abondant/i);
@@ -490,6 +496,12 @@ test("cold blanket shortages raise disease risk but spare parts do not alter it"
   assert.equal(result.prepared,result.noParts);assert.ok(result.exposed>result.noParts);
 });
 
+test("blanket disease risk scales with the uncovered share of survivors",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.vetements=5;const covered={factor:blanketShortageFactor(),fever:incidentMultiplier("fever",WEATHER[3])};game.cart.vetements=3;const partial={factor:blanketShortageFactor(),fever:incidentMultiplier("fever",WEATHER[3])};game.cart.vetements=0;const exposed={factor:blanketShortageFactor(),fever:incidentMultiplier("fever",WEATHER[3])};({covered,partial,exposed})`);
+  assert.equal(result.covered.factor,1);assert.equal(result.partial.factor,1.1);assert.equal(result.exposed.factor,1.25);
+  assert.ok(Math.abs(result.partial.fever/result.covered.fever-1.1)<1e-12);assert.ok(Math.abs(result.exposed.fever/result.covered.fever-1.25)<1e-12);
+});
+
 test("event conditions follow weather and available equipment",()=>{
   const rainy=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.weather=WEATHER[2];game.cart.vetements=5;eventPool().map(e=>e.eventId).join(",")`);
   assert.match(rainy,/(^|,)rain(,|$)/);assert.match(rainy,/(^|,)blankets(,|$)/);assert.doesNotMatch(rainy,/(^|,)climate-injury(,|$)/);
@@ -501,7 +513,14 @@ test("event conditions follow weather and available equipment",()=>{
 
 test("blankets prevent substantial cold and snow exposure",()=>{
   const result=scenario(`({covered:weatherExposurePenalty(WEATHER[4],true),mild:weatherExposurePenalty(WEATHER[0],false),cold:weatherExposurePenalty(WEATHER[3],false),snow:weatherExposurePenalty(WEATHER[4],false),rain:weatherExposurePenalty(WEATHER[2],false)})`);
-  assert.equal(result.covered,0);assert.equal(result.mild,0);assert.equal(result.cold,2);assert.equal(result.snow,4);assert.equal(result.rain,1);
+  assert.equal(result.covered,0);assert.equal(result.mild,1);assert.equal(result.cold,3);assert.equal(result.snow,4);assert.equal(result.rain,2);
+});
+
+test("the journal records blanket exposure during travel and recovery",()=>{
+  const result=scenario(`const setup=()=>{game=baseGame(["Lou","Alix"],"fermier",3);Object.assign(game.cart,{boeufs:6,vivres:100,vetements:1});game.weather=WEATHER[0];weatherForSeason=()=>WEATHER[0];dailyIncidentOccurs=()=>false;updateUI=()=>{};setTrailScene=()=>{}};setup();quietTravelEvent=()=>{};travel(1);const travelText=game.journal[0].text;setup();performRest(2);const restText=game.journal[0].text;setup();game.cart.vetements=0;performRest(2,true);const fortText=game.journal[0].text;({travelText,restText,fortText})`);
+  assert.match(result.travelText.fr,/manque de couvertures a fragilisé le groupe/);assert.match(result.travelText.en,/Too few blankets weakened/);
+  assert.match(result.restText.fr,/manque de couvertures a fragilisé la récupération/);assert.match(result.restText.en,/hampered the party’s recovery/);
+  assert.doesNotMatch(result.fortText.fr,/manque de couvertures/);
 });
 
 test("serious untreated illness can now become lethal quickly",()=>{

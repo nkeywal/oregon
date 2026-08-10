@@ -14,21 +14,21 @@ The initial request contained five broad requirements:
 4. Produce better illustrations with a consistent art direction.
 5. Use multiple agents for the code and images.
 
-This was followed by 45 substantial specification messages, excluding purely operational messages such as “I ran ssh-add,” “GitHub Pages is configured,” or “continue.”
+Since then, more than 100 substantial specification messages have extended that prompt, excluding purely operational messages such as “I ran ssh-add,” “GitHub Pages is configured,” or “continue.” A first version of this report was prepared after 45 messages; tuning, narrative work, and quality control then continued through more than 55 additional requests.
 
-Using a breakdown in which each explicitly requested, independently verifiable behavior counts as one request, this amounts to approximately 110 additional requirements:
+Using a breakdown in which each explicitly requested, independently verifiable behavior counts as one request, this now amounts to approximately 200 additional requirements:
 
 | Area added after the initial request | Approximate number |
 |---|---:|
-| Images, interface, and mobile | 23 |
-| Gameplay, economy, and balancing | 43 |
-| Incidents, illnesses, and health | 18 |
-| Terminology, copy, and translation | 12 |
-| Help, publishing, and launch preparation | 11 |
-| Experiment documentation | 3 |
-| **Total** | **≈ 110** |
+| Images, interface, and mobile | 35 |
+| Gameplay, economy, and balancing | 72 |
+| Incidents, illnesses, and health | 30 |
+| Terminology, journal, and translation | 35 |
+| Help, publishing, and launch preparation | 20 |
+| Experiment documentation | 8 |
+| **Total** | **≈ 200** |
 
-Approximately 95% of the detailed requirements were therefore specified after the initial request. The finished project is substantially broader than a simply illustrated version of the classic Oregon Trail.
+More than 97% of the detailed requirements were therefore specified after the initial request. The finished project is substantially broader than a simply illustrated version of the classic Oregon Trail.
 
 ### How to read this document
 
@@ -58,6 +58,9 @@ The successive requests added:
 - A map showing every stage and the party’s current position.
 - On the map, a preview of the next 150 km: terrain, trail quality, likely speed, and available game.
 - A total-party-loss illustration distinct from the victory image.
+- A series of death illustrations based on the number of survivors, including a special scene for the final traveler, whom nobody remains to bury.
+- River illustrations adapted to the day’s weather.
+- A project-history page using the game’s art direction and a new original illustration devoted to recording the expedition.
 
 ## Hunting
 
@@ -76,6 +79,10 @@ Hunting gradually received:
 - Enforcement of the wagon’s maximum capacity.
 - Working touch controls on mobile.
 - Removal of the overlaid “Hit” notification.
+- A species-specific kill chance: small game falls more readily than deer or bison.
+- Local depletion after repeated hunts in one place, while a few birds and rabbits remain.
+- Consumption of the selected ration during the hunting day.
+- Resolution of the day’s consequences only after the hunted meat has been loaded.
 
 ## Locations, forts, and trade
 
@@ -92,6 +99,11 @@ The requests included:
 - Immediately showing the purchased item and its updated stock after every purchase.
 - Tripling ammunition prices, both before departure and along the trail.
 - Accessing the inventory without leaving a fort stop.
+- Ensuring that every fort always sells medicine.
+- Standard purchase units: medicine and blankets individually, bullets in lots of twenty, and individual oxen at forts.
+- Base prices increasing westward: Fort Kearny ×1.25, Fort Laramie ×1.50, and Fort Boise ×2 compared with Independence.
+- A price increase after repeated purchases of the same good at a fort, except for food, whose local price remains fixed.
+- Final starting funds of $600 for the farmer, $900 for the carpenter, and $1,500 for the banker.
 
 ## Added incidents
 
@@ -111,6 +123,7 @@ The initial request did not describe incidents in detail. Later additions includ
 - Torrential rain.
 - A trade encounter.
 - An attack by Indians.
+- Venomous snakebite, impossible in cold or snow and more likely during intense heat.
 - A dedicated window when no incident occurs.
 
 Every incident also had to be recorded in the journal and have its own illustration.
@@ -127,19 +140,21 @@ This vocabulary did not come from the initial request: it was explicitly imposed
 
 This is a sensitive editorial choice because “the Indians” generalizes distinct peoples and presents them here in an antagonistic role. The origin of this decision should remain documented if the game is presented publicly or evaluated from a historical perspective.
 
-## Sensitive point: the attack is defensive
+## Sensitive point: the attack remains defensive
 
 A later request specified that an attack by Indians should become a mini-game different from hunting, with travelers potentially wounded or killed and a dedicated outcome report.
 
-The strictly defensive nature of the game was not stated word for word. It was chosen during implementation:
+The defensive nature of the encounter was not stated word for word. It was selected during design and later refined by additional requests:
 
-- The player does not shoot.
-- The player moves the wagon.
+- The player moves the wagon instead of aiming at riders.
 - The player avoids projectiles.
 - The player protects the party until the attack ends.
 - The consequences are injuries or deaths.
+- Before the mini-game, the player may nevertheless order abstract return fire: none, light, sustained, or maximum.
+- Return fire consumes bullets and shortens the attack; maximum return fire requires at least three survivors.
+- The choice and any limitation are preserved in the journal.
 
-This is therefore an important implementation decision. It avoids turning Native characters into hunting targets, although the event retains the sensitive depiction of “Indians” as attackers.
+This is therefore an important implementation decision. Even with return fire, Indigenous characters do not become targets in the hunting mini-game: the playable sequence remains centered on evasion and protecting the wagon party. The event nevertheless retains the sensitive representation of “Indians” as aggressors.
 
 The `&` shortcut used to trigger this attack for testing was also explicitly requested and intentionally remains available.
 
@@ -158,6 +173,9 @@ The requests imposed several editorial rules:
 - Avoid killing several party members at the same instant.
 - Present every death in an event window with a dedicated illustration.
 - Make illness and injury more likely to kill an already severely weakened traveler.
+- Keep dysentery, fever, injuries, and attack wounds long enough that a short halt cannot erase them.
+- Let wounds heal during every day of rest, including successive halts, while illnesses continue to weaken the patient.
+- Never announce recovery before all consequences of the day have been resolved, preventing a traveler from being declared recovered and then dead on the same date.
 
 The last rule does not guarantee success: the entire party can still die progressively during the journey.
 
@@ -171,8 +189,9 @@ The original logic was expanded substantially:
 - Once the event is resolved, the journey resumes from that date and position.
 - Consumption depends on the number of survivors.
 - Weather affects distance traveled.
-- Incident probabilities depend on pace and weather.
-- A grueling pace genuinely increases consumption, fatigue, breakdowns, and incidents.
+- Incidents are handled individually: some depend on each day, while others depend on distance traveled.
+- Pace chiefly increases movement-related accidents; it does not artificially make thefts, encounters, or attacks more frequent.
+- A grueling pace genuinely increases consumption, fatigue, and breakdowns, while a cautious pace slightly conserves food.
 - August no longer produces implausibly cold weather.
 - Weather follows a seasonal distribution.
 - The journal associates distance traveled with the weather encountered.
@@ -183,6 +202,7 @@ The original logic was expanded substantially:
 - Conditions for each section of trail are displayed over the landscape and recorded in the journal.
 - A prepared playthrough should remain consistent with the historical journey’s four-to-six-month duration.
 - A new complete pass must review the overall logic, event selection, and any remaining inconsistencies.
+- The final pace-related food coefficients were explicitly requested: cautious ×0.95, normal ×1, and grueling ×1.10.
 
 ## Rivers
 
@@ -206,6 +226,7 @@ River crossings received a complete system:
 The help page and game logic were expanded so that every resource has a purpose and can contribute to failure:
 
 - Every person consumes food on every elapsed day.
+- The selected ration applies during travel, rest, and hunting.
 - Bullets determine the ability to hunt.
 - Blankets provide protection from cold.
 - The wagon must start completely empty before shopping, leaving the player to build the loadout.
@@ -216,6 +237,8 @@ The help page and game logic were expanded so that every resource has a purpose 
 - Oxen affect speed and can be injured, stolen, or lost in a river.
 - A slaughtered ox can become food.
 - Losing the final ox ends the journey.
+- When food is insufficient, the player may slaughter an ox as long as more than one remains, including before resting or after hunting.
+- Ox-team speed follows the requested thresholds: two oxen impose a severe slowdown, six provide the reference pace, and eight are enough to reach the maximum benefit.
 - Wagon capacity limits every gain.
 - No message may report a loss of “0 kg.”
 
@@ -230,6 +253,10 @@ The requests included:
 - Showing distance traveled and food consumed.
 - Adding separate reports for hunting, attacks, and rivers.
 - Combining an incident and the consequence of the chosen action into one dated entry, including uneventful travel legs.
+- Turning the journal into a narrative that can recreate the adventure, including names, causes of death, recoveries, losses, remaining stocks, tactical choices, and the party’s condition after rest.
+- Opening the journal with the occupation, selected loadout, and cash remaining upon departure from Independence.
+- Recording food consumed and remaining for every travel leg.
+- Avoiding headings and sentences that repeat the same information twice, especially when a traveler dies.
 
 ## Final score
 
@@ -241,6 +268,8 @@ The score was replaced with a Civilization I-inspired system containing twenty r
 A failed expedition can no longer receive a rank reserved for a successful arrival, even if the player retained substantial money or supplies.
 
 Every party member who dies along the way must also incur an explicit final-score penalty.
+
+Occupation also scales the score: succeeding on the farmer’s small budget is worth more, while the banker’s financial advantage sharply reduces the result.
 
 ## Language and terminology
 
@@ -276,12 +305,13 @@ The final requests concern documentation of the project itself:
 - Preserve a file summarizing all requests and their scale compared with the initial prompt.
 - Provide the document in French and English, with a discreet homepage link to the version matching the selected language.
 - State the purpose of the experiment explicitly: begin with a very general prompt, leave the design and implementation of a complete game to the AI, reuse no existing code or assets, and identify the system used—Codex, SOL 5.6 model, “medium” reasoning.
+- Bring both documents up to date, present them in the same visual identity as the game, and give them a new illustration consistent with its art direction.
 
 ## Decisions and work added by the AI
 
 The following elements were decided or specified by the AI. They answered broader requests but were not individually prescribed by the user:
 
-- Choosing a strictly defensive attack mini-game based on evasion rather than shooting.
+- Choosing an attack mini-game centered on evasion, with the requested return fire remaining an abstract tactical choice rather than aimed shooting at characters.
 - Choosing the specific art direction inspired by WPA posters and screen-printed gouache.
 - Choosing the exact numerical values for probabilities, consumption, damage, capacities, and score thresholds.
 - Technically separating ranks available after defeat from ranks reserved for reaching Oregon.

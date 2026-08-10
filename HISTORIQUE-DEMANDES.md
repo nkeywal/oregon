@@ -14,21 +14,21 @@ La demande initiale contenait cinq grandes exigences :
 4. Produire de meilleures illustrations avec une direction artistique homogène.
 5. Utiliser plusieurs agents pour le code et les images.
 
-Ensuite, il y a eu 45 messages substantiels de spécification, en excluant les simples messages opérationnels comme « j’ai fait ssh-add », « GitHub Pages est configuré » ou « continue ».
+Depuis, plus de 100 messages substantiels de spécification ont prolongé cette consigne, sans compter les simples messages opérationnels comme « j’ai fait ssh-add », « GitHub Pages est configuré » ou « continue ». Une première version de ce bilan avait été établie après 45 messages ; le travail de réglage, de narration et de contrôle qualité s’est ensuite poursuivi pendant plus de 55 demandes supplémentaires.
 
-Avec un découpage où chaque comportement vérifiable explicitement demandé compte comme une demande, on obtient environ 110 exigences supplémentaires :
+Avec un découpage où chaque comportement vérifiable explicitement demandé compte comme une demande, on obtient désormais environ 200 exigences supplémentaires :
 
 | Domaine ajouté après la demande initiale | Nombre approximatif |
 |---|---:|
-| Images, interface et mobile | 23 |
-| Gameplay, économie et équilibrage | 43 |
-| Incidents, maladies et santé | 18 |
-| Terminologie, textes et traduction | 12 |
-| Aide, publication et préproduction | 11 |
-| Documentation de l’expérience | 3 |
-| **Total** | **≈ 110** |
+| Images, interface et mobile | 35 |
+| Gameplay, économie et équilibrage | 72 |
+| Incidents, maladies et santé | 30 |
+| Terminologie, journal et traduction | 35 |
+| Aide, publication et préproduction | 20 |
+| Documentation de l’expérience | 8 |
+| **Total** | **≈ 200** |
 
-Ainsi, environ 95 % des exigences détaillées ont été formulées après la demande initiale. Le projet final est sensiblement plus large qu’un simple Oregon Trail classique illustré.
+Ainsi, plus de 97 % des exigences détaillées ont été formulées après la demande initiale. Le projet final est sensiblement plus large qu’un simple Oregon Trail classique illustré.
 
 ### Comment lire ce document
 
@@ -58,6 +58,9 @@ Les demandes successives ont ajouté :
 - Une carte indiquant toutes les étapes et la position actuelle.
 - Sur la carte, un aperçu des 150 km à venir : terrain, qualité de la piste, vitesse probable et gibier présent.
 - Une illustration de disparition totale du convoi, distincte de l’image de victoire.
+- Une série d’illustrations de décès variant selon le nombre de survivants, avec une scène particulière pour le dernier voyageur, que personne ne peut enterrer.
+- Des illustrations de fleuve adaptées à la météo du jour.
+- Une page de présentation du projet reprenant la direction artistique du jeu et une illustration originale consacrée au journal de l’expédition.
 
 ## Chasse
 
@@ -76,6 +79,10 @@ La chasse a progressivement reçu :
 - Le respect de la capacité maximale du chariot.
 - Le fonctionnement tactile sur mobile.
 - La suppression de la notification superposée « Touché ».
+- Une chance de mise à mort propre à chaque espèce : le petit gibier tombe plus facilement que le cerf ou le bison.
+- Une raréfaction locale après plusieurs chasses au même endroit, tout en conservant quelques oiseaux et lapins.
+- La consommation de la ration sélectionnée pendant la journée de chasse.
+- La résolution des conséquences de la journée seulement après le chargement de la viande rapportée.
 
 ## Lieux, forts et commerce
 
@@ -92,6 +99,11 @@ Il a été demandé :
 - D’afficher immédiatement après chaque achat l’article acquis et le nouveau stock correspondant.
 - De tripler le prix des balles, au départ comme sur la piste.
 - De pouvoir consulter l’inventaire sans quitter une halte dans un fort.
+- Que tous les forts vendent toujours des remèdes.
+- Des unités d’achat uniformes : remèdes et couvertures à l’unité, balles par vingt et bœufs à l’unité dans les forts.
+- Des prix de base croissant vers l’ouest : Fort Kearny ×1,25, Fort Laramie ×1,50 et Fort Boise ×2 par rapport à Independence.
+- Une hausse après les achats répétés d’une même marchandise dans un fort, à l’exception des vivres dont le tarif local reste fixe.
+- Des bourses de départ finalement fixées à 600 $ pour le fermier, 900 $ pour le charpentier et 1 500 $ pour le banquier.
 
 ## Incidents ajoutés
 
@@ -111,6 +123,7 @@ La demande initiale ne détaillait pas les incidents. Les ajouts ultérieurs com
 - Pluies diluviennes.
 - Rencontre commerciale.
 - Attaque des Indiens.
+- Morsure de serpent venimeux, absente par froid ou neige et plus probable sous une forte chaleur.
 - Une fenêtre spéciale lorsqu’aucun incident ne survient.
 
 Chaque incident devait aussi être inscrit dans le journal et disposer de son illustration propre.
@@ -127,19 +140,21 @@ Ce vocabulaire ne vient donc pas de la demande initiale : il a été imposé exp
 
 C’est un choix éditorial sensible, car « les Indiens » généralise des peuples distincts et les présente ici dans un rôle antagoniste. Il faudrait conserver la trace de cette décision si le jeu est présenté publiquement ou évalué sous l’angle historique.
 
-## Point sensible : l’attaque est défensive
+## Point sensible : l’attaque reste un jeu défensif
 
 La demande ultérieure précisait qu’une attaque des Indiens devait devenir un mini-jeu différent de la chasse, avec des voyageurs blessés ou morts et un écran de bilan.
 
-Le caractère strictement défensif n’était pas formulé mot pour mot. Il a été choisi lors de la conception :
+Le caractère défensif n’était pas formulé mot pour mot. Il a été choisi lors de la conception, puis précisé par de nouvelles demandes :
 
-- Le joueur ne tire pas.
-- Il déplace le chariot.
+- Le joueur déplace le chariot au lieu de viser les cavaliers.
 - Il évite les projectiles.
 - Il protège le groupe jusqu’à la fin de l’attaque.
 - Les conséquences sont des blessures ou des décès.
+- Avant le mini-jeu, il peut toutefois ordonner une riposte abstraite : aucune, légère, soutenue ou maximale.
+- Une riposte consomme des balles et raccourcit l’attaque ; la riposte maximale exige au moins trois survivants.
+- Le choix et ses éventuelles limitations sont conservés dans le journal.
 
-C’est donc une décision d’implémentation importante. Elle évite de transformer les personnages autochtones en cibles de chasse, même si l’événement conserve la représentation sensible des « Indiens » comme agresseurs.
+C’est donc une décision d’implémentation importante. Même avec la riposte, les personnages autochtones ne deviennent pas des cibles du mini-jeu de chasse : la séquence jouable reste centrée sur l’esquive et la protection du convoi. L’événement conserve néanmoins la représentation sensible des « Indiens » comme agresseurs.
 
 Le raccourci `&` permettant de déclencher cette attaque pour les tests a également été demandé explicitement et reste volontairement accessible.
 
@@ -158,6 +173,9 @@ Les demandes ont imposé plusieurs règles éditoriales :
 - Éviter de tuer plusieurs membres du groupe au même instant.
 - Présenter chaque décès dans une fenêtre d’événement avec une illustration spécifique.
 - Rendre les maladies et blessures plus susceptibles d’emporter un voyageur déjà très affaibli.
+- Faire durer la dysenterie, la fièvre, les blessures et les plaies d’attaque suffisamment longtemps pour qu’une courte halte ne les efface pas.
+- Laisser les blessures cicatriser pendant chaque journée de repos, même lors de haltes successives, tandis que les maladies continuent à affaiblir le malade.
+- Ne jamais annoncer une guérison avant d’avoir résolu toutes les conséquences de la journée, afin d’éviter qu’un voyageur soit déclaré guéri puis mort à la même date.
 
 Ce dernier point ne rend pas la partie gagnable automatiquement : tout le groupe peut mourir progressivement au cours du voyage.
 
@@ -171,8 +189,9 @@ La logique initiale a été largement étendue :
 - Une fois l’événement réglé, la partie reprend à partir de cette date et de cette position.
 - La consommation dépend du nombre de survivants.
 - La météo influence la distance parcourue.
-- Les probabilités d’incident dépendent du rythme et du climat.
-- L’allure épuisante augmente réellement consommation, fatigue, avaries et incidents.
+- Les incidents sont gérés individuellement : certains dépendent de chaque journée, d’autres de la distance parcourue.
+- L’allure augmente surtout les accidents liés au déplacement ; elle ne rend pas artificiellement plus fréquents les vols, rencontres ou attaques.
+- L’allure épuisante augmente réellement consommation, fatigue et avaries, tandis que l’allure prudente ménage légèrement les vivres.
 - Le mois d’août ne produit plus de froid incohérent.
 - La météo suit une distribution saisonnière.
 - Le journal associe les kilomètres parcourus aux conditions météo rencontrées.
@@ -183,6 +202,7 @@ La logique initiale a été largement étendue :
 - Les conditions de chaque portion de piste sont affichées dans le paysage et consignées dans le journal.
 - La durée d’une partie préparée doit rester cohérente avec les quatre à six mois du voyage historique.
 - Une nouvelle passe complète doit contrôler la logique générale, la sélection des événements et toute incohérence résiduelle.
+- Les coefficients finaux de consommation liés à l’allure ont été demandés explicitement : prudente ×0,95, soutenue ×1 et épuisante ×1,10.
 
 ## Fleuves
 
@@ -206,6 +226,7 @@ Les franchissements ont reçu un système complet :
 La page d’aide et la logique ont été étendues pour que chaque ressource ait une utilité et puisse devenir une cause d’échec :
 
 - Les vivres sont consommés par chaque personne et chaque jour écoulé.
+- La ration choisie s’applique au voyage, au repos et à la chasse.
 - Les balles conditionnent la chasse.
 - Les couvertures protègent du froid.
 - Le chariot doit être entièrement vide avant les achats : c’est au joueur de composer son chargement.
@@ -216,6 +237,8 @@ La page d’aide et la logique ont été étendues pour que chaque ressource ait
 - Les bœufs influencent la vitesse et peuvent être blessés, volés ou perdus dans un fleuve.
 - Un bœuf abattu peut devenir de la nourriture.
 - Sans dernier bœuf, le voyage s’arrête.
+- Lorsqu’il n’y a plus assez à manger, le joueur peut abattre un bœuf tant qu’il en reste plus d’un, y compris avant un repos ou après une chasse.
+- La vitesse de l’attelage suit les paliers demandés : deux bœufs ralentissent fortement, six donnent l’allure de référence et huit suffisent pour atteindre le bénéfice maximal.
 - La capacité du chariot limite tous les gains.
 - Aucun message ne doit annoncer une perte de « 0 kg ».
 
@@ -230,6 +253,10 @@ Il a été demandé :
 - D’afficher la distance parcourue et les vivres consommés.
 - D’ajouter des bilans séparés pour la chasse, les attaques et les fleuves.
 - De regrouper l’incident et la conséquence du choix dans une seule entrée datée, y compris pour une étape calme.
+- De faire du journal un récit permettant de revivre l’aventure, avec les noms, causes de décès, guérisons, pertes, stocks restants, choix tactiques et état du groupe après le repos.
+- D’ouvrir le journal par la profession, le chargement choisi et l’argent restant au départ d’Independence.
+- D’indiquer pour chaque étape les vivres consommés et ceux qui restent dans le chariot.
+- D’éviter les titres et phrases répétant deux fois la même information, notamment lors d’un décès.
 
 ## Score final
 
@@ -241,6 +268,8 @@ Le score a été remplacé par une logique inspirée de Civilization I, avec vin
 Une défaite ne peut plus obtenir un rang réservé à une arrivée réussie, même si le joueur conservait beaucoup d’argent ou de provisions.
 
 Chaque membre du groupe mort en chemin doit également entraîner une pénalité explicite dans le score final.
+
+Le métier module aussi la valeur du score : réussir avec la faible bourse du fermier rapporte davantage, tandis que l’avantage financier du banquier réduit fortement le résultat.
 
 ## Langue et terminologie
 
@@ -276,12 +305,13 @@ Les dernières demandes portent sur la documentation du projet lui-même :
 - Conserver dans un fichier le récapitulatif de toutes les demandes et leur ampleur par rapport à la requête initiale.
 - Fournir ce document en français et en anglais, avec un lien discret depuis la page d’accueil vers la version correspondant à la langue choisie.
 - Présenter explicitement l’objectif de l’expérience : partir d’une consigne très générale, laisser l’IA choisir la conception et l’implémentation d’un jeu complet, sans réutiliser de code ni d’assets existants, et identifier le système employé — Codex, modèle SOL 5.6, raisonnement « medium ».
+- Remettre ces deux documents à jour, les présenter dans la même identité visuelle que le jeu et leur consacrer une nouvelle illustration cohérente avec sa direction artistique.
 
 ## Décisions et travaux ajoutés par l’IA
 
 Les éléments suivants ont été décidés ou précisés par l’IA. Ils répondaient à des demandes plus générales, mais n’ont pas été prescrits individuellement par l’utilisateur :
 
-- Le choix d’un mini-jeu d’attaque strictement défensif, fondé sur l’esquive plutôt que sur le tir.
+- Le choix d’un mini-jeu d’attaque centré sur l’esquive, la riposte demandée restant un choix tactique abstrait plutôt qu’un tir dirigé sur des personnages.
 - Le choix précis de la direction artistique inspirée des affiches WPA et de la gouache sérigraphiée.
 - Les valeurs numériques exactes des probabilités, consommations, dégâts, capacités et seuils de score.
 - La séparation technique entre rangs accessibles après une défaite et rangs réservés à une arrivée en Oregon.

@@ -4,16 +4,26 @@ import {Script} from "node:vm";
 
 const read = path => readFile(path,"utf8");
 const exists = path => access(path,fsConstants.R_OK).then(()=>true,()=>false);
-const [html,css,game,i18n] = await Promise.all([read("index.html"),read("styles.css"),read("game.js"),read("i18n.js")]);
+const [html,css,game,i18n,historyFr,historyEn,historyCss,historyJs,historyFrMd,historyEnMd] = await Promise.all([
+  read("index.html"),read("styles.css"),read("game.js"),read("i18n.js"),
+  read("HISTORIQUE-DEMANDES.html"),read("REQUEST-HISTORY.html"),read("history.css"),read("history.js"),
+  read("HISTORIQUE-DEMANDES.md"),read("REQUEST-HISTORY.md")
+]);
 
 new Script(game,{filename:"game.js"});
 new Script(i18n,{filename:"i18n.js"});
+new Script(historyJs,{filename:"history.js"});
 
-const ids=[...html.matchAll(/\sid="([^"]+)"/g)].map(match=>match[1]);
-const duplicateIds=ids.filter((id,index)=>ids.indexOf(id)!==index);
-if(duplicateIds.length)throw new Error(`Duplicate HTML ids: ${[...new Set(duplicateIds)].join(", ")}`);
+const pages={"index.html":html,"HISTORIQUE-DEMANDES.html":historyFr,"REQUEST-HISTORY.html":historyEn};
+let idCount=0;
+for(const [page,markup] of Object.entries(pages)){
+  const ids=[...markup.matchAll(/\sid="([^"]+)"/g)].map(match=>match[1]);idCount+=ids.length;
+  const duplicateIds=ids.filter((id,index)=>ids.indexOf(id)!==index);
+  if(duplicateIds.length)throw new Error(`Duplicate HTML ids in ${page}: ${[...new Set(duplicateIds)].join(", ")}`);
+}
 
-const localFiles=[...html.matchAll(/(?:src|href)="([^"#]+)"/g)]
+const allHtml=Object.values(pages).join("\n");
+const localFiles=[...allHtml.matchAll(/(?:src|href)="([^"#]+)"/g)]
   .map(match=>match[1].split("?")[0])
   .filter(path=>!path.includes(":")&&!path.startsWith("#"));
 
@@ -36,7 +46,8 @@ const requiredAssets=[
   ...rivers.flatMap(river=>weatherRiverOutcomes.map(outcome=>`river-weather-${river}-${outcome}.webp`))
 ].map(name=>`assets/${name}`);
 
-const literalAssets=[...`${html}\n${css}\n${game}`.matchAll(/assets\/([a-z0-9][a-z0-9.-]+\.(?:webp|jpg|svg))/gi)]
+const runtimeSource=`${allHtml}\n${css}\n${historyCss}\n${game}\n${historyJs}`;
+const literalAssets=[...runtimeSource.matchAll(/assets\/([a-z0-9][a-z0-9.-]+\.(?:webp|jpg|svg))/gi)]
   .map(match=>`assets/${match[1]}`);
 const required=[...new Set(["robots.txt","sitemap.xml",...localFiles,...requiredAssets,...literalAssets])];
 const missing=[];
@@ -49,9 +60,12 @@ for(const path of required.filter(path=>path.startsWith("assets/"))){
 }
 if(oversized.length)throw new Error(`Oversized runtime assets:\n${oversized.join("\n")}`);
 
-if(/\.png\b/i.test(`${html}\n${css}\n${game}`))throw new Error("Runtime source still references an unoptimized PNG asset.");
+if(/\.png\b/i.test(runtimeSource))throw new Error("Runtime source still references an unoptimized PNG asset.");
 if(/\.weather\.(?:rain|snow)\s*\{[^}]*background[^;}]*?(?:gradient|url\()/i.test(css))throw new Error("CSS weather particles must not cover dedicated rain or cold artwork.");
 if(/localStorage|sessionStorage/.test(game))throw new Error("Game progression must not be persisted in browser storage.");
 if(/points? de santé|health points?|% de santé|% health/i.test(`${html}\n${game}\n${i18n}`))throw new Error("Internal health values leaked into player-facing copy.");
+if(!/environ 200 exigences/.test(historyFrMd)||!/approximately 200 additional requirements/.test(historyEnMd))throw new Error("Bilingual request totals are not up to date.");
+if(!/600 \$ pour le fermier/.test(historyFrMd)||!/\$600 for the farmer/.test(historyEnMd))throw new Error("Bilingual project histories do not contain the current starting funds.");
+if(!historyFr.includes('data-source="HISTORIQUE-DEMANDES.md"')||!historyEn.includes('data-source="REQUEST-HISTORY.md"'))throw new Error("History pages are not linked to their respective source documents.");
 
-console.log(`Verified ${required.length} local files, ${ids.length} unique HTML ids, and both JavaScript bundles.`);
+console.log(`Verified ${required.length} local files, ${idCount} unique HTML ids across ${Object.keys(pages).length} pages, and all JavaScript bundles.`);

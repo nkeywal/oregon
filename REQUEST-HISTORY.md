@@ -16,7 +16,8 @@ The initial request can be summarized as follows: make an Oregon Trail-like game
 
 - The LLM chose an art direction inspired by WPA posters and screen-printed gouache, then applied it across the game.
 - The project starts from a very broad request: “implement an Oregon Trail-like game, with a genuine art direction, in pure HTML.”
-- The LLM implements a complete game, chooses the gouache style itself, and reuses some mechanisms from the original game, including the choice between different occupations and the historical journey from Independence to Oregon. However, there is no meaningful initial balancing.
+- The total work represents approximately twenty hours spread over three weeks. The exact token total is neither exposed by the interface nor stored in the repository. The only available measurement comes from one particular `/goal` run, which recorded 99,843 tokens; this partial figure therefore does not represent the project’s total consumption.
+- The LLM implements a complete game, chooses the gouache style itself, and takes the historical journey from Independence to Oregon together with some mechanisms from the original game—occupation and merchandise choices—while introducing its own ideas, such as travelers who give away food or a completely different hunting mini-game. However, there is no meaningful initial balancing.
 - Image-generation requests work well: the style remains consistent from one image to the next and the art direction is preserved correctly.
 - Broad requests such as “balance the game” fail. The LLM implements a stochastic simulator, runs trials, and adjusts some parameters, but the game nevertheless remains trivial.
 - The overall incident framework is incorrect, but the LLM does not recognize this. It gradually adds patches without reconsidering the original mechanism. Progress requires explicitly asking it to explain how the system works and then proposing a different mechanism. The parameters themselves must then be tuned by hand from manual playthroughs.
@@ -109,6 +110,8 @@ The requests included:
 - Standard purchase units: medicine and blankets individually, bullets in lots of twenty, and individual oxen at forts.
 - Base prices increasing westward: Fort Kearny ×1.25, Fort Laramie ×1.50, and Fort Boise ×2 compared with Independence.
 - A price increase after repeated purchases of the same good at a fort, except for food, whose local price remains fixed.
+- Grouping every purchase made at the same fort on the same day into a single journal entry.
+- Forty concrete and sometimes advanced trail tips during encounters, selected without repetition during a playthrough and recorded in the journal.
 - Final starting funds of $600 for the farmer, $900 for the carpenter, and $1,500 for the banker.
 
 The general tripling of bullet prices and the first starting budgets were later superseded by explicit departure prices—including $25 per ox, $4 per 10 kg of food, and $1 per 10 bullets at Independence—and then by the farmer’s final $600 budget. These were successive user requests, not values chosen by the LLM.

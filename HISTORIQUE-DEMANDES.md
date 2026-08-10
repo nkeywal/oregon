@@ -16,7 +16,8 @@ La demande initiale peut se résumer ainsi : faire un Oregon Trail-like, en HTML
 
 - Le LLM a choisi une direction artistique inspirée des affiches WPA et de la gouache sérigraphiée, puis l’a appliquée à l’ensemble du jeu.
 - On part d’une demande très générale : « implémenter un Oregon Trail-like, avec une vraie direction artistique, en pur HTML ».
-- Le LLM implémente un jeu complet, choisit lui-même ce style gouache et reprend certains mécanismes du jeu d’origine, notamment le choix entre différentes professions et le parcours historique d’Independence jusqu’à l’Oregon. En revanche, il n’y a pas de réel équilibrage initial.
+- Le travail total représente environ vingt heures réparties sur trois semaines. Le total exact de tokens n’est pas exposé par l’interface ni conservé dans le dépôt. La seule mesure disponible est celle d’une passe `/goal` particulière, qui a enregistré 99 843 tokens ; ce chiffre partiel ne représente donc pas la consommation totale du projet.
+- Le LLM implémente un jeu complet, choisit lui-même ce style gouache et prend le parcours historique d’Independence jusqu’à l’Oregon ainsi que certains mécanismes du jeu d’origine — choix des professions et marchandises — tout en introduisant ses propres idées, par exemple des voyageurs qui donnent des vivres ou un mini-jeu de chasse complètement différent. En revanche, il n’y a pas de réel équilibrage initial.
 - Les demandes de génération de dessins fonctionnent bien : le style reste cohérent d’une image à l’autre et la direction artistique est correctement conservée.
 - Les demandes générales du type « équilibre le jeu » échouent. Le LLM implémente un simulateur stochastique, lance des essais et ajuste certains paramètres, mais le jeu reste malgré tout trivial.
 - Le framework général des incidents est incorrect, mais le LLM ne s’en rend pas compte. Il ajoute progressivement des rustines sans remettre en cause le mécanisme de départ. Pour avancer, il faut lui demander explicitement d’expliquer le fonctionnement du système, puis lui proposer un autre mécanisme. Les paramètres eux-mêmes doivent ensuite être affinés à la main, à partir de parties jouées manuellement.
@@ -109,6 +110,8 @@ Il a été demandé :
 - Des unités d’achat uniformes : remèdes et couvertures à l’unité, balles par vingt et bœufs à l’unité dans les forts.
 - Des prix de base croissant vers l’ouest : Fort Kearny ×1,25, Fort Laramie ×1,50 et Fort Boise ×2 par rapport à Independence.
 - Une hausse après les achats répétés d’une même marchandise dans un fort, à l’exception des vivres dont le tarif local reste fixe.
+- Le regroupement de tous les achats effectués dans un même fort le même jour en une seule entrée du journal.
+- Quarante conseils de piste concrets et parfois pointus lors des rencontres, choisis sans répétition pendant une partie et recopiés dans le journal.
 - Des bourses de départ finalement fixées à 600 $ pour le fermier, 900 $ pour le charpentier et 1 500 $ pour le banquier.
 
 Le triplement général des balles et les premières bourses ont ensuite été remplacés par des prix de départ explicites — notamment 25 $ par bœuf, 4 $ pour 10 kg de vivres et 1 $ pour 10 balles à Independence — puis par la bourse finale de 600 $ pour le fermier. Il s’agit de demandes utilisateur successives, pas de valeurs choisies par le LLM.

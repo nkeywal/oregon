@@ -59,6 +59,49 @@ const SHOP = {
   medicaments: { label:"Remèdes", desc:"Bandages et fortifiants pour soigner le groupe.", unit:"dose", plural:"doses", unitEn:"dose", pluralEn:"doses", step:1, price:12, max:15, start:0 }
 };
 
+const TRAIL_ADVICE = [
+  bilingual("Ne chassez pas deux fois de suite au même endroit : les animaux abattus ne reviennent pas et le reste du gibier se disperse.","Do not hunt twice in a row at the same place: killed animals do not return, and the remaining game scatters."),
+  bilingual("Consultez la carte avant de chasser : les espèces présentes changent fortement d’un terrain à l’autre.","Check the map before hunting: available species change greatly from one terrain to another."),
+  bilingual("À l’intérieur d’un fort, les voleurs et les attaques ne menacent pas le camp : c’est l’endroit le plus sûr pour dormir.","Inside a fort, thieves and attacks do not threaten the camp: it is the safest place to sleep."),
+  bilingual("Au fort, les murs et les bâtiments protègent du mauvais temps : même un groupe à court de couvertures peut y récupérer correctement.","At a fort, walls and buildings protect against bad weather: even a party short of blankets can recover properly there."),
+  bilingual("Six bœufs donnent une bonne allure de référence au chariot.","Six oxen give the wagon a solid standard pace."),
+  bilingual("Au-delà de huit bœufs, l’attelage n’avance presque plus vite : gardez plutôt votre argent pour la piste.","Beyond eight oxen, the team moves hardly any faster: save your money for the trail instead."),
+  bilingual("Avec quatre bœufs le chariot ralentit déjà ; avec deux, chaque mauvaise piste devient interminable.","With four oxen the wagon already slows down; with two, every rough trail becomes painfully long."),
+  bilingual("Gardez toujours un dernier bœuf sous le joug : sans lui, le voyage s’arrête.","Always keep one last ox under the yoke: without it, the journey ends."),
+  bilingual("Quand les sacs sont vides, un bœuf peut nourrir le groupe — mais seulement si un autre reste pour tirer.","When the sacks are empty, an ox can feed the party—but only if another remains to pull."),
+  bilingual("Chaque voyageur vivant mange tous les jours ; un groupe nombreux vide très vite les réserves.","Every living traveler eats each day; a large party drains the stores quickly."),
+  bilingual("La chasse et le repos consomment eux aussi la ration choisie, même quand le chariot ne progresse pas.","Hunting and resting also consume the selected ration, even when the wagon makes no progress."),
+  bilingual("Une allure prudente économise un peu de vivres ; forcer l’allure en consomme davantage.","A cautious pace saves a little food; forcing the pace consumes more."),
+  bilingual("Les rations maigres font durer les sacs, mais elles laissent les voyageurs plus vulnérables.","Meager rations stretch the stores, but leave travelers more vulnerable."),
+  bilingual("L’allure la plus rapide use les voyageurs et les bœufs bien avant que le chariot n’atteigne les montagnes.","The fastest pace wears down travelers and oxen long before the wagon reaches the mountains."),
+  bilingual("Ralentir réduit surtout les chutes, blessures et avaries liées à la distance ; cela n’éloigne ni les voleurs ni les maladies.","Slowing down mainly reduces falls, injuries, and breakdowns tied to distance; it does not deter thieves or disease."),
+  bilingual("La carte décrit les cent cinquante kilomètres à venir : lisez-la avant de choisir l’allure.","The map describes the next one hundred and fifty kilometers: read it before choosing a pace."),
+  bilingual("Le désert ne donne pas de neige, mais sa chaleur fatigue vite les hommes et les bœufs.","The desert brings no snow, but its heat quickly tires people and oxen."),
+  bilingual("Le temps garde souvent la mémoire de la veille : préparez-vous à plusieurs jours difficiles plutôt qu’à une seule mauvaise journée.","Weather often remembers the previous day: prepare for several hard days rather than one bad day."),
+  bilingual("La pluie, la neige et les grandes chaleurs réduisent réellement la distance parcourue dans la journée.","Rain, snow, and great heat genuinely reduce the distance covered in a day."),
+  bilingual("Les pentes et les mauvaises pistes ralentissent le convoi et multiplient les accidents.","Slopes and poor trails slow the wagon party and multiply accidents."),
+  bilingual("Plus l’Oregon approche, plus les marchandises des forts deviennent chères.","The closer Oregon gets, the more expensive fort supplies become."),
+  bilingual("Un marchand augmente le prix d’un équipement demandé plusieurs fois au même fort.","A merchant raises the price of equipment bought repeatedly at the same fort."),
+  bilingual("Les vivres gardent le même prix au sein d’un fort, même après plusieurs achats le même jour.","Food keeps the same price within a fort, even after several purchases on the same day."),
+  bilingual("Tous les forts vendent des remèdes, même lorsque leur autre équipement manque.","Every fort sells medicine, even when other equipment is unavailable."),
+  bilingual("Une pièce de rechange peut épargner plusieurs jours de réparation et éviter d’abandonner du chargement.","A spare part can save several repair days and prevent cargo from being abandoned."),
+  bilingual("Même par temps modéré, les nuits sont fraîches : une couverture par voyageur aide vraiment la récupération.","Even in mild weather, nights are cool: one blanket per traveler genuinely helps recovery."),
+  bilingual("Plusieurs haltes successives rendent de moins en moins de forces ; reposez-vous avant que tout le groupe ne soit épuisé.","Repeated stops restore less and less strength; rest before the whole party is exhausted."),
+  bilingual("Le repos aide les blessures à cicatriser, mais une maladie continue de suivre son cours.","Rest helps wounds heal, but an illness continues to run its course."),
+  bilingual("Le repos dans un fort est plus réparateur et ne souffre ni du froid ni du manque de couvertures.","Rest at a fort is more restorative and suffers neither from cold nor from too few blankets."),
+  bilingual("Un remède améliore les chances d’un malade, mais ne guérit ni la fièvre ni la dysenterie en une nuit.","Medicine improves a sick traveler’s chances, but cures neither fever nor dysentery overnight."),
+  bilingual("Les serpents restent cachés dans le froid et la neige ; ils se montrent davantage sous les grandes chaleurs.","Snakes remain hidden in cold and snow; they appear more often in great heat."),
+  bilingual("Isoler les malades ralentit la contagion, mais consomme des jours et des vivres.","Isolating the sick slows contagion, but consumes days and food."),
+  bilingual("Une balle suffit souvent pour un lapin ou un oiseau ; un cerf ou un bison en exige généralement plusieurs.","One bullet often suffices for a rabbit or bird; deer and bison usually require several."),
+  bilingual("Sous la pluie ou dans le froid, le gros gibier devient beaucoup plus rare.","In rain or cold weather, large game becomes much rarer."),
+  bilingual("Ne cherchez pas de bison dans le désert : gardez vos balles pour les lapins et les oiseaux.","Do not look for bison in the desert: save your bullets for rabbits and birds."),
+  bilingual("Le chariot ne rapporte jamais plus de quatre-vingt-dix kilos d’une seule chasse.","The wagon never brings back more than ninety kilograms from one hunt."),
+  bilingual("Attendre devant un fleuve ne garantit rien : la saison et la météo peuvent faire monter l’eau pendant la halte.","Waiting at a river guarantees nothing: season and weather can raise the water during the stop."),
+  bilingual("Le bac coûte cher, mais il protège généralement mieux le groupe et le chargement.","The ferry is expensive, but it usually protects the party and cargo better."),
+  bilingual("À flot, quelques centimètres d’eau supplémentaires peuvent accroître brutalement les pertes.","When floating, a few extra centimeters of water can sharply increase the losses."),
+  bilingual("Un groupe fatigué tient moins bien les cordes d’un chariot flottant ; après un échec, une nouvelle tentative est un peu mieux préparée.","A tired party handles a floating wagon’s ropes less effectively; after a failure, another attempt is slightly better prepared.")
+];
+
 const LANDMARKS = [
   {km:165,name:"Rivière Kansas",kind:"river",baseDepth:0.8,seasonalFlow:.75,weatherResponse:1.15,visual:"kansas"},
   {km:490,name:"Fort Kearny",kind:"fort",visual:"fort-kearny"},
@@ -130,7 +173,7 @@ function baseGame(names, profession, month) {
     version:1, profession, money, initialMoney:money, cart:{...cart},
     party:names.map(name => ({name,health:100,state:"En forme",alive:true,sickDays:0,treated:false,woundDays:0,woundKind:null,needsRemedy:false,deathCause:null,pendingRecoveryCondition:null,pendingWoundRecoveryKind:null})),
     day:1, month:Number(month), year:1848, km:0, days:0, pace:"soutenu", rations:"normales",
-    weather:{...WEATHER[0]}, weatherHistory:["Doux"], landmarkIndex:0, oxStrain:0, lastEvent:null, lastRestDay:null, restStreak:0, huntPressure:{}, riverFailures:{}, fortPurchases:{}, fortAssortments:{}, journal:[], finished:false, score:0,
+    weather:{...WEATHER[0]}, weatherHistory:["Doux"], landmarkIndex:0, oxStrain:0, lastEvent:null, lastRestDay:null, restStreak:0, huntPressure:{}, riverFailures:{}, fortPurchases:{}, fortAssortments:{}, seenAdvice:[], journal:[], finished:false, score:0,
     pendingDeath:null, deathEventOpen:false, pendingRiverOutcome:null, pendingHuntDay:null
   };
 }
@@ -161,6 +204,12 @@ function landmarkName(mark){return languageText(mark.name)}
 function alive() { return game.party.filter(p => p.alive); }
 function rand(min,max) { return Math.floor(Math.random()*(max-min+1))+min; }
 function pick(arr) { return arr[Math.floor(Math.random()*arr.length)]; }
+function nextTrailAdvice(){
+  game.seenAdvice??=[];
+  const unseen=TRAIL_ADVICE.map((text,id)=>({id,text})).filter(advice=>!game.seenAdvice.includes(advice.id));
+  if(!unseen.length)return null;
+  const advice=pick(unseen);game.seenAdvice.push(advice.id);return advice.text;
+}
 function joinList(items,language=currentLanguage) {
   if(items.length<2)return items[0]??"";
   return `${items.slice(0,-1).join(", ")} ${language==="en"?"and":"et"} ${items.at(-1)}`;
@@ -921,10 +970,12 @@ function eventPool(weather=game.weather){
       }
     });
   const events=[wagonEvent,axleEvent,taggedEvent("encounter",()=>{
-      const found=loadFood(rand(10,25));
-      const details=found?bilingual(`Vous recevez ${found} kg de vivres et quelques conseils.`,`You receive ${found} kg of food and some advice.`):bilingual("Le chariot est déjà plein : vous échangez plutôt des conseils sur la piste.","The wagon is already full, so you exchange advice about the trail instead.");
+      const found=loadFood(rand(10,25)),advice=nextTrailAdvice(),adviceFr=advice?` Conseil reçu : « ${advice.fr} »`:"",adviceEn=advice?` Advice received: “${advice.en}”`:"";
+      const details=found?bilingual(`Vous recevez ${found} kg de vivres.${adviceFr}`,`You receive ${found} kg of food.${adviceEn}`):bilingual(`Le chariot est déjà plein.${adviceFr}`,`The wagon is already full.${adviceEn}`);
+      const journalFr=found?`Une famille nous a donné ${found} kg de vivres ; les réserves contiennent désormais ${journalNumber(game.cart.vivres,"fr")} kg.${adviceFr}`:advice?`Une famille nous a conseillé sur la route.${adviceFr}`:"Une famille de passage a trouvé notre chariot déjà plein ; nous avons seulement échangé quelques nouvelles.";
+      const journalEn=found?`A family gave us ${found} kg of food; the stores now contain ${journalNumber(game.cart.vivres,"en")} kg.${adviceEn}`:advice?`A family gave us advice about the trail.${adviceEn}`:"A passing family found our wagon already full; we merely exchanged some news.";
       eventModal("Une bonne rencontre","Des voyageurs revenant de l’Oregon partagent leurs provisions.",details,[
-        {label:"Les remercier",action:()=>addJournal(found?bilingual(`Une famille généreuse nous a donné ${found} kg de vivres ; les réserves contiennent désormais ${journalNumber(game.cart.vivres,"fr")} kg.`,`A generous family gave us ${found} kg of food; the stores now contain ${journalNumber(game.cart.vivres,"en")} kg.`):bilingual("Une famille généreuse nous a conseillé sur la route à venir.","A generous family shared advice about the road ahead."))}
+        {label:"Les remercier",action:()=>addJournal(bilingual(journalFr,journalEn))}
       ],"incident-encounter.webp");
     }),taggedEvent("theft",theftEvent),taggedEvent("trade",tradeEvent),taggedEvent("attack",attackEvent)];
   if(patients.length){
@@ -1358,6 +1409,32 @@ function fortStockText(key,language=currentLanguage){
   if(key==="boeufs")return language==="en"?`${quantity} ${quantity===1?"ox":"oxen"}`:`${quantity} bœuf${quantity>1?"s":""}`;
   return itemQuantityFor(key,quantity,language);
 }
+function fortPurchaseQuantity(key,quantity,language="fr"){
+  const amount=journalNumber(quantity,language);
+  if(language==="en"){
+    if(key==="boeufs")return `${amount} ${quantity===1?"ox":"oxen"}`;
+    if(key==="vivres")return `${amount} kg of food`;
+    if(key==="munitions")return `${amount} bullet${quantity===1?"":"s"}`;
+    if(key==="vetements")return `${amount} blanket${quantity===1?"":"s"}`;
+    if(key==="pieces")return `${amount} spare part${quantity===1?"":"s"}`;
+    return `${amount} ${quantity===1?"dose":"doses"} of medicine`;
+  }
+  if(key==="boeufs")return `${amount} bœuf${quantity>1?"s":""}`;
+  if(key==="vivres")return `${amount} kg de vivres`;
+  if(key==="munitions")return `${amount} balle${quantity>1?"s":""}`;
+  if(key==="vetements")return `${amount} couverture${quantity>1?"s":""}`;
+  if(key==="pieces")return `${amount} pièce${quantity>1?"s":""} de rechange`;
+  return `${amount} remède${quantity>1?"s":""}`;
+}
+function recordFortPurchaseJournal(mark,item,cost){
+  let entry=game.journal.find(candidate=>candidate.kind==="fort-purchases"&&candidate.fort===mark.visual&&candidate.day===game.day&&candidate.month===game.month&&candidate.year===game.year);
+  if(!entry){entry=addJournal(bilingual("",""));entry.kind="fort-purchases";entry.fort=mark.visual;entry.purchaseItems={};}
+  const purchase=entry.purchaseItems[item.key]??={quantity:0,cost:0};purchase.quantity+=item.qty;purchase.cost+=cost;entry.purchaseItems[item.key]=purchase;
+  const purchases=Object.entries(entry.purchaseItems),frLines=purchases.map(([key,value])=>`${fortPurchaseQuantity(key,value.quantity,"fr")} pour ${value.cost} $`),enLines=purchases.map(([key,value])=>`${fortPurchaseQuantity(key,value.quantity,"en")} for $${value.cost}`);
+  const frStocks=purchases.map(([key])=>fortPurchaseQuantity(key,game.cart[key],"fr")),enStocks=purchases.map(([key])=>fortPurchaseQuantity(key,game.cart[key],"en"));
+  entry.text=bilingual(`Achats à ${mark.name} : ${joinList(frLines,"fr")}. Stocks correspondants : ${joinList(frStocks,"fr")}. Argent restant : ${game.money} $.`,`Purchases at ${landmarkName(mark)}: ${joinList(enLines,"en")}. Corresponding stocks: ${joinList(enStocks,"en")}. Money remaining: $${game.money}.`);
+  return entry;
+}
 function fortPurchaseAction(mark,item){
   let lastPurchase=null;
   const action={
@@ -1365,7 +1442,7 @@ function fortPurchaseAction(mark,item){
     disabled:()=>game.money<fortPurchasePrice(mark,item.key,item.baseCost)||game.cart[item.key]+item.qty>SHOP[item.key].max,
     action:()=>{
       const cost=fortPurchasePrice(mark,item.key,item.baseCost);game.money-=cost;game.cart[item.key]+=item.qty;recordFortPurchase(mark,item.key);lastPurchase={cost,money:game.money};
-      addJournal(bilingual(`Achat à ${mark.name} : ${item.label} pour ${cost} $. Nouveau stock : ${fortStockText(item.key,"fr")}. Argent restant : ${game.money} $.`,`Purchase at ${landmarkName(mark)}: ${item.labelEn} for $${cost}. New stock: ${fortStockText(item.key,"en")}. Money remaining: $${game.money}.`));
+      recordFortPurchaseJournal(mark,item,cost);
     },
     feedback:()=>lastPurchase?bilingual(`Achat effectué : ${item.label} pour ${lastPurchase.cost} $. Nouveau stock : ${fortStockText(item.key,"fr")}. Il reste ${lastPurchase.money} $.`,`Purchase complete: ${item.labelEn} for $${lastPurchase.cost}. New stock: ${fortStockText(item.key,"en")}. $${lastPurchase.money} remains.`):null
   };

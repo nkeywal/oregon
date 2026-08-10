@@ -385,11 +385,30 @@ test("losing an ox records the remaining team and its effect on pace",()=>{
   assert.match(text,/Il reste 4 bœufs/);assert.match(text,/plus lentement/);
 });
 
-test("attacks become longer, faster, and denser farther west",()=>{
-  const result=scenario(`game=baseGame(["A"],"fermier",3);({east:attackDifficultyAt(0),west:attackDifficultyAt(KM_TOTAL)})`);
-  assert.ok(result.west.duration>result.east.duration);assert.ok(result.west.duration<=result.east.duration+2);
+test("attacks become faster and denser farther west while the chosen response fixes their duration",()=>{
+  const result=scenario(`game=baseGame(["A"],"fermier",3);({east:attackDifficultyAt(0,12),west:attackDifficultyAt(KM_TOTAL,12)})`);
+  assert.equal(result.east.duration,12);assert.equal(result.west.duration,12);
   assert.ok(result.west.speed>result.east.speed&&result.west.speed<=result.east.speed*1.25);
   assert.ok(result.west.spawnBase<result.east.spawnBase&&result.west.spawnBase>=.4);assert.ok(result.west.minSpawn>=.15);
+});
+
+test("attack response choices use the exact ammunition costs and durations",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.munitions=50;let details,actions;eventModal=(title,text,value,choices)=>{details=value;actions=choices};attackEvent();({details,labels:actions.map(action=>action.label),disabled:actions.map(action=>actionDisabled(action))})`);
+  assert.match(result.details.fr,/50 balles/);assert.match(result.details.en,/50 bullets/);
+  assert.equal(JSON.stringify(result.labels.map(label=>[label.fr.match(/(\d+) balle/)[1],label.fr.match(/(\d+) s/)[1]])),JSON.stringify([["0","25"],["10","20"],["40","12"],["100","6"]]));
+  assert.deepEqual([...result.disabled],[false,false,false,true]);
+});
+
+test("maximum return fire requires three survivors and the limitation is journaled",()=>{
+  const result=scenario(`game=baseGame(["Lou","Alix"],"fermier",3);game.cart.munitions=120;let actions,started;eventModal=(title,text,details,value)=>actions=value;startAttack=(entry,callback,response)=>started=response;attackEvent();const maximumDisabled=actionDisabled(actions[3]),maximumLabel=actions[3].label.fr;actions[2].action();({maximumDisabled,maximumLabel,ammo:game.cart.munitions,started,journal:game.journal[0].text})`);
+  assert.equal(result.maximumDisabled,true);assert.match(result.maximumLabel,/3 voyageurs nécessaires/);
+  assert.equal(result.ammo,80);assert.equal(result.started.duration,12);assert.equal(result.started.id,"sustained");
+  assert.match(result.journal.fr,/Riposte soutenue/);assert.match(result.journal.fr,/seulement 2 survivants/);assert.match(result.journal.fr,/riposte maximale était impossible/);
+});
+
+test("three survivors can spend one hundred bullets on a six-second maximum response",()=>{
+  const result=scenario(`game=baseGame(["A","B","C"],"fermier",3);game.cart.munitions=100;let actions,started;eventModal=(title,text,details,value)=>actions=value;startAttack=(entry,callback,response)=>started=response;attackEvent();const enabled=!actionDisabled(actions[3]);actions[3].action();({enabled,ammo:game.cart.munitions,started,journal:game.journal[0].text.fr})`);
+  assert.equal(result.enabled,true);assert.equal(result.ammo,0);assert.equal(result.started.duration,6);assert.match(result.journal,/Riposte maximale/);assert.doesNotMatch(result.journal,/impossible/);
 });
 
 test("later attacks cause more casualties and more severe wounds",()=>{

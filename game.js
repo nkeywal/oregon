@@ -1070,9 +1070,33 @@ function tradeEvent(){
 }
 
 function attackEvent(){
-  eventModal("Attaque du convoi","Les indiens approchent rapidement à cheval et des projectiles frappent autour des chariots.","Mettez le groupe à couvert et tenez jusqu’à leur retrait.",[
-    {label:"Protéger le convoi",deferReturn:true,action:()=>{const incidentEntry=journalMergeTarget,returnCallback=activeEventModal?.returnCallback??null;setTimeout(()=>startAttack(incidentEntry,returnCallback),0)}}
-  ],"incident-attack.webp");
+  const responses=[
+    {id:"none",name:bilingual("Aucune riposte","No return fire"),ammo:0,duration:25},
+    {id:"light",name:bilingual("Riposte légère","Light return fire"),ammo:10,duration:20},
+    {id:"sustained",name:bilingual("Riposte soutenue","Sustained return fire"),ammo:40,duration:12},
+    {id:"maximum",name:bilingual("Riposte maximale","Maximum return fire"),ammo:100,duration:6}
+  ];
+  const survivors=alive().length,maximumManpowerBlocked=survivors<3;
+  const actions=responses.map(response=>{
+    const manpowerBlocked=response.id==="maximum"&&maximumManpowerBlocked;
+    const requirement=manpowerBlocked?bilingual(" · 3 voyageurs nécessaires"," · 3 travelers required"):bilingual("","");
+    return {
+      label:bilingual(`${response.name.fr} · ${response.ammo} balle${response.ammo>1?"s":""} · ${response.duration} s${requirement.fr}`,`${response.name.en} · ${response.ammo} bullet${response.ammo===1?"":"s"} · ${response.duration}s${requirement.en}`),
+      disabled:()=>game.cart.munitions<response.ammo||manpowerBlocked,
+      deferReturn:true,
+      action:()=>{
+        const incidentEntry=journalMergeTarget,returnCallback=activeEventModal?.returnCallback??null;
+        game.cart.munitions-=response.ammo;
+        const choiceFr=response.ammo?`${response.name.fr} : ${response.ammo} balles utilisées ; le convoi devra tenir environ ${response.duration} secondes. Il reste ${game.cart.munitions} balle${game.cart.munitions>1?"s":""}.`:`${response.name.fr} : le convoi devra tenir environ ${response.duration} secondes.`;
+        const choiceEn=response.ammo?`${response.name.en}: ${response.ammo} bullets used; the wagon party must hold out for about ${response.duration} seconds. ${game.cart.munitions} bullet${game.cart.munitions===1?" remains":"s remain"}.`:`${response.name.en}: the wagon party must hold out for about ${response.duration} seconds.`;
+        const limitationFr=maximumManpowerBlocked?` Avec seulement ${survivors} survivant${survivors>1?"s":""}, la riposte maximale était impossible.`:"";
+        const limitationEn=maximumManpowerBlocked?` With only ${survivors} survivor${survivors===1?"":"s"}, maximum return fire was impossible.`:"";
+        addJournal(bilingual(`${choiceFr}${limitationFr}`,`${choiceEn}${limitationEn}`));
+        setTimeout(()=>startAttack(incidentEntry,returnCallback,response),0);
+      }
+    };
+  });
+  eventModal("Attaque du convoi","Les indiens approchent rapidement à cheval et des projectiles frappent autour des chariots.",bilingual(`Vous disposez de ${game.cart.munitions} balle${game.cart.munitions>1?"s":""}. Une riposte raccourcit l’attaque, mais la riposte maximale exige au moins trois voyageurs vivants.`,`You have ${game.cart.munitions} bullet${game.cart.munitions===1?"":"s"}. Return fire shortens the attack, but maximum return fire requires at least three living travelers.`),actions,"incident-attack.webp");
 }
 
 function landmark(mark){
@@ -1611,10 +1635,10 @@ function continueAfterHuntReport(){
   returnToTrailTop();
 }
 
-// Mini-jeu d'attaque : esquive et mise à couvert, sans tir.
-function attackDifficultyAt(km=game.km){
+// Mini-jeu défensif : la riposte choisie détermine le temps à tenir.
+function attackDifficultyAt(km=game.km,duration=25){
   const progress=clamp(km/KM_TOTAL,0,1);
-  return {progress,duration:16+Math.round(progress*2),speed:1+progress*.25,spawnBase:.48-progress*.07,minSpawn:.16,spawnDecay:.012};
+  return {progress,duration,speed:1+progress*.25,spawnBase:.48-progress*.07,minSpawn:.16,spawnDecay:.012};
 }
 
 function attackOutcomeRisk(hits,progress=clamp(game.km/KM_TOTAL,0,1)){
@@ -1625,10 +1649,10 @@ function attackOutcomeRisk(hits,progress=clamp(game.km/KM_TOTAL,0,1)){
   };
 }
 
-function startAttack(journalEntry=null,returnCallback=null){
+function startAttack(journalEntry=null,returnCallback=null,response={id:"none",ammo:0,duration:25}){
   if(game.finished||!alive().length)return;
-  const difficulty=attackDifficultyAt();
-  attack={time:difficulty.duration,duration:difficulty.duration,hits:0,x:330,projectiles:[],spawnIn:.3,last:performance.now(),running:true,journalEntry,returnCallback,...difficulty};
+  const difficulty=attackDifficultyAt(game.km,response.duration);
+  attack={time:difficulty.duration,duration:difficulty.duration,hits:0,x:330,projectiles:[],spawnIn:.3,last:performance.now(),running:true,journalEntry,returnCallback,response,...difficulty};
   $("#attaque-temps").textContent=difficulty.duration;$("#attaque-impacts").textContent=0;
   $("#dialogue-attaque").showModal();$("#canvas-attaque").focus();requestAnimationFrame(attackLoop);
 }

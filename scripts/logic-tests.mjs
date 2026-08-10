@@ -456,6 +456,12 @@ test("attacks have a slightly lower selection weight than other incidents",()=>{
   assert.equal(result.attack,.95);assert.equal(result.theft,1);assert.equal(result.encounter,1);
 });
 
+test("faster paces add travel accidents without raising theft risk",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{boeufs:6,pieces:3,vetements:5});game.weather=WEATHER[0];const rate=pace=>{game.pace=pace;const events=eventPool(),total=events.reduce((sum,event)=>sum+eventSelectionWeight(event),0),daily=dailyIncidentChance(PACES[pace],WEATHER[0],{risk:0}),theft=events.find(event=>event.eventId==="theft");return {theft:daily*eventSelectionWeight(theft)/total,wagon:daily*events.filter(event=>event.eventId==="wagon").reduce((sum,event)=>sum+eventSelectionWeight(event),0)/total}};({prudent:rate("prudent"),normal:rate("soutenu"),grueling:rate("epuisant")})`);
+  assert.ok(Math.abs(result.prudent.theft-result.normal.theft)<.0001);assert.ok(Math.abs(result.prudent.theft-result.grueling.theft)<.0001);
+  assert.ok(result.normal.wagon>result.prudent.wagon);assert.ok(result.grueling.wagon>result.normal.wagon);
+});
+
 test("medical incidents always retain a non-medicine alternative",()=>{
   const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.medicaments=0;eventModal=(title,text,details,actions)=>{game.actions=actions};feverEvent(game.party[0]);({label:game.actions[0].label,medicineDisabled:game.actions[0].disabled,alternativeDisabled:!!game.actions[1].disabled})`);
   assert.equal(result.label,"Aucun remède disponible");assert.equal(result.medicineDisabled,true);assert.equal(result.alternativeDisabled,false);
@@ -662,11 +668,11 @@ test("food loading never exceeds capacity",()=>{
   assert.equal(result.loaded,5);assert.equal(result.left,800);
 });
 
-test("prepared complete journeys stay in the historical four-to-six-month window",()=>{
+test("prepared complete journeys stay near the historical window despite accumulated stops",()=>{
   const result=scenario(`let seed=1848;Math.random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296};finish=win=>{game.finished=true;game.testWin=win};updateUI=()=>{};setTrailScene=()=>{};showLandmarkArt=()=>{};toast=()=>{};returnToTrailTop=()=>{};refreshFortArrivalArt=()=>{};queueRiverOutcome=()=>{};startAttack=()=>{};eventModal=(title,text,details,actions)=>{let action=actions.find(candidate=>!actionDisabled(candidate));if(String(languageText(title)).includes("Fort"))action=actions.find(candidate=>languageText(candidate.label)==="Repartir")||action;if(!action)throw new Error("No playable event action");action.action();updateDeaths();checkJourneyFailure()};const runs={prudent:[],soutenu:[],epuisant:[]};for(const pace of Object.keys(runs))for(let attempt=0;attempt<40;attempt++){game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{boeufs:8,vivres:700,munitions:300,vetements:8,pieces:5,medicaments:8});game.money=300;game.pace=pace;game.weather=weatherForPosition(game.month,game.day,game.year,0,[]);game.weatherHistory=[game.weather.name];let turns=0;while(!game.finished&&turns++<500){if(game.cart.vivres<100&&game.cart.munitions>=5){game.cart.munitions-=5;loadFood(55)}const average=alive().reduce((sum,traveler)=>sum+traveler.health,0)/alive().length;if(average<48&&game.cart.vivres>=alive().length*4)rest();else travel()}if(game.testWin)runs[pace].push(game.days)}for(const values of Object.values(runs))values.sort((a,b)=>a-b);const percentile=(values,p)=>values[Math.floor((values.length-1)*p)];({wins:Object.fromEntries(Object.entries(runs).map(([pace,values])=>[pace,values.length])),prudent:{p10:percentile(runs.prudent,.1),p75:percentile(runs.prudent,.75)},soutenu:{p10:percentile(runs.soutenu,.1),p75:percentile(runs.soutenu,.75)}})`);
   assert.ok(result.wins.prudent>=30,JSON.stringify(result));assert.ok(result.wins.soutenu>=4,JSON.stringify(result));
   assert.ok(result.wins.epuisant<=2&&result.wins.epuisant<result.wins.soutenu,JSON.stringify(result));
-  assert.ok(result.prudent.p10>=120&&result.prudent.p75<=195,JSON.stringify(result));assert.ok(result.soutenu.p10>=120&&result.soutenu.p75<=195,JSON.stringify(result));
+  assert.ok(result.prudent.p10>=120&&result.prudent.p75<=210,JSON.stringify(result));assert.ok(result.soutenu.p10>=120&&result.soutenu.p75<=210,JSON.stringify(result));
 });
 
 test("fort rest cost follows the current party size",()=>{

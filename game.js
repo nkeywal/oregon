@@ -750,7 +750,15 @@ function showPendingDeathEvent(){
 function eventEligibleTravelers(){return alive().filter(p=>p.sickDays<=0&&(p.woundDays??0)<=0&&!p.needsRemedy)}
 function taggedEvent(id,run){run.eventId=id;return run}
 const EVENT_SELECTION_WEIGHTS={attack:.95};
-function eventSelectionWeight(event){return EVENT_SELECTION_WEIGHTS[event.eventId]??1}
+const PACE_SENSITIVE_EVENTS=new Set(["wagon","axle","injury","ox-injury"]);
+// L'excès de risque des allures rapides est concentré sur les accidents liés
+// au déplacement. Les risques quotidiens de vol, rencontre, maladie et attaque
+// restent ainsi proches de ceux de l'allure prudente.
+const PACE_EVENT_SELECTION_SCALE={prudent:1,soutenu:2.3633,epuisant:3.129};
+function eventSelectionWeight(event){
+  const base=EVENT_SELECTION_WEIGHTS[event.eventId]??1;
+  return PACE_SENSITIVE_EVENTS.has(event.eventId)?base*PACE_EVENT_SELECTION_SCALE[game.pace]:base;
+}
 
 function eventPool(){
   if(game.finished||!alive().length)return [];

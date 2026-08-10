@@ -88,8 +88,8 @@ test("multi-day stops evolve weather once per elapsed day",()=>{
 });
 
 test("travel journal associates distance with each encountered weather",()=>{
-  const text=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);addTravelJournal(25,2,[{name:"Neige",distance:12,days:1},{name:"Doux",distance:13,days:1}]);game.journal[0].text.fr`);
-  assert.equal(text,"25 km parcourus en 2 jours : 12 km par temps de neige et 13 km par temps modéré. Allure : normale. Terrain : Prairies du Kansas ; terrain ondulé ; piste bien marquée ; climat continental humide.");
+  const text=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.vivres=87.5;addTravelJournal(25,2,[{name:"Neige",distance:12,days:1},{name:"Doux",distance:13,days:1}],ROUTE_SEGMENTS[0],12.5,game.cart.vivres);game.journal[0].text.fr`);
+  assert.equal(text,"25 km parcourus en 2 jours : 12 km par temps de neige et 13 km par temps modéré. Allure : normale. Terrain : Prairies du Kansas ; terrain ondulé ; piste bien marquée ; climat continental humide. Vivres : 12,5 kg consommés ; 87,5 kg restent dans le chariot.");
 });
 
 test("travel journal records every chosen pace",()=>{
@@ -98,9 +98,15 @@ test("travel journal records every chosen pace",()=>{
   assert.match(labels.prudent.en,/Pace: cautious/);assert.match(labels.soutenu.en,/Pace: normal/);assert.match(labels.epuisant.en,/Pace: as fast as possible/);
 });
 
+test("the opening journal entry records the party, profession, loadout, and remaining cash",()=>{
+  const text=scenario(`game=baseGame(["Camille","Lou","Charlie","Alix","Sacha"],"charpentier",3);Object.assign(game.cart,{boeufs:6,vivres:420,munitions:140,vetements:5,pieces:2,medicaments:3});game.money=137;departureJournal()`);
+  for(const detail of ["Camille","Lou","Charlie","Alix","Sacha","charpentier","6 bœufs","420 kg de vivres","140 balles","5 couvertures","2 pièces de rechange","3 remèdes","137 $ restent"])assert.ok(text.fr.includes(detail),`missing French departure detail: ${detail}`);
+  for(const detail of ["Camille","carpenter","6 oxen","420 kg of food","140 bullets","5 blankets","2 spare parts","3 doses of medicine","$137 remains"])assert.ok(text.en.includes(detail),`missing English departure detail: ${detail}`);
+});
+
 test("an uneventful travel outcome stays in the same journal entry",()=>{
   const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);eventModal=(title,text,details,actions)=>actions[0].action();const entry=addTravelJournal(70,5,[{name:"Pluvieux",distance:70,days:5}],ROUTE_SEGMENTS[8]);quietTravelEvent(70,50,5,entry);({count:game.journal.length,text:game.journal[0].text.fr})`);
-  assert.equal(result.count,1);assert.match(result.text,/70 km parcourus/);assert.match(result.text,/Une étape calme et sans incident/);
+  assert.equal(result.count,1);assert.match(result.text,/70 km parcourus/);assert.match(result.text,/Aucun incident n’a troublé l’étape/);
 });
 
 test("incident outcomes merge into their original dated journal entry",()=>{
@@ -322,17 +328,17 @@ test("an attack wound evolves alongside rather than replacing dysentery",()=>{
 });
 
 test("an untreated attack wound eventually clears its remedy flag",()=>{
-  const result=scenario(`game=baseGame(["Alice"],"fermier",3);const patient=game.party[0];applyAttackWound(patient,10);advanceDate(16);({state:patient.state,woundDays:patient.woundDays,needsRemedy:patient.needsRemedy,eligible:eventEligibleTravelers().includes(patient)})`);
+  const result=scenario(`game=baseGame(["Alice"],"fermier",3);const patient=game.party[0];applyAttackWound(patient,10);advanceDate(16);updateDeaths();({state:patient.state,woundDays:patient.woundDays,needsRemedy:patient.needsRemedy,eligible:eventEligibleTravelers().includes(patient)})`);
   assert.equal(result.state,"En forme");assert.equal(result.woundDays,0);assert.equal(result.needsRemedy,false);assert.equal(result.eligible,true);
 });
 
 test("named recoveries are preserved in the journal without internal health values",()=>{
-  const text=scenario(`game=baseGame(["Alice"],"fermier",3);Object.assign(game.party[0],{state:"Fièvre",sickDays:1,health:80});advanceDate(1);game.journal[0].text.fr`);
+  const text=scenario(`game=baseGame(["Alice"],"fermier",3);Object.assign(game.party[0],{state:"Fièvre",sickDays:1,health:80});advanceDate(1);updateDeaths();game.journal[0].text.fr`);
   assert.match(text,/Alice/);assert.match(text,/fièvre/);assert.doesNotMatch(text,/point|%/i);
 });
 
 test("recovery alongside an attack wound uses natural French",()=>{
-  const text=scenario(`game=baseGame(["Sacha"],"fermier",3);const sacha=game.party[0];Object.assign(sacha,{state:"Fièvre",sickDays:1,woundDays:5,needsRemedy:true});advanceDate(1);game.journal[0].text.fr`);
+  const text=scenario(`game=baseGame(["Sacha"],"fermier",3);const sacha=game.party[0];Object.assign(sacha,{state:"Fièvre",sickDays:1,woundDays:5,needsRemedy:true});advanceDate(1);updateDeaths();game.journal[0].text.fr`);
   assert.match(text,/La fièvre de Sacha est tombée/);assert.match(text,/blessure exige encore des soins/);assert.doesNotMatch(text,/vaincu fièvre/);
 });
 
@@ -458,7 +464,7 @@ test("snakebites can occur at rest but never at a fort or in cold weather",()=>{
 });
 
 test("snakebite lasts eight days and medicine strongly limits its effects",()=>{
-  const result=scenario(`const run=treated=>{game=baseGame(["Lou"],"fermier",3);game.cart.medicaments=treated?1:0;Math.random=()=>.5;let actions,art;eventModal=(title,text,details,value,image)=>{actions=value;art=image};const patient=game.party[0];snakebiteEvent(patient);const initialDays=patient.woundDays;(treated?actions[0]:actions[1]).action();advanceDate(8);return {health:patient.health,state:patient.state,days:patient.woundDays,needs:patient.needsRemedy,medicine:game.cart.medicaments,art}};({treated:run(true),untreated:run(false)})`);
+  const result=scenario(`const run=treated=>{game=baseGame(["Lou"],"fermier",3);game.cart.medicaments=treated?1:0;Math.random=()=>.5;let actions,art;eventModal=(title,text,details,value,image)=>{actions=value;art=image};const patient=game.party[0];snakebiteEvent(patient);const initialDays=patient.woundDays;(treated?actions[0]:actions[1]).action();advanceDate(8);updateDeaths();return {health:patient.health,state:patient.state,days:patient.woundDays,needs:patient.needsRemedy,medicine:game.cart.medicaments,art}};({treated:run(true),untreated:run(false)})`);
   assert.equal(result.treated.art,"incident-snakebite.webp");assert.equal(result.treated.days,0);assert.equal(result.untreated.days,0);
   assert.equal(result.treated.medicine,0);assert.equal(result.treated.needs,false);assert.ok(result.treated.health>result.untreated.health+30);
 });
@@ -525,6 +531,7 @@ test("the journal records blanket exposure during travel and recovery",()=>{
   const result=scenario(`const setup=()=>{game=baseGame(["Lou","Alix"],"fermier",3);Object.assign(game.cart,{boeufs:6,vivres:100,vetements:1});game.weather=WEATHER[0];weatherForSeason=()=>WEATHER[0];dailyIncidentOccurs=()=>false;updateUI=()=>{};setTrailScene=()=>{}};setup();quietTravelEvent=()=>{};travel(1);const travelText=game.journal[0].text;setup();performRest(2);const restText=game.journal[0].text;setup();game.cart.vetements=0;performRest(2,true);const fortText=game.journal[0].text;({travelText,restText,fortText})`);
   assert.match(result.travelText.fr,/manque de couvertures a fragilisé le groupe/);assert.match(result.travelText.en,/Too few blankets weakened/);
   assert.match(result.restText.fr,/manque de couvertures a fragilisé la récupération/);assert.match(result.restText.en,/hampered the party’s recovery/);
+  assert.match(result.restText.fr,/6 kg de vivres consommés ; 94 kg restent/);assert.match(result.restText.en,/6 kg of food consumed; 94 kg remain/);
   assert.doesNotMatch(result.fortText.fr,/manque de couvertures/);
 });
 
@@ -574,6 +581,17 @@ test("declining a trade records the exact rejected offer",()=>{
   assert.match(result.sell.fr,/refusé de vendre 1 pièce de rechange contre 20 \$/);assert.match(result.sell.en,/declined to sell 1 spare part for \$20/);
 });
 
+test("accepted trades record the new stock and remaining cash",()=>{
+  const result=scenario(`const run=(moneyValue,stock)=>{game=baseGame(["A"],"fermier",3);game.money=moneyValue;for(const key of Object.keys(game.cart))game.cart[key]=0;Object.assign(game.cart,stock);let actions;eventModal=(title,text,details,value)=>actions=value;Math.random=()=>0;tradeEvent();actions[0].action();return game.journal[0].text};({buy:run(1000,{}),sell:run(0,{pieces:1})})`);
+  assert.match(result.buy.fr,/Achat conclu : 50 kg de vivres pour 34 \$/);assert.match(result.buy.fr,/50 kg de vivres.*966 \$ en caisse/);
+  assert.match(result.sell.fr,/Vente conclue : 1 pièce de rechange pour 20 \$/);assert.match(result.sell.fr,/0 pièce.*20 \$ en caisse/);
+});
+
+test("theft entries say what was lost and what remains",()=>{
+  const text=scenario(`game=baseGame(["A"],"fermier",3);game.money=0;for(const key of Object.keys(game.cart))game.cart[key]=0;game.cart.munitions=100;Math.random=()=>0;let actions;eventModal=(title,body,details,value)=>actions=value;theftEvent();actions[0].action();game.journal[0].text`);
+  assert.match(text.fr,/15 balles/);assert.match(text.fr,/Il reste 85 balles/);assert.match(text.en,/15 bullets/);assert.match(text.en,/85 bullets remain/);
+});
+
 test("trail ammunition offers follow the rebalanced ammunition economy",()=>{
   const result=scenario(`const offerFor=(money,ammo,random)=>{game=baseGame(["A","B","C","D","E"],"fermier",3);game.money=money;game.cart.munitions=ammo;Math.random=()=>random;let text,actions;eventModal=(title,value,details,choices)=>{text=value;actions=choices};tradeEvent();return {text,accept:actions[0]}};const buying=offerFor(1000,0,.2);const selling=offerFor(0,100,.5);buying.accept.action();selling.accept.action();({buy:buying.text,sell:selling.text})`);
   assert.match(result.buy.fr,/40 balles pour 8 \$/);assert.match(result.buy.en,/40 bullets for \$8/);
@@ -588,18 +606,24 @@ test("one resolution kills at most one traveler",()=>{
 
 test("a death opens a specific illustrated event",()=>{
   const result=scenario(`game=baseGame(["Lou","B","C","D","E"],"fermier",3);game.party[0].health=0;eventModal=(title,text,details,actions,art)=>{game.deathEvent={title,text,details,actions,art}};updateDeaths();const shown=showPendingDeathEvent();({shown,art:game.deathEvent.art,title:game.deathEvent.title.fr,text:game.deathEvent.text.en,open:game.deathEventOpen})`);
-  assert.equal(result.shown,true);assert.equal(result.art,"incident-death-4.webp");assert.equal(result.title,"Un compagnon est mort");assert.equal(result.text,"Lou died from exhaustion on the trail.");assert.equal(result.open,true);
+  assert.equal(result.shown,true);assert.equal(result.art,"incident-death-4.webp");assert.equal(result.title,"Dernier adieu");assert.equal(result.text,"Lou passed away on the trail, overcome by exhaustion.");assert.equal(result.open,true);
 });
 
 test("death notices preserve a specific cause",()=>{
   const result=scenario(`game=baseGame(["Lou","B"],"fermier",3);const lou=game.party[0];Object.assign(lou,{health:0,state:"Dysenterie",sickDays:8});updateDeaths();const illness=deathNotice(lou);const other=game.party[1];Object.assign(other,{health:0,deathCause:bilingual("pendant l’attaque","during the attack")});const attackNotice=deathNotice(other);({illness,attack:attackNotice})`);
-  assert.match(result.illness.fr,/Lou est mort de la dysenterie/);assert.match(result.illness.en,/Lou died from dysentery/);
-  assert.match(result.attack.fr,/pendant l’attaque/);assert.match(result.attack.en,/during the attack/);
+  assert.equal(result.illness.fr,"Lou a succombé à la dysenterie.");assert.equal(result.illness.en,"Lou succumbed to dysentery.");
+  assert.match(result.attack.fr,/a perdu la vie pendant l’attaque/);assert.match(result.attack.en,/lost their life during the attack/);
 });
 
 test("a lethal final illness day retains the illness as its cause",()=>{
-  const result=scenario(`game=baseGame(["Lou"],"fermier",3);const lou=game.party[0];Object.assign(lou,{health:2,state:"Dysenterie",sickDays:1,treated:false});advanceDate(1);updateDeaths();({state:lou.state,cause:lou.deathCause,notice:deathNotice(lou)})`);
-  assert.equal(result.state,"Décédé");assert.equal(result.cause.fr,"de la dysenterie");assert.match(result.notice.en,/from dysentery/);
+  const result=scenario(`game=baseGame(["Lou"],"fermier",3);const lou=game.party[0];Object.assign(lou,{health:2,state:"Dysenterie",sickDays:1,treated:false});advanceDate(1);updateDeaths();({state:lou.state,cause:lou.deathCause,notice:deathNotice(lou),journal:game.journal.map(entry=>entry.text.fr)})`);
+  assert.equal(result.state,"Décédé");assert.equal(result.cause.fr,"de la dysenterie");assert.match(result.notice.en,/succumbed to dysentery/);
+  assert.ok(result.journal.every(text=>!text.includes("vaincu la dysenterie")),"a fatal illness day must never announce recovery");
+});
+
+test("recovery is recorded only after every consequence of the day is resolved",()=>{
+  const result=scenario(`game=baseGame(["Lou"],"fermier",3);const lou=game.party[0];Object.assign(lou,{health:4,state:"Dysenterie",sickDays:1});advanceDate(1);const before=[...game.journal];lou.health=0;lou.deathCause=bilingual("d’épuisement sur la piste","from exhaustion on the trail");updateDeaths();({before,after:game.journal.map(entry=>entry.text.fr),alive:lou.alive})`);
+  assert.equal(result.before.length,0);assert.equal(result.alive,false);assert.ok(result.after.every(text=>!text.includes("vaincu la dysenterie")));
 });
 
 test("death artwork reflects every possible survivor count",()=>{
@@ -614,7 +638,8 @@ test("the last companion's death uses an unburied final-traveler report",()=>{
 
 test("the last death entry is not overwritten by the final journey entry",()=>{
   const result=scenario(`game=baseGame(["Lou"],"fermier",3);game.km=2920;const lou=game.party[0];Object.assign(lou,{health:0,state:"Fièvre",sickDays:5});renderFinish=()=>{};eventModal=(title,text,details,actions)=>{const entry=addJournal(bilingualJoin(title," — ",text));entry.captureOutcomes=true;entry.outcomeFragments=[];journalMergeTarget=entry;actions[0].action();journalMergeTarget=null};updateDeaths();showPendingDeathEvent();game.journal.map(entry=>entry.text)`);
-  assert.equal(result.length,2);assert.match(result[0].fr,/convoi a disparu au kilomètre 2920/);assert.match(result[1].fr,/Lou est mort de la fièvre/);
+  assert.equal(result.length,2);assert.match(result[0].fr,/convoi a disparu au kilomètre 2920/);assert.match(result[1].fr,/Dernier adieu — La fièvre a fini par emporter Lou/);
+  assert.doesNotMatch(result[1].fr,/mort.*mort/i);
 });
 
 test("clicking hunt starts the mini-game before a day elapses",()=>{
@@ -726,12 +751,12 @@ test("travel stops on the exact incident day",()=>{
 
 test("an uneventful travel command resolves five daily simulations",()=>{
   const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{boeufs:6,vivres:500,vetements:5});updateUI=()=>{};setTrailScene=()=>{};dailyIncidentOccurs=()=>false;weatherForSeason=()=>WEATHER[0];quietTravelEvent=(distance,food,days)=>{game.report={distance,food,days}};travel();({days:game.days,km:game.km,food:game.cart.vivres,report:game.report})`);
-  assert.equal(result.days,5);assert.equal(result.km,150);assert.equal(result.food,462.5);assert.equal(result.report.days,5);assert.equal(result.report.food,38);
+  assert.equal(result.days,5);assert.equal(result.km,150);assert.equal(result.food,462.5);assert.equal(result.report.days,5);assert.equal(result.report.food,37.5);
 });
 
 test("a changing forecast affects each day and is detailed in the journal",()=>{
   const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{boeufs:6,vivres:500,vetements:5});updateUI=()=>{};setTrailScene=()=>{};dailyIncidentOccurs=()=>false;const forecast=[WEATHER[4],WEATHER[1],WEATHER[2],WEATHER[0]];weatherForSeason=()=>forecast.shift()??WEATHER[0];quietTravelEvent=()=>{};travel();({km:game.km,text:game.journal[0].text.fr})`);
-  assert.equal(result.km,128);assert.equal(result.text,"128 km parcourus en 5 jours : 60 km par temps modéré, 19 km par temps de neige, 25 km par temps très chaud et 24 km par temps pluvieux. Allure : normale. Terrain : Prairies du Kansas ; terrain ondulé ; piste bien marquée ; climat continental humide.");
+  assert.equal(result.km,128);assert.equal(result.text,"128 km parcourus en 5 jours : 60 km par temps modéré, 19 km par temps de neige, 25 km par temps très chaud et 24 km par temps pluvieux. Allure : normale. Terrain : Prairies du Kansas ; terrain ondulé ; piste bien marquée ; climat continental humide. Vivres : 37,5 kg consommés ; 462,5 kg restent dans le chariot.");
 });
 
 test("a death exactly at a landmark does not create a zero-kilometer travel day",()=>{

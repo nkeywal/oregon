@@ -128,7 +128,7 @@ function baseGame(names, profession, month) {
   const money = {fermier:500,charpentier:900,banquier:1500}[profession];
   return {
     version:1, profession, money, initialMoney:money, cart:{...cart},
-    party:names.map(name => ({name,health:100,state:"En forme",alive:true,sickDays:0,treated:false,woundDays:0,woundKind:null,needsRemedy:false,deathCause:null})),
+    party:names.map(name => ({name,health:100,state:"En forme",alive:true,sickDays:0,treated:false,woundDays:0,woundKind:null,needsRemedy:false,deathCause:null,pendingRecoveryCondition:null,pendingWoundRecoveryKind:null})),
     day:1, month:Number(month), year:1848, km:0, days:0, pace:"soutenu", rations:"normales",
     weather:{...WEATHER[0]}, weatherHistory:["Doux"], landmarkIndex:0, oxStrain:0, lastEvent:null, lastRestDay:null, restStreak:0, huntPressure:{}, fortPurchases:{}, fortAssortments:{}, journal:[], finished:false, score:0,
     pendingDeath:null, deathEventOpen:false, pendingRiverOutcome:null, pendingHuntDay:null
@@ -179,6 +179,9 @@ function weightedPick(entries){
   return entries.at(-1)?.value;
 }
 function money(n) { const amount=Math.max(0,Math.round(n)).toLocaleString(currentLocale());return currentLanguage==="en"?`$${amount}`:`${amount} $`; }
+function journalNumber(value,language="fr") {
+  return (Math.round(Math.max(0,value)*10)/10).toLocaleString(language==="en"?"en-US":"fr-FR",{maximumFractionDigits:1});
+}
 // Dans l'interface du jeu, zéro conserve le singulier : « 0 pièce ».
 function unitLabelFor(item,quantity,language=currentLanguage) { return language==="en"?(quantity<=1?item.unitEn:item.pluralEn):quantity<=1?item.unit:item.plural; }
 function unitLabel(item,quantity) { return unitLabelFor(item,quantity); }
@@ -369,8 +372,9 @@ function journalDate(entry){return formatDate(entry.day,entry.month,entry.year)}
 function journalItems(entries){return entries.map(j=>`<li><time>${escapeHtml(journalDate(j))}</time>${escapeHtml(languageText(j.text))}</li>`).join("")}
 
 function recoveryJournal(traveler,condition){
-  const fr={Dysenterie:`${traveler.name} a enfin vaincu la dysenterie et reprend sa place dans le convoi.`,Fièvre:`La fièvre de ${traveler.name} est enfin tombée.`,Malade:`${traveler.name} s’est remis de la maladie qui frappait le camp.`,Blessé:`La blessure de ${traveler.name} s’est refermée ; la piste peut reprendre.`,Engelures:`${traveler.name} ne souffre plus de ses engelures.`,Piqûres:`Les piqûres de ${traveler.name} ont fini par guérir.`,Convalescent:`${traveler.name} a achevé sa convalescence.`}[condition]??`${traveler.name} est de nouveau en forme.`;
-  const en={Dysenterie:`${traveler.name} has finally overcome dysentery and returns to their place in the wagon party.`,Fièvre:`${traveler.name}’s fever has finally broken.`,Malade:`${traveler.name} has recovered from the illness that struck the camp.`,Blessé:`${traveler.name}’s wound has closed; the trail may continue.`,Engelures:`${traveler.name} has recovered from frostbite.`,Piqûres:`${traveler.name}’s infected bites have finally healed.`,Convalescent:`${traveler.name} has completed their recovery.`}[condition]??`${traveler.name} is well again.`;
+  const stillWeak=traveler.health<=44;
+  const fr={Dysenterie:stillWeak?`La dysenterie a enfin quitté ${traveler.name}, qui reste pourtant très affaibli.`:`${traveler.name} a enfin vaincu la dysenterie et reprend sa place dans le convoi.`,Fièvre:`La fièvre de ${traveler.name} est enfin tombée.`,Malade:`${traveler.name} s’est remis de la maladie qui frappait le camp.`,Blessé:`La blessure de ${traveler.name} s’est refermée ; la piste peut reprendre.`,Engelures:`${traveler.name} ne souffre plus de ses engelures.`,Piqûres:`Les piqûres de ${traveler.name} ont fini par guérir.`,Convalescent:`${traveler.name} a achevé sa convalescence.`}[condition]??`${traveler.name} est de nouveau en forme.`;
+  const en={Dysenterie:stillWeak?`Dysentery has finally released ${traveler.name}, who nevertheless remains very weak.`:`${traveler.name} has finally overcome dysentery and returns to their place in the wagon party.`,Fièvre:`${traveler.name}’s fever has finally broken.`,Malade:`${traveler.name} has recovered from the illness that struck the camp.`,Blessé:`${traveler.name}’s wound has closed; the trail may continue.`,Engelures:`${traveler.name} has recovered from frostbite.`,Piqûres:`${traveler.name}’s infected bites have finally healed.`,Convalescent:`${traveler.name} has completed their recovery.`}[condition]??`${traveler.name} is well again.`;
   addJournal(bilingual(fr,en));
 }
 
@@ -378,6 +382,26 @@ function recoveryWithWoundJournal(traveler,condition){
   const fr={Dysenterie:`${traveler.name} s’est remis de la dysenterie, mais sa blessure exige encore des soins.`,Fièvre:`La fièvre de ${traveler.name} est tombée, mais sa blessure exige encore des soins.`,Malade:`${traveler.name} s’est remis de sa maladie, mais sa blessure exige encore des soins.`,Blessé:`${traveler.name} se remet de sa première blessure, mais celle de l’attaque exige encore des soins.`,Engelures:`${traveler.name} ne souffre plus de ses engelures, mais sa blessure exige encore des soins.`,Piqûres:`Les piqûres de ${traveler.name} ont guéri, mais sa blessure exige encore des soins.`,Convalescent:`${traveler.name} a achevé sa convalescence, mais sa blessure exige encore des soins.`}[condition]??`${traveler.name} va mieux, mais sa blessure exige encore des soins.`;
   const en={Dysenterie:`${traveler.name} has recovered from dysentery, but the wound still needs care.`,Fièvre:`${traveler.name}’s fever has broken, but the wound still needs care.`,Malade:`${traveler.name} has recovered from illness, but the wound still needs care.`,Blessé:`${traveler.name} has recovered from the first injury, but the attack wound still needs care.`,Engelures:`${traveler.name} has recovered from frostbite, but the wound still needs care.`,Piqûres:`${traveler.name}’s bites have healed, but the wound still needs care.`,Convalescent:`${traveler.name} has completed recovery, but the wound still needs care.`}[condition]??`${traveler.name} is better, but the wound still needs care.`;
   addJournal(bilingual(fr,en));
+}
+
+function completePendingRecovery(traveler){
+  const condition=traveler.pendingRecoveryCondition;
+  if(!condition||traveler.health<=0)return false;
+  traveler.pendingRecoveryCondition=null;traveler.treated=false;
+  traveler.state=(traveler.woundDays??0)>0?(traveler.needsRemedy?"Blessé":"Convalescent"):"En forme";
+  if((traveler.woundDays??0)>0)recoveryWithWoundJournal(traveler,condition);
+  else recoveryJournal(traveler,condition);
+  return true;
+}
+
+function completePendingWoundRecovery(traveler){
+  const woundKind=traveler.pendingWoundRecoveryKind;
+  if(!woundKind||traveler.health<=0)return false;
+  traveler.pendingWoundRecoveryKind=null;
+  if(woundKind==="snakebite")addJournal(traveler.sickDays>0?bilingual(`Le venin ne menace plus ${traveler.name}, qui reste toutefois malade.`,`The venom no longer threatens ${traveler.name}, who nevertheless remains ill.`):bilingual(`${traveler.name} a enfin surmonté les suites de la morsure de serpent.`,`${traveler.name} has finally recovered from the snakebite.`));
+  else if(traveler.sickDays>0)addJournal(bilingual(`La blessure d’attaque de ${traveler.name} s’est refermée, mais ${traveler.name} reste malade.`,`${traveler.name}’s attack wound has healed, but ${traveler.name} remains ill.`));
+  else addJournal(bilingual(`La blessure d’attaque de ${traveler.name} a fini par se refermer.`,`${traveler.name}’s attack wound has finally healed.`));
+  return true;
 }
 
 function advanceDate(days,resting=false,atFort=false) {
@@ -402,20 +426,14 @@ function advanceDate(days,resting=false,atFort=false) {
       }
       p.health=clamp(p.health-dailyLoss,0,100);
       if(p.health<=0&&dailyLoss>0&&!p.deathCause)p.deathCause=previousWoundKind==="snakebite"?bilingual("des suites d’une morsure de serpent venimeux","from a venomous snakebite"):deathCauseFor({...p,state:previousCondition});
-      if(p.sickDays<=0){
+      const illnessEnded=wasSick&&p.sickDays<=0,woundEnded=wasWounded&&(p.woundDays??0)<=0;
+      if(illnessEnded){
+        p.pendingRecoveryCondition=previousCondition;
+      } else if(p.sickDays<=0&&!p.pendingRecoveryCondition){
         p.treated=false;
         p.state=(p.woundDays??0)>0?(p.needsRemedy?"Blessé":"Convalescent"):"En forme";
       }
-      const illnessEnded=wasSick&&p.sickDays<=0,woundEnded=wasWounded&&(p.woundDays??0)<=0;
-      if(illnessEnded){
-        if((p.woundDays??0)>0)recoveryWithWoundJournal(p,previousCondition);
-        else recoveryJournal(p,previousCondition);
-      }
-      if(woundEnded&&!illnessEnded){
-        if(previousWoundKind==="snakebite")addJournal(p.sickDays>0?bilingual(`Le venin ne menace plus ${p.name}, qui reste toutefois malade.`,`The venom no longer threatens ${p.name}, who nevertheless remains ill.`):bilingual(`${p.name} a enfin surmonté les suites de la morsure de serpent.`,`${p.name} has finally recovered from the snakebite.`));
-        else if(p.sickDays>0)addJournal(bilingual(`La blessure d’attaque de ${p.name} s’est refermée, mais ${p.name} reste malade.`,`${p.name}’s attack wound has healed, but ${p.name} remains ill.`));
-        else addJournal(bilingual(`La blessure d’attaque de ${p.name} a fini par se refermer.`,`${p.name}’s attack wound has finally healed.`));
-      }
+      if(woundEnded&&!illnessEnded)p.pendingWoundRecoveryKind=previousWoundKind??"attack";
       if(woundEnded)p.woundKind=null;
     }
   }
@@ -575,8 +593,27 @@ function leaveTown(){
   const spent=Object.entries(cart).reduce((sum,[k,q])=>sum+q/SHOP[k].step*SHOP[k].price,0);
   game.cart={...cart};game.money=game.initialMoney-spent;
   game.weather=weatherForPosition(game.month,game.day,game.year,0,[]);game.weatherHistory=[game.weather.name];
-  addJournal("Nous avons quitté Independence. La piste s’ouvre devant nous.");
+  addJournal(departureJournal());
   showScreen("ecran-voyage");updateUI();
+}
+
+function cargoJournalSummary(language="fr"){
+  const count=(quantity,singular,plural)=>`${journalNumber(quantity,language)} ${quantity>1?plural:singular}`;
+  const cargo=language==="en"?[
+    count(game.cart.boeufs,"ox","oxen"),`${journalNumber(game.cart.vivres,language)} kg of food`,count(game.cart.munitions,"bullet","bullets"),
+    count(game.cart.vetements,"blanket","blankets"),count(game.cart.pieces,"spare part","spare parts"),count(game.cart.medicaments,"dose of medicine","doses of medicine")
+  ]:[
+    count(game.cart.boeufs,"bœuf","bœufs"),`${journalNumber(game.cart.vivres,language)} kg de vivres`,count(game.cart.munitions,"balle","balles"),
+    count(game.cart.vetements,"couverture","couvertures"),count(game.cart.pieces,"pièce de rechange","pièces de rechange"),count(game.cart.medicaments,"remède","remèdes")
+  ];
+  return joinList(cargo,language);
+}
+
+function departureJournal(){
+  const leader=game.party[0]?.name??bilingual("Le chef de convoi","The wagon leader"),companions=game.party.slice(1).map(traveler=>traveler.name);
+  const professionFr=professionNarrativeLabel(game.profession,"fr"),professionEn=professionNarrativeLabel(game.profession,"en");
+  const companyFr=companions.length?` avec ${joinList(companions,"fr")}`:"",companyEn=companions.length?` with ${joinList(companions,"en")}`:"";
+  return bilingual(`À Independence, ${leader}, ${professionFr} dans l’Est, prend la tête du convoi${companyFr}. Le chariot emporte ${cargoJournalSummary("fr")} ; ${journalNumber(game.money,"fr")} $ ${game.money===1?"reste":"restent"} en caisse. La piste s’ouvre devant eux.`,`At Independence, ${leader}, a ${professionEn} back East, takes charge of the wagon party${companyEn}. The wagon carries ${cargoJournalSummary("en")}; $${journalNumber(game.money,"en")} remains in cash. The trail opens before them.`);
 }
 
 function humanFatigueLevel(){return Math.min(3,Math.floor(travelerFatigueRisk()*4))}
@@ -653,7 +690,7 @@ function travelPaceLabel(pace=game.pace,language=currentLanguage){
   return labels[pace]?.[language]??labels.soutenu[language];
 }
 
-function addTravelJournal(distance,days,weatherBreakdown=[],route=routeSegmentAt()){
+function addTravelJournal(distance,days,weatherBreakdown=[],route=routeSegmentAt(),foodConsumed=0,foodRemaining=game.cart.vivres){
   const breakdown=weatherBreakdown.length?weatherBreakdown:[{name:game.weather.name,distance,days}];
   const detailsFr=joinList(breakdown.map(item=>`${item.distance} km par ${travelWeatherLabel(item.name,"fr")}`),"fr");
   const detailsEn=joinList(breakdown.map(item=>`${item.distance} km in ${travelWeatherLabel(item.name,"en")}`),"en");
@@ -664,7 +701,9 @@ function addTravelJournal(distance,days,weatherBreakdown=[],route=routeSegmentAt
   const routeTextFr=` Allure : ${travelPaceLabel(game.pace,"fr")}. Terrain : ${route.terrain.fr} ; ${route.slope.fr} ; ${route.road.fr} ; climat ${route.climate.fr}.`;
   const routeTextEn=` Pace: ${travelPaceLabel(game.pace,"en")}. Terrain: ${route.terrain.en}; ${route.slope.en}; ${route.road.en}; ${route.climate.en} climate.`;
   const blanketExposure=breakdown.some(item=>(item.uncovered??0)>0),blanketFr=blanketExposure?" Le manque de couvertures a fragilisé le groupe.":"",blanketEn=blanketExposure?" Too few blankets weakened the party.":"";
-  return addJournal(bilingual(`${distance} km parcourus en ${days} jour${days>1?"s":""} ${weatherTextFr}.${routeTextFr}${paceJournal}${blanketFr}`,`${distance} km traveled in ${days} day${days===1?"":"s"} ${weatherTextEn}.${routeTextEn}${paceJournalEn}${blanketEn}`));
+  const foodFr=` Vivres : ${journalNumber(foodConsumed,"fr")} kg consommé${foodConsumed===1?"":"s"} ; ${journalNumber(foodRemaining,"fr")} kg ${foodRemaining===1?"reste":"restent"} dans le chariot.`;
+  const foodEn=` Food: ${journalNumber(foodConsumed,"en")} kg consumed; ${journalNumber(foodRemaining,"en")} kg ${foodRemaining===1?"remains":"remain"} in the wagon.`;
+  return addJournal(bilingual(`${distance} km parcourus en ${days} jour${days>1?"s":""} ${weatherTextFr}.${routeTextFr}${foodFr}${paceJournal}${blanketFr}`,`${distance} km traveled in ${days} day${days===1?"":"s"} ${weatherTextEn}.${routeTextEn}${foodEn}${paceJournalEn}${blanketEn}`));
 }
 
 function travel(daysToTravel=5){
@@ -679,11 +718,11 @@ function travel(daysToTravel=5){
   for(let day=0;day<daysToTravel;day++){
     const requiredFood=alive().length*dailyFoodPerPerson()*pace.food;
     if(game.cart.vivres<requiredFood&&game.cart.boeufs>1){
-      if(travelDays)addTravelJournal(distance,travelDays,travelWeatherBreakdown,travelRoute);
+      if(travelDays)addTravelJournal(distance,travelDays,travelWeatherBreakdown,travelRoute,foodConsumed,game.cart.vivres);
       offerOxForFood(()=>travel(daysToTravel-travelDays),requiredFood);updateUI();return;
     }
     if(game.cart.vivres<=0){
-      if(travelDays)addTravelJournal(distance,travelDays,travelWeatherBreakdown,travelRoute);
+      if(travelDays)addTravelJournal(distance,travelDays,travelWeatherBreakdown,travelRoute,foodConsumed,game.cart.vivres);
       resolveStarvation();updateUI();return;
     }
     const travelWeather=game.weather,plannedDistance=plannedDailyDistance(pace,travelWeather,travelRoute);
@@ -707,23 +746,23 @@ function travel(daysToTravel=5){
     });
     updateDeaths();
     if(game.pendingDeath){
-      addTravelJournal(distance,travelDays,travelWeatherBreakdown,travelRoute);showPendingDeathEvent();updateUI();return;
+      addTravelJournal(distance,travelDays,travelWeatherBreakdown,travelRoute,foodConsumed,game.cart.vivres);showPendingDeathEvent();updateUI();return;
     }
     if(game.finished)return;
-    if(game.km>=KM_TOTAL){addTravelJournal(distance,travelDays,travelWeatherBreakdown,travelRoute);finish(true);return;}
-    if(next&&game.km>=next.km){addTravelJournal(distance,travelDays,travelWeatherBreakdown,travelRoute);game.landmarkIndex++;landmark(next);updateUI();return;}
+    if(game.km>=KM_TOTAL){addTravelJournal(distance,travelDays,travelWeatherBreakdown,travelRoute,foodConsumed,game.cart.vivres);finish(true);return;}
+    if(next&&game.km>=next.km){addTravelJournal(distance,travelDays,travelWeatherBreakdown,travelRoute,foodConsumed,game.cart.vivres);game.landmarkIndex++;landmark(next);updateUI();return;}
     const incident=dailyIncidentOccurs(pace,travelWeather,{distance:dayDistance,route:travelRoute});
-    if(incident){addTravelJournal(distance,travelDays,travelWeatherBreakdown,travelRoute);randomEvent(incident===true?undefined:incident);updateUI();return;}
+    if(incident){addTravelJournal(distance,travelDays,travelWeatherBreakdown,travelRoute,foodConsumed,game.cart.vivres);randomEvent(incident===true?undefined:incident);updateUI();return;}
     refreshWeather();
   }
-  const travelEntry=addTravelJournal(distance,travelDays,travelWeatherBreakdown,travelRoute);quietTravelEvent(distance,Math.round(foodConsumed),travelDays,travelEntry);updateUI();
+  const travelEntry=addTravelJournal(distance,travelDays,travelWeatherBreakdown,travelRoute,foodConsumed,game.cart.vivres);quietTravelEvent(distance,foodConsumed,travelDays,travelEntry);updateUI();
 }
 
 function quietTravelEvent(distance,foodConsumed,travelDays=5,travelEntry=null){
   const paceText={prudent:"L’allure prudente a ménagé le groupe et l’attelage.",soutenu:"L’allure soutenue a laissé une fatigue ordinaire.",epuisant:"Même sans accident, l’allure épuisante a durement éprouvé le groupe et les bœufs."}[game.pace];
   const paceTextEn={prudent:"The steady pace spared the party and the oxen.",soutenu:"The strenuous pace caused ordinary fatigue.",epuisant:"Even without an accident, the grueling pace severely tested the party and the oxen."}[game.pace];
-  eventModal("Une étape sans incident",bilingual(`Le convoi a avancé de ${distance} km en ${travelDays} jour${travelDays>1?"s":""}.`,`The wagon party traveled ${distance} km in ${travelDays} day${travelDays===1?"":"s"}.`),bilingual(`${foodConsumed} kg de vivres ${foodConsumed<=1?"a été consommé":"ont été consommés"}. ${paceText}`,`${foodConsumed} kg of food ${foodConsumed===1?"was":"were"} consumed. ${paceTextEn}`),[
-    {label:"Poursuivre la route",action:()=>mergeJournalEntry(travelEntry,"Une étape calme et sans incident.")}
+  eventModal("Une étape sans incident",bilingual(`Le convoi a avancé de ${distance} km en ${travelDays} jour${travelDays>1?"s":""}.`,`The wagon party traveled ${distance} km in ${travelDays} day${travelDays===1?"":"s"}.`),bilingual(`${journalNumber(foodConsumed,"fr")} kg de vivres ${foodConsumed===1?"a été consommé":"ont été consommés"}. ${paceText}`,`${journalNumber(foodConsumed,"en")} kg of food ${foodConsumed===1?"was":"were"} consumed. ${paceTextEn}`),[
+    {label:"Poursuivre la route",action:()=>mergeJournalEntry(travelEntry,bilingual("Aucun incident n’a troublé l’étape.","No incident troubled the leg."))}
   ],stageAsset());
 }
 
@@ -769,19 +808,45 @@ function deathCauseFor(traveler,explicitCause=null){
 
 function deathNotice(traveler){
   const cause=traveler.deathCause??deathCauseFor(traveler);
-  return bilingual(`${traveler.name} est mort ${cause.fr}.`,`${traveler.name} died ${cause.en}.`);
+  const fr={
+    "de la dysenterie":`${traveler.name} a succombé à la dysenterie.`,
+    "de la fièvre":`La fièvre a fini par emporter ${traveler.name}.`,
+    "des suites de ses engelures":`${traveler.name} n’a pas survécu aux engelures.`,
+    "des suites de piqûres infectées":`${traveler.name} a succombé à l’infection de ses piqûres.`,
+    "des suites de ses blessures":`${traveler.name} a succombé à ses blessures.`,
+    "des suites d’une morsure de serpent venimeux":`Le venin a fini par emporter ${traveler.name}.`,
+    "de maladie":`${traveler.name} a succombé à la maladie.`,
+    "de faim":`${traveler.name} n’a pas survécu à la faim.`,
+    "d’épuisement sur la piste":`${traveler.name} s’est éteint sur la piste, vaincu par l’épuisement.`
+  }[cause.fr]??(cause.fr.startsWith("pendant ")?`${traveler.name} a perdu la vie ${cause.fr}.`:`${traveler.name} a succombé ${cause.fr}.`);
+  const en={
+    "from dysentery":`${traveler.name} succumbed to dysentery.`,
+    "from fever":`Fever finally claimed ${traveler.name}.`,
+    "from frostbite":`${traveler.name} did not survive the frostbite.`,
+    "from infected bites":`${traveler.name} succumbed to infected bites.`,
+    "from their wounds":`${traveler.name} succumbed to their wounds.`,
+    "from a venomous snakebite":`The venom finally claimed ${traveler.name}.`,
+    "from illness":`${traveler.name} succumbed to illness.`,
+    "from starvation":`${traveler.name} did not survive starvation.`,
+    "from exhaustion on the trail":`${traveler.name} passed away on the trail, overcome by exhaustion.`
+  }[cause.en]??(cause.en.startsWith("during ")?`${traveler.name} lost their life ${cause.en}.`:`${traveler.name} succumbed ${cause.en}.`);
+  return bilingual(fr,en);
 }
 
 function updateDeaths(cause=null){
   const dying=shuffled(alive().filter(p=>p.health<=0));
   const deaths=dying.slice(0,1);
   for(const p of deaths){
-    p.deathCause=deathCauseFor(p,cause);p.alive=false;p.state="Décédé";game.pendingDeath=p;
+    p.deathCause=deathCauseFor(p,cause);p.pendingRecoveryCondition=null;p.pendingWoundRecoveryKind=null;p.alive=false;p.state="Décédé";game.pendingDeath=p;
   }
   // Une même étape peut affaiblir tout le groupe, mais ne doit pas tuer
   // plusieurs voyageurs simultanément. Les autres restent en état critique.
   for(const p of dying.slice(1)){
     p.health=1;p.deathCause=null;
+  }
+  for(const p of alive()){
+    completePendingRecovery(p);
+    completePendingWoundRecovery(p);
   }
   return deaths[0]??null;
 }
@@ -795,7 +860,7 @@ function showPendingDeathEvent(){
   if(!traveler)return false;
   game.pendingDeath=null;game.deathEventOpen=true;const remaining=alive().length;
   const details=remaining?bilingual("Le convoi s’arrête pour lui offrir une sépulture avant de reprendre la route.","The wagon party stops to give them a burial before returning to the trail."):bilingual("Le dernier voyageur s’est éteint près du chariot immobilisé. Il ne reste personne pour l’ensevelir ni pour reprendre la piste.","The last traveler died beside the stranded wagon. No one remains to bury them or return to the trail.");
-  eventModal(bilingual("Un compagnon est mort","A companion has died"),deathNotice(traveler),details,[
+  eventModal(bilingual("Dernier adieu","A final farewell"),deathNotice(traveler),details,[
     {label:remaining?bilingual("Rendre un dernier hommage et repartir","Pay your last respects and leave"):bilingual("Voir le bilan du convoi","View the wagon party’s final report"),action:()=>{game.deathEventOpen=false;if(!remaining){finish(false,"La piste a eu raison de tout le convoi.");return;}setTimeout(showPendingRiverOutcome,0)}}
   ],deathEventAsset());
   return true;
@@ -918,9 +983,9 @@ function restEventJournalLabel(eventId,language=currentLanguage){
 
 function performRest(days=2,atFort=false){
   const streak=game.lastRestDay===game.days?(game.restStreak??0)+1:1;
-  let rested=0,selected=null,blanketRecoveryStrained=false;
+  let rested=0,foodConsumed=0,selected=null,blanketRecoveryStrained=false;
   for(let day=0;day<days;day++){
-    const restWeather=game.weather;consumeDelay(1,dailyFoodPerPerson(),true,true,atFort);rested++;
+    const restWeather=game.weather,food=consumeDelay(1,dailyFoodPerPerson(),true,true,atFort);foodConsumed+=food.consumed;rested++;
     const restingTravelers=alive(),blankets=Math.min(game.cart.vetements,restingTravelers.length);
     restingTravelers.forEach((traveler,index)=>{
       const hasBlanket=atFort||blankets>=restingTravelers.length||((index+game.days)%restingTravelers.length)<blankets;
@@ -938,8 +1003,10 @@ function performRest(days=2,atFort=false){
   game.restStreak=streak;game.lastRestDay=game.days;
   const interruptionFr=selected?` La halte a été interrompue par ${restEventJournalLabel(selected.eventId,"fr")}.`:"",interruptionEn=selected?` The halt was interrupted by ${restEventJournalLabel(selected.eventId,"en")}.`:"";
   const blanketFr=blanketRecoveryStrained?" Le manque de couvertures a fragilisé la récupération du groupe.":"",blanketEn=blanketRecoveryStrained?" Too few blankets hampered the party’s recovery.":"";
+  const foodFr=` ${journalNumber(foodConsumed,"fr")} kg de vivres consommé${foodConsumed===1?"":"s"} ; ${journalNumber(game.cart.vivres,"fr")} kg ${game.cart.vivres===1?"reste":"restent"}.`;
+  const foodEn=` ${journalNumber(foodConsumed,"en")} kg of food consumed; ${journalNumber(game.cart.vivres,"en")} kg ${game.cart.vivres===1?"remains":"remain"}.`;
   const state=groupJournalSummary();
-  addJournal(bilingual(`${rested} jour${rested>1?"s":""} de repos ${rested===1?"a":"ont"} soulagé le groupe et l’attelage.${interruptionFr}${blanketFr} ${state.fr}`,`${rested} day${rested===1?"":"s"} of rest eased the party and the oxen.${interruptionEn}${blanketEn} ${state.en}`));
+  addJournal(bilingual(`${rested} jour${rested>1?"s":""} de repos ${rested===1?"a":"ont"} soulagé le groupe et l’attelage.${foodFr}${interruptionFr}${blanketFr} ${state.fr}`,`${rested} day${rested===1?"":"s"} of rest eased the party and the oxen.${foodEn}${interruptionEn}${blanketEn} ${state.en}`));
   return {days:rested,streak,event:selected};
 }
 
@@ -1036,7 +1103,7 @@ function blanketLossEvent(){
   const blankets=`${loss} couverture${loss>1?"s":""}`;
   const cause=cold?bilingual("Une nuit glaciale et humide détrempe les couvertures les plus exposées.","A freezing, damp night soaks the most exposed blankets."):bilingual("La pluie s’est infiltrée dans le chariot pendant la nuit.","Rain leaked into the wagon during the night.");
   eventModal("Couvertures hors d’usage",cause,bilingual(`${blankets} ${loss===1?"est devenue":"sont devenues"} inutilisable${loss>1?"s":""}.`,`${loss} blanket${loss===1?" has":"s have"} become unusable.`),[
-    {label:"Réorganiser le chargement",action:()=>addJournal(cold?bilingual(`${blankets} perdue${loss>1?"s":""} pendant une nuit de grand froid.`,`${loss} blanket${loss===1?" was":"s were"} lost during a bitterly cold night.`):bilingual(`${blankets} perdue${loss>1?"s":""} après une nuit de pluie.`,`${loss} blanket${loss===1?" was":"s were"} lost after a rainy night.`))}
+    {label:"Réorganiser le chargement",action:()=>addJournal(cold?bilingual(`${blankets} perdue${loss>1?"s":""} pendant une nuit de grand froid ; il en reste ${game.cart.vetements}.`,`${loss} blanket${loss===1?" was":"s were"} lost during a bitterly cold night; ${game.cart.vetements} ${game.cart.vetements===1?"remains":"remain"}.`):bilingual(`${blankets} perdue${loss>1?"s":""} après une nuit de pluie ; il en reste ${game.cart.vetements}.`,`${loss} blanket${loss===1?" was":"s were"} lost after a rainy night; ${game.cart.vetements} ${game.cart.vetements===1?"remains":"remain"}.`))}
   ],"incident-blankets.webp");
 }
 
@@ -1055,9 +1122,13 @@ function theftEvent(){
   if(stolen.key==="money")game.money-=stolen.amount;else game.cart[stolen.key]-=stolen.amount;
   const stolenLabel=stolen.key==="money"?`${stolen.amount} $`:itemQuantityFor(stolen.key,stolen.amount,"fr");
   const stolenLabelEn=stolen.key==="money"?`$${stolen.amount}`:itemQuantityFor(stolen.key,stolen.amount,"en");
+  const remainingQuantity=stolen.key==="money"?game.money:game.cart[stolen.key];
+  const remainingFr=stolen.key==="money"?`${game.money} $ ${game.money===1?"reste":"restent"} en caisse`:stolen.key==="boeufs"?oxenJournalStatus("fr"):`Il reste ${fortStockText(stolen.key,"fr")}`;
+  const remainingEn=stolen.key==="money"?`$${game.money} remains in cash`:stolen.key==="boeufs"?oxenJournalStatus("en"):`${fortStockText(stolen.key,"en")} ${remainingQuantity===1?"remains":"remain"}`;
+  const outcomeFr=`Un vol nous a coûté ${stolenLabel}. ${remainingFr}${remainingFr.endsWith(".")?"":"."}`,outcomeEn=`A theft cost us ${stolenLabelEn}. ${remainingEn}${remainingEn.endsWith(".")?"":"."}`;
   const description=`${stolenLabel} ${stolen.amount===1?"a":"ont"} disparu.`;
   eventModal("Vol au camp","Au lever du jour, un coffre est ouvert et des traces s’éloignent du camp.",bilingual(description,`${stolenLabelEn} ${stolen.amount===1?"is":"are"} missing.`),[
-    {label:"Sécuriser le chargement",action:()=>addJournal(bilingual(`Un vol nous a coûté ${stolenLabel}.${stolen.key==="boeufs"?` ${oxenJournalStatus("fr")}`:""}`,`A theft cost us ${stolenLabelEn}.${stolen.key==="boeufs"?` ${oxenJournalStatus("en")}`:""}`))}
+    {label:"Sécuriser le chargement",action:()=>addJournal(bilingual(outcomeFr,outcomeEn))}
   ],"incident-theft.webp");
 }
 
@@ -1081,7 +1152,7 @@ function tradeEvent(){
   const text=bilingual(buying?`Un marchand vous propose ${offer.label} pour ${offer.price} $.`:`Un voyageur vous offre ${offer.price} $ pour ${offer.label}.`,buying?`A merchant offers you ${offerLabelEn} for $${offer.price}.`:`A traveler offers you $${offer.price} for ${offerLabelEn}.`);
   const refusal=bilingual(buying?`Nous avons refusé d’acheter ${offer.label} pour ${offer.price} $.`:`Nous avons refusé de vendre ${offer.label} contre ${offer.price} $.`,buying?`We declined to buy ${offerLabelEn} for $${offer.price}.`:`We declined to sell ${offerLabelEn} for $${offer.price}.`);
   eventModal("Une proposition sur la piste",text,"La quantité et le prix sont fixes. Acceptez-vous l’offre ?",[
-    {label:"Accepter",disabled:!canAccept,action:()=>{if(buying){game.money-=offer.price;game.cart[offer.key]+=offer.qty;}else{game.money+=offer.price;game.cart[offer.key]-=offer.qty;}addJournal(bilingual(`Marché conclu : ${offer.label} pour ${offer.price} $.`,`Trade completed: ${offerLabelEn} for $${offer.price}.`))}},
+    {label:"Accepter",disabled:!canAccept,action:()=>{if(buying){game.money-=offer.price;game.cart[offer.key]+=offer.qty;}else{game.money+=offer.price;game.cart[offer.key]-=offer.qty;}addJournal(bilingual(`${buying?"Achat":"Vente"} conclu${buying?"":"e"} : ${offer.label} pour ${offer.price} $. Le chariot compte désormais ${fortStockText(offer.key,"fr")} et il reste ${game.money} $ en caisse.`,`${buying?"Purchase":"Sale"} completed: ${offerLabelEn} for $${offer.price}. The wagon now holds ${fortStockText(offer.key,"en")}, with $${game.money} remaining.`))}},
     {label:"Refuser",action:()=>addJournal(refusal)}
   ],"incident-trade.webp");
 }

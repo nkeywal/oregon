@@ -309,6 +309,10 @@ Il a été demandé :
 - D’indiquer pour chaque étape les vivres consommés et ceux qui restent dans le chariot.
 - D’éviter les titres et phrases répétant deux fois la même information, notamment lors d’un décès.
 - De nommer, à l’arrivée en Oregon, chaque survivant avec son état de santé qualitatif et de dresser l’inventaire final du chariot, argent compris.
+- D’ajouter, après une réussite comme après une défaite, un accès au journal illustré par les images effectivement rencontrées pendant cette partie, sans répéter plusieurs fois le même dessin.
+- De rendre ce récit agréable à parcourir, partageable si possible sur WhatsApp ou une autre application, tout en laissant l’accès à une nouvelle partie.
+
+> **Décisions du LLM :** nommer cet accès « Revivez votre périple » ; présenter un album ordonné selon la première apparition de chaque illustration, où chaque dessin unique réunit toutes les entrées qui lui correspondent ; en l’absence de serveur, partager le récit complet sous la forme d’un fichier HTML léger via le partage natif de l’appareil, avec téléchargement de secours. Le journal est contenu dans le fichier et les illustrations restent servies par le site. Un simple lien n’a pas été retenu, car une longue partie dépasserait rapidement la taille raisonnable d’une URL.
 
 ## Score final
 

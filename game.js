@@ -348,25 +348,37 @@ function toast(text) {
   clearTimeout(toast.timer); toast.timer=setTimeout(()=>el.classList.remove("show"),2600);
 }
 
-function addJournal(text) {
+function journalArtSnapshot(file="trail.webp",weather=game?weatherVisual():{key:"mild"}){
+  const safeFile=/^[a-z0-9-]+\.webp$/.test(file)?file:"trail.webp",sprite=safeFile.startsWith("progress-")||safeFile.startsWith("river-weather-");
+  return {file:safeFile,size:sprite?"200% 200%":"cover",position:sprite?({mild:"0% 0%",cold:"100% 0%",hot:"0% 100%",rain:"100% 100%"}[weather.key]??"0% 0%"):"center"};
+}
+
+function currentJournalArt(){
+  if(activeEventModal?.art)return {...activeEventModal.art};
+  if(!game)return journalArtSnapshot();
+  return journalArtSnapshot(stageAsset(currentStage(),weatherVisual()),weatherVisual());
+}
+
+function addJournal(text,art=currentJournalArt()) {
   if(journalMergeTarget?.captureOutcomes){
     journalMergeTarget.outcomeFragments.push(text);
     journalMergeTarget.text=journalMergeTarget.outcomeFragments.reduce((combined,fragment,index)=>index?bilingualJoin(combined," ",fragment):fragment);
+    journalMergeTarget.art??=art;
     return journalMergeTarget;
   }
   if(journalMergeTarget)return mergeJournalEntry(journalMergeTarget,text);
-  const entry={day:game.day,month:game.month,year:game.year,text};
+  const entry={day:game.day,month:game.month,year:game.year,text,art};
   game.journal.unshift(entry);return entry;
 }
 
-function addJournalStandalone(text){
-  const entry={day:game.day,month:game.month,year:game.year,text};
+function addJournalStandalone(text,art=currentJournalArt()){
+  const entry={day:game.day,month:game.month,year:game.year,text,art};
   game.journal.unshift(entry);return entry;
 }
 
 function mergeJournalEntry(entry,text) {
   if(!entry)return addJournal(text);
-  entry.text=bilingualJoin(entry.text," ",text);return entry;
+  entry.text=bilingualJoin(entry.text," ",text);entry.art??=currentJournalArt();return entry;
 }
 
 function journalDate(entry){return formatDate(entry.day,entry.month,entry.year)}
@@ -512,16 +524,19 @@ function stageAsset(stage=currentStage(),weather=weatherVisual()) {
 }
 
 function applyStageArt(element,file,weather=weatherVisual()){
-  const sprite=file.startsWith("progress-");
+  const snapshot=journalArtSnapshot(file,weather),sprite=file.startsWith("progress-");
   element.style.backgroundImage=`url('assets/${file}')`;
   element.style.backgroundSize=sprite?"200% 200%":"cover";
   element.style.backgroundPosition=sprite?({mild:"0% 0%",cold:"100% 0%",hot:"0% 100%",rain:"100% 100%"}[weather.key]):"center";
+  element.dataset??={};element.dataset.artFile=snapshot.file;element.dataset.artSize=snapshot.size;element.dataset.artPosition=snapshot.position;
 }
 
 function applyWeatherSprite(element,file,weather=weatherVisual()){
+  const snapshot=journalArtSnapshot(file,weather);
   element.style.backgroundImage=`url('assets/${file}')`;
   element.style.backgroundSize="200% 200%";
   element.style.backgroundPosition=({mild:"0% 0%",cold:"100% 0%",hot:"0% 100%",rain:"100% 100%"}[weather.key]??"0% 0%");
+  element.dataset??={};element.dataset.artFile=snapshot.file;element.dataset.artSize="200% 200%";element.dataset.artPosition=element.style.backgroundPosition;
 }
 
 function fortArrivalAsset(fort,weather=weatherVisual()) {
@@ -1219,7 +1234,11 @@ function riverEvent(mark,art=stageAsset(mark),depth=null,observation=""){
   ],art);
 }
 
-function queueRiverOutcome(mark,outcome,data){game.pendingRiverOutcome={mark,outcome,data};setTimeout(showPendingRiverOutcome,0)}
+function queueRiverOutcome(mark,outcome,data){
+  const art=journalArtSnapshot(`river-weather-${mark.visual}-${outcome}.webp`,data.weather??weatherVisual());
+  if(game.journal[0])game.journal[0].art=art;
+  game.pendingRiverOutcome={mark,outcome,data};setTimeout(showPendingRiverOutcome,0);
+}
 
 function showPendingRiverOutcome(){
   if(!game.pendingRiverOutcome||game.pendingDeath||game.deathEventOpen)return;
@@ -1366,7 +1385,7 @@ function fortEquipment(mark){
 }
 
 function fortEvent(mark,art=fortArrivalAsset(mark),recordArrival=true){
-  if(recordArrival)addJournal(bilingual(`Arrivée à ${mark.name}.`,`Arrived at ${landmarkName(mark)}.`));
+  if(recordArrival)addJournal(bilingual(`Arrivée à ${mark.name}.`,`Arrived at ${landmarkName(mark)}.`),journalArtSnapshot(art,weatherVisual()));
   const equipment=fortEquipment(mark).map(item=>({...item,baseCost:fortBaseCost(mark,item.key,item.qty)}));
   const merchandise=[
     {key:"vivres",qty:SHOP.vivres.step,baseCost:fortBaseCost(mark,"vivres",SHOP.vivres.step),label:"10 kg de vivres",labelEn:"10 kg of food"},
@@ -1386,10 +1405,10 @@ function fortEvent(mark,art=fortArrivalAsset(mark),recordArrival=true){
 function eventModal(title,text,details,actions,art="trail"){
   const returnCallback=queuedEventReturn;queuedEventReturn=null;
   const d=$("#dialogue-evenement");$("#event-title").textContent=languageText(title);$("#event-text").textContent=languageText(text);$("#event-details").textContent=languageText(details);
-  const artFile=art.includes(".")?art:`${art}.webp`;
-  const incidentEntry=artFile.startsWith("incident-")?addJournal(bilingualJoin(title," — ",text)):null;
-  if(incidentEntry){incidentEntry.captureOutcomes=true;incidentEntry.outcomeFragments=[];}
+  const artFile=art.includes(".")?art:`${art}.webp`,artState=journalArtSnapshot(artFile,weatherVisual());
   applyStageArt($("#event-art"),artFile,weatherVisual());
+  const incidentEntry=artFile.startsWith("incident-")?addJournal(bilingualJoin(title," — ",text),artState):null;
+  if(incidentEntry){incidentEntry.captureOutcomes=true;incidentEntry.outcomeFragments=[];}
   const box=$("#event-actions");box.innerHTML="";
   const hasExplicitPrimary=actions.some(a=>a.primary),defaultPrimary=hasExplicitPrimary?-1:actions.findIndex(a=>!actionDisabled(a));
   const buttons=[];
@@ -1421,7 +1440,7 @@ function eventModal(title,text,details,actions,art="trail"){
     });
     buttons.push({action:a,button:b});box.appendChild(b);
   });
-  activeEventModal={title,text,details,buttons,withInventory:false,feedback:null,returnCallback};refreshEventModalLanguage();
+  activeEventModal={title,text,details,buttons,withInventory:false,feedback:null,returnCallback,art:artState};refreshEventModalLanguage();
   if(!d.open)d.showModal();
 }
 
@@ -1549,13 +1568,13 @@ function finalJourneyJournal(win){
   const survivors=alive().map(traveler=>traveler.name);
   if(win){
     const cashFr=`${journalNumber(game.money,"fr")} $ ${game.money===1?"reste":"restent"} en caisse`,cashEn=`$${journalNumber(game.money,"en")} remains in cash`;
-    return addJournalStandalone(bilingual(`${arrivalPartyCondition("fr")} ${survivors.length===1?"atteint":"atteignent"} la vallée de Willamette : le convoi est arrivé en Oregon. Le chariot conserve ${cargoJournalSummary("fr")} ; ${cashFr}.`,`${arrivalPartyCondition("en")} ${survivors.length===1?"reaches":"reach"} the Willamette Valley: the wagon party has arrived in Oregon. The wagon still carries ${cargoJournalSummary("en")}; ${cashEn}.`));
+    return addJournalStandalone(bilingual(`${arrivalPartyCondition("fr")} ${survivors.length===1?"atteint":"atteignent"} la vallée de Willamette : le convoi est arrivé en Oregon. Le chariot conserve ${cargoJournalSummary("fr")} ; ${cashFr}.`,`${arrivalPartyCondition("en")} ${survivors.length===1?"reaches":"reach"} the Willamette Valley: the wagon party has arrived in Oregon. The wagon still carries ${cargoJournalSummary("en")}; ${cashEn}.`),journalArtSnapshot(endingArtAsset(true)));
   }
   const route=routeSegmentAt(),km=Math.round(game.km);
   if(survivors.length){
-    return addJournalStandalone(bilingual(`Le voyage de ${joinList(survivors,"fr")} s’achève au kilomètre ${km}, dans la région « ${route.terrain.fr} ».`,`The journey of ${joinList(survivors,"en")} ends at kilometer ${km}, in the ${route.terrain.en}.`));
+    return addJournalStandalone(bilingual(`Le voyage de ${joinList(survivors,"fr")} s’achève au kilomètre ${km}, dans la région « ${route.terrain.fr} ».`,`The journey of ${joinList(survivors,"en")} ends at kilometer ${km}, in the ${route.terrain.en}.`),journalArtSnapshot(endingArtAsset(false)));
   }
-  return addJournalStandalone(bilingual(`Le convoi a disparu au kilomètre ${km}, dans la région « ${route.terrain.fr} ».`,`The wagon party vanished at kilometer ${km}, in the ${route.terrain.en}.`));
+  return addJournalStandalone(bilingual(`Le convoi a disparu au kilomètre ${km}, dans la région « ${route.terrain.fr} ».`,`The wagon party vanished at kilometer ${km}, in the ${route.terrain.en}.`),journalArtSnapshot(endingArtAsset(false,0)));
 }
 
 function finishScoreText(win,score){
@@ -1594,6 +1613,69 @@ function renderFinish(){
   $("#score-fin").textContent=finishScoreText(win,score);
   $("#journal-fin").innerHTML=journalItems(game.journal)||`<li>${languageText("Aucune entrée dans le journal.")}</li>`;
   showScreen("ecran-fin");
+}
+
+function journalDateForLanguage(entry,language=currentLanguage){
+  return language==="en"?`${MONTHS_EN[entry.month]} ${entry.day}, ${entry.year}`:`${entry.day} ${MONTHS[entry.month]} ${entry.year}`;
+}
+
+function journalAlbumGroups(entries=game?.journal??[]){
+  const groups=[],byImage=new Map();
+  for(const entry of [...entries].reverse()){
+    const raw=entry.art?.file?entry.art:journalArtSnapshot("trail.webp"),art={file:raw.file,size:raw.size||"cover",position:raw.position||"center"},key=`${art.file}|${art.size}|${art.position}`;
+    if(!byImage.has(key)){
+      const group={art:{...art},entries:[]};byImage.set(key,group);groups.push(group);
+    }
+    byImage.get(key).entries.push(entry);
+  }
+  return groups;
+}
+
+function memoirGroupsHtml(groups=journalAlbumGroups(),language=currentLanguage,assetRoot="assets/"){
+  return groups.map((group,index)=>{
+    const first=group.entries[0],last=group.entries.at(-1),firstDate=journalDateForLanguage(first,language),lastDate=journalDateForLanguage(last,language);
+    const period=firstDate===lastDate?firstDate:(language==="en"?`${firstDate} to ${lastDate}`:`${firstDate} au ${lastDate}`);
+    const imageUrl=`${assetRoot}${group.art.file}`;
+    const entries=group.entries.map(entry=>`<li><time>${escapeHtml(journalDateForLanguage(entry,language))}</time><p>${escapeHtml(languageText(entry.text,language))}</p></li>`).join("");
+    const label=language==="en"?`Journey scene ${index+1}`:`Scène du voyage ${index+1}`;
+    return `<article class="memoir-card"><div class="memoir-art" role="img" aria-label="${label}" style="background-image:url('${imageUrl}');background-size:${group.art.size};background-position:${group.art.position}"></div><div class="memoir-copy"><p class="memoir-period">${escapeHtml(period)}</p><ol>${entries}</ol></div></article>`;
+  }).join("");
+}
+
+function renderJourneyMemoir(){
+  const groups=journalAlbumGroups();
+  $("#recit-contenu").innerHTML=groups.length?memoirGroupsHtml(groups):`<p>${languageText("Aucune entrée dans le journal.")}</p>`;
+  $("#partage-recit-statut").textContent=currentLanguage==="en"?`${groups.length} unique scene${groups.length===1?"":"s"} for the complete journey.`:`${groups.length} illustration${groups.length>1?"s":""} unique${groups.length>1?"s":""} pour l’ensemble du voyage.`;
+  showScreen("ecran-recit");
+}
+
+function journeyMemoirDocument(){
+  const language=currentLanguage,groups=journalAlbumGroups(),title=language==="en"?"My Oregon Vibe journey":"Mon périple dans Oregon Vibe";
+  const assetRoot=new URL("assets/",document.baseURI).href,gameUrl=new URL("./",document.baseURI).href;
+  const outcome=game.finishState?.win?(language==="en"?"The wagon party reached Oregon.":"Le convoi a atteint l’Oregon."):(language==="en"?"The journey ended on the trail.":"Le voyage s’est achevé sur la piste.");
+  return `<!doctype html><html lang="${language}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title><style>:root{color-scheme:light;--ink:#29271f;--paper:#eee4cf;--rust:#8f3f2c;--gold:#c9953e}*{box-sizing:border-box}body{margin:0;background:#24241d;color:var(--ink);font:16px/1.55 Georgia,serif}header{padding:clamp(2rem,7vw,5rem) max(1rem,calc((100% - 1050px)/2));background:linear-gradient(135deg,#34382e,#171712);color:#fff}h1{margin:.2rem 0;font-size:clamp(2.2rem,7vw,4.8rem);line-height:1}.lead{max-width:650px;color:#eee4cf}.timeline{width:min(1050px,calc(100% - 2rem));margin:2rem auto;display:grid;gap:2rem}.card{display:grid;grid-template-columns:minmax(260px,1.05fr) minmax(0,1fr);overflow:hidden;background:var(--paper);box-shadow:0 15px 40px #0005}.art{min-height:310px;background:#6b7059 center/cover no-repeat}.copy{padding:1.5rem}.period{margin:0 0 1rem;color:var(--rust);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:.78rem}ol{list-style:none;margin:0;padding:0}li{padding:.8rem 0;border-top:1px solid #cbbd9f}time{display:block;color:var(--rust);font:bold .72rem Arial,sans-serif;text-transform:uppercase}li p{margin:.25rem 0 0}footer{padding:2.5rem 1rem;text-align:center;color:#eee4cf}a{display:inline-block;padding:.85rem 1.2rem;background:var(--gold);color:#171712;text-decoration:none;font:bold .85rem Arial,sans-serif;text-transform:uppercase;letter-spacing:.06em}@media(max-width:720px){.card{grid-template-columns:1fr}.art{min-height:0;aspect-ratio:16/9}.copy{padding:1rem}}</style></head><body><header><p>OREGON VIBE · 1848</p><h1>${escapeHtml(title)}</h1><p class="lead">${escapeHtml(outcome)} ${language==="en"?`${game.days} days on the trail · Score ${game.score}.`:`${game.days} jours sur la piste · Score ${game.score}.`}</p></header><main class="timeline">${memoirGroupsHtml(groups,language,assetRoot).replaceAll("memoir-card","card").replaceAll("memoir-art","art").replaceAll("memoir-copy","copy").replaceAll("memoir-period","period")}</main><footer><p>${language==="en"?"Think you can lead a wagon party farther?":"À votre tour de mener un convoi plus loin."}</p><a href="${gameUrl}">${language==="en"?"Start a new game":"Commencer une nouvelle partie"}</a></footer></body></html>`;
+}
+
+function memoirFile(){
+  const leader=(game.party[0]?.name??"voyage").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/gi,"-").replace(/^-|-$/g,"").toLowerCase()||"voyage";
+  return new File([journeyMemoirDocument()],`oregon-vibe-${leader}.html`,{type:"text/html"});
+}
+
+function downloadMemoir(file){
+  const link=document.createElement("a"),url=URL.createObjectURL(file);link.href=url;link.download=file.name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+async function shareJourneyMemoir(){
+  const status=$("#partage-recit-statut"),title=currentLanguage==="en"?"My Oregon Vibe journey":"Mon périple dans Oregon Vibe";
+  try{
+    const file=memoirFile();let canShareFile=false;
+    if(navigator.share&&typeof navigator.canShare==="function"){try{canShareFile=navigator.canShare({files:[file]})}catch{canShareFile=false}}
+    if(canShareFile){
+      await navigator.share({title,text:currentLanguage==="en"?"Here is my complete Oregon Vibe trail journal.":"Voici le journal complet de mon périple dans Oregon Vibe.",files:[file]});
+      status.textContent=currentLanguage==="en"?"The complete illustrated story has been shared.":"Le récit illustré complet a été partagé.";return;
+    }
+    downloadMemoir(file);status.textContent=currentLanguage==="en"?"Your browser cannot share a file directly. The complete story has been downloaded and is ready to send.":"Ce navigateur ne peut pas partager directement un fichier. Le récit complet a été téléchargé et peut maintenant être envoyé.";
+  }catch(error){if(error?.name!=="AbortError")status.textContent=currentLanguage==="en"?"Sharing failed. Please try again.":"Le partage a échoué. Vous pouvez réessayer.";}
 }
 
 // Mini-jeu de chasse
@@ -1739,7 +1821,7 @@ function endHunt(){
   if(!hunt?.running)return;
   const result={shots:hunt.shots,remaining:game.cart.munitions,loot:hunt.loot,kills:{...hunt.kills},siteKey:hunt.siteKey,background:hunt.background,weather:weatherVisual()};hunt.running=false;recordHuntPressure(result.siteKey,result.kills);
   const consequences=resolveHuntDay(result.loot);result.loot=consequences.loaded;
-  addJournal(result.loot?bilingual(`La chasse rapporte ${result.loot} kg de viande pour ${result.shots} balle${result.shots>1?"s":""} tirée${result.shots>1?"s":""}.`,`The hunt yielded ${result.loot} kg of meat for ${result.shots} bullet${result.shots===1?"":"s"} fired.`):bilingual("La chasse ne rapporte rien cette fois.","The hunt yielded nothing this time."));
+  addJournal(result.loot?bilingual(`La chasse rapporte ${result.loot} kg de viande pour ${result.shots} balle${result.shots>1?"s":""} tirée${result.shots>1?"s":""}.`,`The hunt yielded ${result.loot} kg of meat for ${result.shots} bullet${result.shots===1?"":"s"} fired.`):bilingual("La chasse ne rapporte rien cette fois.","The hunt yielded nothing this time."),journalArtSnapshot(result.background,result.weather));
   $("#dialogue-chasse").close();updateUI();hunt=null;
   const resultArt=$("#dialogue-bilan-chasse .hunt-result-art");resultArt.style.backgroundImage=`url('assets/${result.background}')`;
   resultArt.setAttribute("aria-label",currentLanguage==="en"?`The hunting ground in ${languageText(result.weather.label,"en")}`:`Le terrain de chasse par ${languageText(result.weather.label,"fr")}`);
@@ -1854,7 +1936,8 @@ function bindEvents(){
   $("#retour-groupe").addEventListener("click",()=>showScreen("ecran-groupe"));$("#partir").addEventListener("click",leaveTown);
   $("#rythme").addEventListener("change",e=>game.pace=e.target.value);$("#rations").addEventListener("change",e=>game.rations=e.target.value);
   $("#avancer").addEventListener("click",()=>travel());$("#repos").addEventListener("click",rest);$("#chasser").addEventListener("click",startHunt);$("#carte-btn").addEventListener("click",showMap);$("#inventaire-btn").addEventListener("click",showInventory);$("#journal-plus").addEventListener("click",showJournal);$("#aide").addEventListener("click",showHelp);
-  $("#rejouer").addEventListener("click",()=>{game=null;showScreen("ecran-groupe")});$("#fermer-chasse").addEventListener("click",endHunt);
+  const restart=()=>{game=null;showScreen("ecran-groupe")};
+  $("#rejouer").addEventListener("click",restart);$("#revivre-voyage").addEventListener("click",renderJourneyMemoir);$("#retour-fin").addEventListener("click",renderFinish);$("#partager-recit").addEventListener("click",shareJourneyMemoir);$("#rejouer-recit").addEventListener("click",restart);$("#fermer-chasse").addEventListener("click",endHunt);
   $("#dialogue-evenement").addEventListener("cancel",e=>e.preventDefault());
   $("#dialogue-chasse").addEventListener("cancel",e=>{e.preventDefault();endHunt()});
   $("#dialogue-attaque").addEventListener("cancel",e=>e.preventDefault());$("#dialogue-bilan-attaque").addEventListener("cancel",e=>e.preventDefault());
@@ -1882,8 +1965,10 @@ function bindEvents(){
 
 window.refreshGameLanguage=()=>{
   if(!game)return;
+  const memoirWasOpen=$("#ecran-recit").classList.contains("active");
   if($("#ecran-boutique").classList.contains("active"))renderShop();
   if(game.finishState)renderFinish();else updateUI();
+  if(memoirWasOpen)renderJourneyMemoir();
   if(activeEventModal&&$("#dialogue-evenement").open)refreshEventModalLanguage();
   if(activeRiverOutcome&&$("#dialogue-bilan-riviere").open)renderRiverOutcome();
   if(attackOutcome&&$("#dialogue-bilan-attaque").open)showAttackOutcome();

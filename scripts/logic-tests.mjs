@@ -65,6 +65,17 @@ test("loss lists use a single final conjunction",()=>{
   assert.equal(scenario(`joinList(["vivres","balles","un bœuf"],"fr")`),"vivres, balles et un bœuf");
 });
 
+test("the illustrated journal groups repeated artwork once in first-appearance order",()=>{
+  const result=scenario(`game=baseGame(["A"],"fermier",3);const trail=journalArtSnapshot("stage-kansas-mild.webp"),incident=journalArtSnapshot("incident-fever.webp");addJournal(bilingual("Départ","Departure"),trail);game.day=2;addJournal(bilingual("Fièvre","Fever"),incident);game.day=3;addJournal(bilingual("Reprise de la piste","Back on the trail"),trail);const groups=journalAlbumGroups();({count:groups.length,images:groups.map(group=>group.art.file),trailEntries:groups[0].entries.map(entry=>entry.text.fr),incidentEntries:groups[1].entries.map(entry=>entry.text.fr)})`);
+  assert.equal(result.count,2);assert.deepEqual([...result.images],["stage-kansas-mild.webp","incident-fever.webp"]);
+  assert.deepEqual([...result.trailEntries],["Départ","Reprise de la piste"]);assert.deepEqual([...result.incidentEntries],["Fièvre"]);
+});
+
+test("river reports retain the exact illustrated crossing outcome",()=>{
+  const result=scenario(`game=baseGame(["A"],"fermier",3);addJournal(bilingual("Traversée","Crossing"));showPendingRiverOutcome=()=>{};queueRiverOutcome(LANDMARKS[0],"float-accident",{weather:{key:"rain"}});game.journal[0].art`);
+  assert.equal(result.file,"river-weather-kansas-float-accident.webp");assert.equal(result.size,"200% 200%");assert.equal(result.position,"100% 100%");
+});
+
 test("shortages during delays consume days and weaken the party",()=>{
   const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.vivres=0;consumeDelay(2,2,false);({days:game.days,health:game.party[0].health,journal:game.journal.length})`);
   assert.equal(result.days,2);assert.equal(result.health,84);assert.equal(result.journal,1);
@@ -862,9 +873,9 @@ test("fort stops expose the wagon inventory without forcing departure",()=>{
 });
 
 test("fort arrival is journaled before rest and departure",()=>{
-  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{boeufs:6,vivres:500});dailyIncidentOccurs=()=>false;refreshFortArrivalArt=()=>{};let actions;eventModal=(title,text,details,value)=>actions=value;const mark=LANDMARKS.find(item=>item.name==="Fort Boise");fortEvent(mark);actions.find(action=>String(languageText(action.label,"fr")).includes("reposer")).action();actions.find(action=>languageText(action.label,"fr")==="Repartir").action();game.journal.map(entry=>({day:entry.day,text:entry.text.fr}))`);
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{boeufs:6,vivres:500});dailyIncidentOccurs=()=>false;refreshFortArrivalArt=()=>{};let actions;eventModal=(title,text,details,value)=>actions=value;const mark=LANDMARKS.find(item=>item.name==="Fort Boise");fortEvent(mark);actions.find(action=>String(languageText(action.label,"fr")).includes("reposer")).action();actions.find(action=>languageText(action.label,"fr")==="Repartir").action();game.journal.map(entry=>({day:entry.day,text:entry.text.fr,art:entry.art.file}))`);
   assert.match(result[0].text,/Départ de Fort Boise/);assert.match(result[1].text,/2 jours de repos/);assert.match(result[2].text,/Arrivée à Fort Boise/);
-  assert.ok(result[2].day<result[1].day);assert.equal(result[1].day,result[0].day);
+  assert.ok(result[2].day<result[1].day);assert.equal(result[1].day,result[0].day);assert.equal(result[2].art,"arrival-fort-boise-mild.webp");
 });
 
 test("food loading never exceeds capacity",()=>{

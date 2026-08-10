@@ -19,7 +19,7 @@
   <meta property="og:image:alt" content="Un chariot traverse les grandes plaines sous le titre Oregon Vibe">
   <meta name="twitter:card" content="summary_large_image">
   <title>Oregon Vibe</title>
-  <link rel="stylesheet" href="styles.css?v=20260810-1">
+  <link rel="stylesheet" href="styles.css?v=20260810-2">
 </head>
 <body>
   <a class="skip-link" href="#jeu">Aller au jeu</a>
@@ -224,8 +224,28 @@
         <p id="commentaire-rang-fin" class="ending-comment"></p>
         <div id="score-fin" class="score"></div>
         <section class="ending-journal" aria-labelledby="titre-journal-fin"><h3 id="titre-journal-fin">Journal de bord</h3><ol id="journal-fin" class="journal-list"></ol></section>
-        <button id="rejouer" class="btn primary">Reprendre la piste</button>
+        <div class="ending-actions">
+          <button id="revivre-voyage" class="btn secondary">Revivez votre périple</button>
+          <button id="rejouer" class="btn primary">Reprendre la piste</button>
+        </div>
       </div>
+    </section>
+
+    <section id="ecran-recit" class="screen memoir-screen" aria-labelledby="titre-recit">
+      <header class="memoir-header">
+        <div>
+          <p class="eyebrow">Votre chronique de la piste</p>
+          <h2 id="titre-recit">Le récit de votre périple</h2>
+          <p id="intro-recit">Les illustrations rencontrées en chemin et les pages du journal qu’elles ont accompagnées.</p>
+        </div>
+        <div class="memoir-actions">
+          <button id="retour-fin" class="btn secondary">Retour au bilan</button>
+          <button id="partager-recit" class="btn secondary">Partager ce récit</button>
+          <button id="rejouer-recit" class="btn primary">Nouvelle partie</button>
+        </div>
+      </header>
+      <p id="partage-recit-statut" class="memoir-share-note" role="status" aria-live="polite"></p>
+      <div id="recit-contenu" class="memoir-timeline"></div>
     </section>
   </main>
 
@@ -306,7 +326,7 @@
   </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="i18n.js?v=20260810-6"></script>
-  <script src="game.js?v=20260810-18"></script>
+  <script src="i18n.js?v=20260810-7"></script>
+  <script src="game.js?v=20260810-19"></script>
 </body>
 </html>

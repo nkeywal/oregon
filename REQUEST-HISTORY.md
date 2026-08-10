@@ -309,6 +309,10 @@ The requests included:
 - Recording food consumed and remaining for every travel leg.
 - Avoiding headings and sentences that repeat the same information twice, especially when a traveler dies.
 - Naming every survivor with their qualitative health condition upon reaching Oregon and listing the wagon’s full remaining inventory, including cash.
+- Adding access, after either victory or defeat, to a journal illustrated with the images actually encountered during that playthrough, without showing the same artwork more than once.
+- Making that story pleasant to browse and shareable, if possible through WhatsApp or another app, while keeping access to a new game.
+
+> **LLM decisions:** naming this entry point “Relive your journey”; presenting an album ordered by each illustration’s first appearance, in which every unique image gathers all its associated entries; and, without a server, sharing the complete story as a lightweight HTML file through the device’s native share sheet, with a download fallback. The journal is contained in the file while the illustrations remain served by the site. A plain link was not used because a long playthrough would quickly exceed a reasonable URL length.
 
 ## Final score
 

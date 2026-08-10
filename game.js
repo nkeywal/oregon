@@ -53,9 +53,9 @@ const ENDING_COMMENTS = [
 ];
 
 const SHOP = {
-  boeufs: { label:"Bœufs", desc:"Une paire coûte 40 $. Il en faut au moins quatre.", unit:"bête", plural:"bêtes", unitEn:"ox", pluralEn:"oxen", step:2, price:40, max:12, start:0 },
-  vivres: { label:"Vivres", desc:"Farine, lard, café et haricots. Prix pour 10 kg.", unit:"kg", plural:"kg", unitEn:"kg", pluralEn:"kg", step:10, price:6, max:800, start:0 },
-  munitions: { label:"Munitions", desc:"Boîtes de 20 balles pour la chasse.", unit:"balle", plural:"balles", unitEn:"bullet", pluralEn:"bullets", step:20, price:ammoPrice(3), max:600, start:0 },
+  boeufs: { label:"Bœufs", desc:"Une paire coûte 50 $. Il en faut au moins quatre.", unit:"bête", plural:"bêtes", unitEn:"ox", pluralEn:"oxen", step:2, price:50, max:12, start:0 },
+  vivres: { label:"Vivres", desc:"Farine, lard, café et haricots. Prix pour 10 kg.", unit:"kg", plural:"kg", unitEn:"kg", pluralEn:"kg", step:10, price:4, max:800, start:0 },
+  munitions: { label:"Munitions", desc:"À Independence, 20 balles coûtent 2 $.", unit:"balle", plural:"balles", unitEn:"bullet", pluralEn:"bullets", step:20, price:2, max:600, start:0 },
   vetements: { label:"Couvertures", desc:"Chacune protège un voyageur du froid et de l’humidité.", unit:"couverture", plural:"couvertures", unitEn:"blanket", pluralEn:"blankets", step:1, price:10, max:15, start:0 },
   pieces: { label:"Pièces de rechange", desc:"Roues, essieux et timons pour les avaries.", unit:"pièce", plural:"pièces", unitEn:"spare part", pluralEn:"spare parts", step:1, price:18, max:12, start:0 },
   medicaments: { label:"Remèdes", desc:"Bandages et fortifiants pour soigner le groupe.", unit:"dose", plural:"doses", unitEn:"dose", pluralEn:"doses", step:1, price:12, max:15, start:0 }
@@ -126,13 +126,13 @@ let journalMergeTarget = null;
 let queuedEventReturn = null;
 
 function baseGame(names, profession, month) {
-  const money = {fermier:800,charpentier:1000,banquier:1600}[profession];
+  const money = {fermier:500,charpentier:900,banquier:1500}[profession];
   return {
     version:1, profession, money, initialMoney:money, cart:{...cart},
     party:names.map(name => ({name,health:100,state:"En forme",alive:true,sickDays:0,treated:false,woundDays:0,woundKind:null,needsRemedy:false,deathCause:null})),
     day:1, month:Number(month), year:1848, km:0, days:0, pace:"soutenu", rations:"normales",
     weather:{...WEATHER[0]}, weatherHistory:["Doux"], landmarkIndex:0, oxStrain:0, lastEvent:null, lastRestDay:null, restStreak:0, huntPressure:{}, fortPurchases:{}, journal:[], finished:false, score:0,
-    pendingDeath:null, deathEventOpen:false, pendingRiverOutcome:null
+    pendingDeath:null, deathEventOpen:false, pendingRiverOutcome:null, pendingHuntDay:null
   };
 }
 
@@ -214,7 +214,8 @@ function consumeFood(days,perPerson=dailyFoodPerPerson()) {
 function applyFoodShortage(food,days) {
   if(food.missing<=0||food.needed<=0)return 0;
   const penalty=Math.max(1,Math.ceil(8*days*food.missing/food.needed));
-  alive().forEach(p=>{p.health=clamp(p.health-penalty,0,100);if(p.health<=0&&!p.deathCause)p.deathCause=bilingual("de faim","from starvation")});
+  const minimum=game.cart.boeufs>1?1:0;
+  alive().forEach(p=>{p.health=clamp(p.health-penalty,minimum,100);if(p.health<=0&&!p.deathCause)p.deathCause=bilingual("de faim","from starvation")});
   addJournal(bilingual(`Les vivres n’ont pas suffi pendant ${days} jour${days>1?"s":""}. La faim a affaibli le groupe.`,`Food ran short for ${days} day${days===1?"":"s"}. Hunger weakened the party.`));
   return penalty;
 }
@@ -662,13 +663,17 @@ function addTravelJournal(distance,days,weatherBreakdown=[],route=routeSegmentAt
 function travel(daysToTravel=5){
   if(game.finished)return;
   if(checkJourneyFailure())return;
-  if(game.cart.vivres<=0){if(!offerOxForFood(()=>travel(daysToTravel)))resolveStarvation();return;}
   const pace=PACES[game.pace],travelRoute=routeSegmentAt();
   let distance=0,foodConsumed=0,travelDays=0;const travelWeatherBreakdown=[];
   for(let day=0;day<daysToTravel;day++){
+    const requiredFood=alive().length*dailyFoodPerPerson()*pace.food;
+    if(game.cart.vivres<requiredFood&&game.cart.boeufs>1){
+      if(travelDays)addTravelJournal(distance,travelDays,travelWeatherBreakdown,travelRoute);
+      offerOxForFood(()=>travel(daysToTravel-travelDays),requiredFood);updateUI();return;
+    }
     if(game.cart.vivres<=0){
       if(travelDays)addTravelJournal(distance,travelDays,travelWeatherBreakdown,travelRoute);
-      if(!offerOxForFood(()=>travel(daysToTravel-travelDays)))resolveStarvation();updateUI();return;
+      resolveStarvation();updateUI();return;
     }
     const travelWeather=game.weather,plannedDistance=plannedDailyDistance(pace,travelWeather,travelRoute);
     const next=LANDMARKS[game.landmarkIndex];
@@ -771,14 +776,14 @@ function updateDeaths(cause=null){
 }
 
 function deathEventAsset(remaining=alive().length){
-  return `incident-death-${clamp(Math.round(remaining),0,4)}.webp`;
+  return remaining<=0?"incident-death-last.webp":`incident-death-${clamp(Math.round(remaining),1,4)}.webp`;
 }
 
 function showPendingDeathEvent(){
   const traveler=game.pendingDeath;
   if(!traveler)return false;
   game.pendingDeath=null;game.deathEventOpen=true;const remaining=alive().length;
-  const details=remaining?bilingual("Le convoi s’arrête pour lui offrir une sépulture avant de reprendre la route.","The wagon party stops to give them a burial before returning to the trail."):bilingual("Le chariot demeure seul près des tombes. Plus personne ne reprendra la piste.","The wagon stands alone beside the graves. No one remains to return to the trail.");
+  const details=remaining?bilingual("Le convoi s’arrête pour lui offrir une sépulture avant de reprendre la route.","The wagon party stops to give them a burial before returning to the trail."):bilingual("Le dernier voyageur s’est éteint près du chariot immobilisé. Il ne reste personne pour l’ensevelir ni pour reprendre la piste.","The last traveler died beside the stranded wagon. No one remains to bury them or return to the trail.");
   eventModal(bilingual("Un compagnon est mort","A companion has died"),deathNotice(traveler),details,[
     {label:remaining?bilingual("Rendre un dernier hommage et repartir","Pay your last respects and leave"):bilingual("Voir le bilan du convoi","View the wagon party’s final report"),action:()=>{game.deathEventOpen=false;if(!remaining){finish(false,"La piste a eu raison de tout le convoi.");return;}setTimeout(showPendingRiverOutcome,0)}}
   ],deathEventAsset());
@@ -1227,14 +1232,14 @@ function fortEvent(mark,art=fortArrivalAsset(mark),recordArrival=true){
   if(recordArrival)addJournal(bilingual(`Arrivée à ${mark.name}.`,`Arrived at ${landmarkName(mark)}.`));
   const price=Math.round(1.3+game.km/KM_TOTAL*.7);
   const equipment=shuffled([
-    {key:"boeufs",qty:2,baseCost:60*price,label:"2 bœufs",labelEn:"2 oxen"},
-    {key:"vetements",qty:2,baseCost:22*price,label:"2 couvertures",labelEn:"2 blankets"},
+    {key:"boeufs",qty:1,baseCost:25*price,label:"1 bœuf",labelEn:"1 ox"},
+    {key:"vetements",qty:1,baseCost:11*price,label:"1 couverture",labelEn:"1 blanket"},
     {key:"pieces",qty:1,baseCost:28*price,label:"1 pièce de rechange",labelEn:"1 spare part"}
   ]).slice(0,2);
   const merchandise=[
-    {key:"vivres",qty:50,baseCost:SHOP.vivres.price*5*price,label:"50 kg de vivres",labelEn:"50 kg of food"},
-    {key:"munitions",qty:40,baseCost:ammoPrice(6)*price,label:"40 balles",labelEn:"40 bullets"},
-    {key:"medicaments",qty:2,baseCost:28*price,label:"2 remèdes",labelEn:"2 doses of medicine"},
+    {key:"vivres",qty:SHOP.vivres.step,baseCost:SHOP.vivres.price*price,label:"10 kg de vivres",labelEn:"10 kg of food"},
+    {key:"munitions",qty:SHOP.munitions.step,baseCost:SHOP.munitions.price*price,label:"20 balles",labelEn:"20 bullets"},
+    {key:"medicaments",qty:SHOP.medicaments.step,baseCost:14*price,label:"1 remède",labelEn:"1 dose of medicine"},
     ...equipment
   ];
   const actions=[
@@ -1494,8 +1499,10 @@ function huntWildlife(route=routeSegmentAt(),weather=game.weather,siteKey=huntSi
     for(let i=0;i<tickets;i++)pool.push(species);
   }
   if(!pool.length)pool.push(Object.keys(terrain.weights).filter(species=>terrain.weights[species]>0).sort((left,right)=>(pressure.kills[left]??0)-(pressure.kills[right]??0))[0]??"bird");
+  const guaranteedSmallGame=pressure.hunts>0?["rabbit","bird"].filter(species=>(terrain.weights[species]??0)>0):[];
+  for(const species of guaranteedSmallGame)if(!pool.includes(species))pool.push(species);
   const baseCount=Math.round(5*terrain.abundance*climate.abundance),depletion=Math.ceil(totalKills*.35+pressure.hunts*.5);
-  return {count:clamp(baseCount-depletion,0,5),pool,siteKey,pressure};
+  return {count:clamp(Math.max(guaranteedSmallGame.length,baseCount-depletion),0,5),pool,siteKey,pressure,guaranteedSmallGame};
 }
 
 function huntBackground(){
@@ -1508,23 +1515,28 @@ function startHunt(){
   if(game.cart.vivres>=SHOP.vivres.max){toast("Le chariot ne peut pas charger davantage de vivres.");return;}
   const siteKey=huntSiteKey(),wildlife=huntWildlife(routeSegmentAt(),game.weather,siteKey);
   hunt={time:14,loot:0,limit:Math.min(90,SHOP.vivres.max-game.cart.vivres),shots:0,kills:{},siteKey,background:huntBackground(),cross:{x:380,y:210},animals:[],species:wildlife.pool,last:performance.now(),running:true};
-  for(let i=0;i<wildlife.count;i++)spawnAnimal(i*145);
+  for(let i=0;i<wildlife.count;i++)spawnAnimal(i*145,wildlife.guaranteedSmallGame[i]);
   const canvas=$("#canvas-chasse");canvas.style.backgroundImage=`url('assets/${hunt.background}')`;
   $("#dialogue-chasse .eyebrow").textContent=languageText(regionVisual().title);
   $("#chasse-balles").textContent=game.cart.munitions;$("#chasse-butin").textContent=0;$("#chasse-temps").textContent=14;
   $("#dialogue-chasse").showModal();canvas.focus();requestAnimationFrame(huntLoop);
 }
 
-function resolveHuntDay(loot){
-  const loaded=loadFood(loot);
+function completeHuntDay(){
   const food=consumeDelay(1,2,false);
   refreshWeather();
   const deceased=updateDeaths();
-  return {loaded,food,deceased};
+  return {food,deceased};
 }
 
-function spawnAnimal(offset=0){
-  const species=pick(hunt.species),cfg=HUNT_SPECIES[species],direction=Math.random()<.25?-1:1;
+function resolveHuntDay(loot){
+  const loaded=loadFood(loot),requiredFood=alive().length*2;
+  if(game.cart.vivres<requiredFood&&game.cart.boeufs>1){game.pendingHuntDay={requiredFood};return {loaded,food:null,deceased:null,pending:true}}
+  return {loaded,...completeHuntDay(),pending:false};
+}
+
+function spawnAnimal(offset=0,speciesOverride=null){
+  const species=speciesOverride??pick(hunt.species),cfg=HUNT_SPECIES[species],direction=Math.random()<.25?-1:1;
   hunt.animals.push({species,size:cfg.size,vx:rand(...cfg.speed)*direction,y:rand(...cfg.y),x:direction>0?-60-offset:820+offset,phase:Math.random()*6});
 }
 
@@ -1579,6 +1591,12 @@ function endHunt(){
 }
 
 function continueAfterHuntReport(){
+  if(game.pendingHuntDay){
+    const {requiredFood}=game.pendingHuntDay;
+    const finishDay=()=>{game.pendingHuntDay=null;completeHuntDay();if(showPendingDeathEvent()){updateUI();return;}if(checkJourneyFailure())return;returnToTrailTop()};
+    if(offerOxForFood(finishDay,requiredFood,()=>{game.pendingHuntDay=null;resolveStarvation(false)}))return;
+    finishDay();return;
+  }
   if(showPendingDeathEvent()){updateUI();return;}
   if(checkJourneyFailure())return;
   if(game.cart.vivres<=0&&offerOxForFood())return;

@@ -25,19 +25,13 @@ test("initial state includes event cooldown",()=>{
 });
 
 test("the initial wagon is empty and leaves the full budget to the player",()=>{
-  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);({cart:game.cart,money:game.money,empty:Object.values(game.cart).every(quantity=>quantity===0)})`);
-  assert.equal(result.empty,true);assert.equal(result.money,800);
+  const result=scenario(`const budget=profession=>baseGame(["A","B","C","D","E"],profession,3).money;game=baseGame(["A","B","C","D","E"],"fermier",3);({cart:game.cart,empty:Object.values(game.cart).every(quantity=>quantity===0),farmer:budget("fermier"),carpenter:budget("charpentier"),banker:budget("banquier")})`);
+  assert.equal(result.empty,true);assert.equal(result.farmer,500);assert.equal(result.carpenter,900);assert.equal(result.banker,1500);
 });
 
-test("all ammunition prices use the tripled price scale",()=>{
-  assert.equal(scenario(`SHOP.munitions.price`),9);
-  assert.equal(scenario(`ammoPrice(6)`),18);
-  assert.equal(scenario(`ammoPrice(14)`),42);
-  assert.equal(scenario(`ammoPrice(18)`),54);
-});
-
-test("food costs fifty percent more than the previous price scale",()=>{
-  assert.equal(scenario(`SHOP.vivres.price`),6);
+test("Independence uses the requested purchase units and prices",()=>{
+  const result=scenario(`({oxen:{step:SHOP.boeufs.step,price:SHOP.boeufs.price},food:{step:SHOP.vivres.step,price:SHOP.vivres.price},ammo:{step:SHOP.munitions.step,price:SHOP.munitions.price}})`);
+  assert.deepEqual({...result.oxen},{step:2,price:50});assert.deepEqual({...result.food},{step:10,price:4});assert.deepEqual({...result.ammo},{step:20,price:2});
 });
 
 test("complete party loss uses art distinct from victory",()=>{
@@ -207,6 +201,11 @@ test("hunting depletes local game and especially species already killed",()=>{
   const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.km=200;game.weather={...WEATHER[0]};const site=huntSiteKey(),baseline=huntWildlife(),tickets=(setup,species)=>setup.pool.filter(item=>item===species).length;recordHuntPressure(site,{deer:2});const repeat=huntWildlife();game.km=260;const moved=huntWildlife();({site,baselineCount:baseline.count,repeatCount:repeat.count,movedCount:moved.count,baselineDeer:tickets(baseline,"deer"),repeatDeer:tickets(repeat,"deer"),newSite:huntSiteKey()})`);
   assert.ok(result.repeatCount<result.baselineCount,JSON.stringify(result));assert.ok(result.repeatDeer<result.baselineDeer,JSON.stringify(result));
   assert.equal(result.movedCount,result.baselineCount);assert.notEqual(result.newSite,result.site);
+});
+
+test("a depleted hunting ground still shows a rabbit and a bird",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.km=200;game.weather={...WEATHER[4]};const site=huntSiteKey();recordHuntPressure(site,{bison:20,deer:20,rabbit:20,bird:20});const setup=huntWildlife();({count:setup.count,guaranteed:setup.guaranteedSmallGame,pool:setup.pool})`);
+  assert.ok(result.count>=2);assert.deepEqual([...result.guaranteed],["rabbit","bird"]);assert.ok(result.pool.includes("rabbit")&&result.pool.includes("bird"));
 });
 
 test("French game abundance descriptions avoid the awkward 'gibier dispersé'",()=>{
@@ -546,12 +545,12 @@ test("a lethal final illness day retains the illness as its cause",()=>{
 
 test("death artwork reflects every possible survivor count",()=>{
   const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);const assets=[];for(let remaining=0;remaining<=4;remaining++){game.party.forEach((traveler,index)=>traveler.alive=index<remaining);assets.push(deathEventAsset())}assets`);
-  assert.deepEqual([...result],["incident-death-0.webp","incident-death-1.webp","incident-death-2.webp","incident-death-3.webp","incident-death-4.webp"]);
+  assert.deepEqual([...result],["incident-death-last.webp","incident-death-1.webp","incident-death-2.webp","incident-death-3.webp","incident-death-4.webp"]);
 });
 
-test("the last companion's death uses the empty-camp report",()=>{
+test("the last companion's death uses an unburied final-traveler report",()=>{
   const result=scenario(`game=baseGame(["Lou"],"fermier",3);game.party[0].health=0;eventModal=(title,text,details,actions,art)=>{game.deathEvent={details,action:actions[0],art}};updateDeaths();showPendingDeathEvent();({art:game.deathEvent.art,details:game.deathEvent.details.fr,label:game.deathEvent.action.label.fr})`);
-  assert.equal(result.art,"incident-death-0.webp");assert.match(result.details,/Plus personne/);assert.equal(result.label,"Voir le bilan du convoi");
+  assert.equal(result.art,"incident-death-last.webp");assert.match(result.details,/personne pour l’ensevelir/);assert.doesNotMatch(result.details,/tombe|sépulture/);assert.equal(result.label,"Voir le bilan du convoi");
 });
 
 test("the last death entry is not overwritten by the final journey entry",()=>{
@@ -595,13 +594,23 @@ test("the starvation choice uses its dedicated illustration",()=>{
 });
 
 test("trying to travel hungry offers an ox before starvation",()=>{
-  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.boeufs=2;game.cart.vivres=0;let title;eventModal=value=>title=value;travel();({days:game.days,title:title.fr})`);
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.boeufs=2;game.cart.vivres=0;let title;eventModal=value=>title=value;updateUI=()=>{};travel();({days:game.days,title:title.fr})`);
   assert.equal(result.days,0);assert.equal(result.title,"Les vivres sont épuisés");
+});
+
+test("partial food shortage offers an ox before a travel day can kill",()=>{
+  const result=scenario(`game=baseGame(["Lou","B","C","D","E"],"fermier",3);Object.assign(game.cart,{boeufs:3,vivres:2});game.party[0].health=2;let offered=0,required=0;offerOxForFood=(after,value)=>{offered++;required=value;return true};updateUI=()=>{};travel();({offered,required,days:game.days,alive:game.party[0].alive})`);
+  assert.equal(result.offered,1);assert.ok(result.required>2);assert.equal(result.days,0);assert.equal(result.alive,true);
 });
 
 test("an empty wagon is offered an ox after a fruitless hunt",()=>{
   const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.boeufs=2;game.cart.vivres=0;let offered=0;offerOxForFood=()=>{offered++;return true};showPendingDeathEvent=()=>false;checkJourneyFailure=()=>false;continueAfterHuntReport();offered`);
   assert.equal(result,1);
+});
+
+test("a meager hunt postpones hunger damage until the ox choice",()=>{
+  const result=scenario(`game=baseGame(["Lou","B","C","D","E"],"fermier",3);Object.assign(game.cart,{boeufs:3,vivres:0});game.party[0].health=2;const outcome=resolveHuntDay(3);({pending:outcome.pending,days:game.days,food:game.cart.vivres,alive:game.party[0].alive,required:game.pendingHuntDay.requiredFood})`);
+  assert.equal(result.pending,true);assert.equal(result.days,0);assert.equal(result.food,3);assert.equal(result.alive,true);assert.equal(result.required,10);
 });
 
 test("each death applies an explicit final score penalty",()=>{
@@ -716,7 +725,7 @@ test("prepared complete journeys preserve pace difficulty under individual incid
   const result=scenario(`let seed=1848;Math.random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296};finish=win=>{game.finished=true;game.testWin=win};updateUI=()=>{};setTrailScene=()=>{};showLandmarkArt=()=>{};toast=()=>{};returnToTrailTop=()=>{};refreshFortArrivalArt=()=>{};queueRiverOutcome=()=>{};startAttack=()=>{};eventModal=(title,text,details,actions)=>{let action=actions.find(candidate=>!actionDisabled(candidate));if(String(languageText(title)).includes("Fort"))action=actions.find(candidate=>languageText(candidate.label)==="Repartir")||action;if(!action)throw new Error("No playable event action");action.action();updateDeaths();checkJourneyFailure()};const runs={prudent:[],soutenu:[],epuisant:[]};for(const pace of Object.keys(runs))for(let attempt=0;attempt<40;attempt++){game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{boeufs:8,vivres:700,munitions:300,vetements:8,pieces:5,medicaments:8});game.money=300;game.pace=pace;game.weather=weatherForPosition(game.month,game.day,game.year,0,[]);game.weatherHistory=[game.weather.name];let turns=0;while(!game.finished&&turns++<500){if(game.cart.vivres<100&&game.cart.munitions>=5){game.cart.munitions-=5;loadFood(55)}const average=alive().reduce((sum,traveler)=>sum+traveler.health,0)/alive().length;if(average<48&&game.cart.vivres>=alive().length*4)rest();else travel()}if(game.testWin)runs[pace].push(game.days)}for(const values of Object.values(runs))values.sort((a,b)=>a-b);const percentile=(values,p)=>values[Math.floor((values.length-1)*p)];({wins:Object.fromEntries(Object.entries(runs).map(([pace,values])=>[pace,values.length])),prudent:{p10:percentile(runs.prudent,.1),p75:percentile(runs.prudent,.75)},soutenu:{p10:percentile(runs.soutenu,.1),p75:percentile(runs.soutenu,.75)}})`);
   assert.ok(result.wins.prudent>=35,JSON.stringify(result));assert.ok(result.wins.soutenu>=20&&result.wins.soutenu<result.wins.prudent,JSON.stringify(result));
   assert.ok(result.wins.epuisant<=30&&result.wins.epuisant<result.wins.soutenu,JSON.stringify(result));
-  assert.ok(result.prudent.p10>=120&&result.prudent.p75<=210,JSON.stringify(result));assert.ok(result.soutenu.p10>=120&&result.soutenu.p75<=230,JSON.stringify(result));
+  assert.ok(result.prudent.p10>=120&&result.prudent.p75<=210,JSON.stringify(result));assert.ok(result.soutenu.p10>=120&&result.soutenu.p75<=260,JSON.stringify(result));
 });
 
 test("fort rest cost follows the current party size",()=>{
@@ -725,23 +734,28 @@ test("fort rest cost follows the current party size",()=>{
 });
 
 test("fort purchases confirm the item and updated stock",()=>{
-  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.money=1000;eventModal=(title,text,details,actions)=>{game.actions=actions};fortEvent(LANDMARKS.find(m=>m.kind==="fort"));const medicine=game.actions.find(action=>languageText(action.label,"fr").includes("remèdes"));const before=game.cart.medicaments;medicine.action();const confirmation=medicine.feedback();({before,after:game.cart.medicaments,money:game.money,fr:confirmation.fr,en:confirmation.en,journal:game.journal[0].text})`);
-  assert.equal(result.after,result.before+2);
-  assert.match(result.fr,/Achat effectué : 2 remèdes/);assert.match(result.fr,new RegExp(`Nouveau stock : ${result.after} doses`));assert.match(result.fr,new RegExp(`reste ${result.money} \\$.`));
-  assert.match(result.en,/Purchase complete: 2 doses of medicine/);assert.match(result.en,new RegExp(`New stock: ${result.after} doses of medicine`));
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.money=1000;eventModal=(title,text,details,actions)=>{game.actions=actions};fortEvent(LANDMARKS.find(m=>m.kind==="fort"));const medicine=game.actions.find(action=>languageText(action.label,"fr").includes("remède"));const before=game.cart.medicaments;medicine.action();const confirmation=medicine.feedback();({before,after:game.cart.medicaments,money:game.money,fr:confirmation.fr,en:confirmation.en,journal:game.journal[0].text})`);
+  assert.equal(result.after,result.before+1);
+  assert.match(result.fr,/Achat effectué : 1 remède/);assert.match(result.fr,new RegExp(`Nouveau stock : ${result.after} dose`));assert.match(result.fr,new RegExp(`reste ${result.money} \\$.`));
+  assert.match(result.en,/Purchase complete: 1 dose of medicine/);assert.match(result.en,new RegExp(`New stock: ${result.after} dose of medicine`));
   assert.match(result.journal.fr,/Achat à Fort/);assert.match(result.journal.fr,/Argent restant/);
 });
 
 test("every fort always sells medicine",()=>{
-  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.money=1000;let actions;eventModal=(title,text,details,value)=>actions=value;LANDMARKS.filter(mark=>mark.kind==="fort").map(mark=>{fortEvent(mark);return {name:mark.name,medicine:actions.filter(action=>languageText(action.label,"fr").includes("remèdes")).length}})`);
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.money=1000;let actions;eventModal=(title,text,details,value)=>actions=value;LANDMARKS.filter(mark=>mark.kind==="fort").map(mark=>{fortEvent(mark);return {name:mark.name,medicine:actions.filter(action=>languageText(action.label,"fr").includes("remède")).length}})`);
   assert.equal(result.length,3);for(const fort of result)assert.equal(fort.medicine,1,fort.name);
 });
 
+test("forts sell standard units and individual oxen",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"banquier",3);game.money=2000;shuffled=items=>items;let actions;eventModal=(title,text,details,value)=>actions=value;fortEvent(LANDMARKS.find(mark=>mark.kind==="fort"));const before={...game.cart};for(const fragment of ["10 kg de vivres","20 balles","1 remède","1 bœuf","1 couverture"]){const action=actions.find(candidate=>languageText(candidate.label,"fr").includes(fragment));if(!action)throw new Error(fragment);action.action()}({vivres:game.cart.vivres-before.vivres,munitions:game.cart.munitions-before.munitions,medicaments:game.cart.medicaments-before.medicaments,boeufs:game.cart.boeufs-before.boeufs,vetements:game.cart.vetements-before.vetements})`);
+  assert.equal(result.vivres,10);assert.equal(result.munitions,20);assert.equal(result.medicaments,1);assert.equal(result.boeufs,1);assert.equal(result.vetements,1);
+});
+
 test("each repeat purchase raises only that fort's item price by twenty percent",()=>{
-  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.money=1000;game.km=2580;let actions;eventModal=(title,text,details,value)=>actions=value;const boise=LANDMARKS.find(mark=>mark.name==="Fort Boise"),kearny=LANDMARKS.find(mark=>mark.name==="Fort Kearny");fortEvent(boise);const food=actions.find(action=>languageText(action.label,"fr").includes("50 kg de vivres"));const first=languageText(food.label,"fr");food.action();const second=languageText(food.label,"fr");food.action();const third=languageText(food.label,"fr");({first,second,third,money:game.money,stock:game.cart.vivres,journal:game.journal[0].text.fr,otherFort:fortPurchasePrice(kearny,"vivres",60),counts:game.fortPurchases})`);
-  assert.match(result.first,/60 \$/);assert.match(result.second,/72 \$/);assert.match(result.third,/86 \$/);
-  assert.equal(result.money,868);assert.equal(result.stock,100);assert.match(result.journal,/72 \$/);assert.match(result.journal,/Nouveau stock : 100 kg de vivres/);assert.match(result.journal,/Argent restant : 868 \$/);
-  assert.equal(result.otherFort,60);assert.equal(Object.values(result.counts).reduce((sum,count)=>sum+count,0),2);
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.money=1000;game.km=2580;let actions;eventModal=(title,text,details,value)=>actions=value;const boise=LANDMARKS.find(mark=>mark.name==="Fort Boise"),kearny=LANDMARKS.find(mark=>mark.name==="Fort Kearny");fortEvent(boise);const food=actions.find(action=>languageText(action.label,"fr").includes("10 kg de vivres"));const first=languageText(food.label,"fr");food.action();const second=languageText(food.label,"fr");food.action();const third=languageText(food.label,"fr");({first,second,third,money:game.money,stock:game.cart.vivres,journal:game.journal[0].text.fr,otherFort:fortPurchasePrice(kearny,"vivres",8),counts:game.fortPurchases})`);
+  assert.match(result.first,/8 \$/);assert.match(result.second,/10 \$/);assert.match(result.third,/12 \$/);
+  assert.equal(result.money,982);assert.equal(result.stock,20);assert.match(result.journal,/10 \$/);assert.match(result.journal,/Nouveau stock : 20 kg de vivres/);assert.match(result.journal,/Argent restant : 982 \$/);
+  assert.equal(result.otherFort,8);assert.equal(Object.values(result.counts).reduce((sum,count)=>sum+count,0),2);
 });
 
 let passed=0;

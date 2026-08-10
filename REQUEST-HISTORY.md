@@ -2,7 +2,9 @@
 
 ## Purpose of the experiment
 
-To test what a software-development AI produces when asked, from a very general request, to code a complete game while leaving design and implementation choices to the AI, without reusing existing code or assets. For this experiment, the AI used was Codex with the SOL 5.6 model and the “medium” reasoning level.
+The objective explicitly stated by the user was to test what an AI produces when asked to code a complete game. For this experiment, the system identified by the user was Codex with the SOL 5.6 model and the “medium” reasoning level.
+
+Because the initial request was very broad, many design and implementation choices were in practice left to the LLM. The code and illustrations were produced for the project, but “without reusing existing code or assets” was not phrased as an explicit user constraint and must therefore not be attributed to the user.
 
 ## Scope quantification
 
@@ -16,7 +18,7 @@ The initial request contained five broad requirements:
 
 Since then, more than 100 substantial specification messages have extended that prompt, excluding purely operational messages such as “I ran ssh-add,” “GitHub Pages is configured,” or “continue.” A first version of this report was prepared after 45 messages; tuning, narrative work, and quality control then continued through more than 55 additional requests.
 
-Using a breakdown in which each explicitly requested, independently verifiable behavior counts as one request, this now amounts to approximately 200 additional requirements:
+Using a breakdown in which each explicitly requested, independently verifiable behavior counts as one request, this now amounts to approximately 200 additional requirements. This total excludes mechanics, values, and staging choices invented by the LLM:
 
 | Area added after the initial request | Approximate number |
 |---|---:|
@@ -32,11 +34,19 @@ More than 97% of the detailed requirements were therefore specified after the in
 
 ### How to read this document
 
-The sections from “Illustrations and interface” through “Experiment documentation” list requests made by the user. They describe what was requested, not necessarily how the AI chose to implement it.
+The document now distinguishes three sources:
 
-The “Decisions and work added by the AI” section instead isolates design choices, numerical values, optimizations, and technical work selected by the AI in response to broader requests. Those elements should not be counted as detailed user instructions.
+- **User request**: a behavior or piece of content explicitly stated in the conversation.
+- **LLM decision**: a design, staging, or technical detail selected by the model without a corresponding instruction.
+- **Mixed origin**: an objective requested by the user whose playable form or concrete solution was selected by the LLM. The two contributions are then listed separately.
+
+Only items classified as “user request” are included in the estimate of approximately 200 requirements. A validation, bug fix, or LLM decision is not retroactively turned into a user request.
+
+One rule guided this review in particular: when a mechanic first invented by the LLM was later corrected, balanced, or documented by the user, the original mechanic remains attributed to the LLM; only the later corrections are attributed to the user.
 
 ## Illustrations and interface
+
+> **Attribution: user requests.**
 
 The successive requests added:
 
@@ -64,6 +74,8 @@ The successive requests added:
 
 ## Hunting
 
+> **Attribution: user requests, except where noted.**
+
 Hunting gradually received:
 
 - An illustrated intermediate report screen.
@@ -76,7 +88,6 @@ Hunting gradually received:
 - Significantly rarer bison and rabbits in cold or snowy weather, with fewer simultaneous targets.
 - Abundance and species also depend on terrain, including no bison in desert regions.
 - A limit of 90 kg per hunt.
-- Enforcement of the wagon’s maximum capacity.
 - Working touch controls on mobile.
 - Removal of the overlaid “Hit” notification.
 - A species-specific kill chance: small game falls more readily than deer or bison.
@@ -84,7 +95,11 @@ Hunting gradually received:
 - Consumption of the selected ration during the hunting day.
 - Resolution of the day’s consequences only after the hunted meat has been loaded.
 
+> **LLM decision:** automatically applying the wagon’s general capacity to hunted meat, in addition to the explicitly requested limit of 90 kg per hunt.
+
 ## Locations, forts, and trade
+
+> **Attribution: user requests, except where noted.**
 
 The requests included:
 
@@ -95,7 +110,6 @@ The requests included:
 - Trade encounters.
 - A fixed item, price, and quantity for each encounter.
 - Limiting the player’s choice to accepting or declining the offer.
-- Clearly disabling purchases that are unaffordable or exceed capacity.
 - Immediately showing the purchased item and its updated stock after every purchase.
 - Tripling ammunition prices, both before departure and along the trail.
 - Accessing the inventory without leaving a fort stop.
@@ -105,7 +119,13 @@ The requests included:
 - A price increase after repeated purchases of the same good at a fort, except for food, whose local price remains fixed.
 - Final starting funds of $600 for the farmer, $900 for the carpenter, and $1,500 for the banker.
 
+The general tripling of bullet prices and the first starting budgets were later superseded by explicit departure prices—including $25 per ox, $4 per 10 kg of food, and $1 per 10 bullets at Independence—and then by the farmer’s final $600 budget. These were successive user requests, not values chosen by the LLM.
+
+> **LLM decision:** generally disabling purchases that are unaffordable or exceed wagon capacity. Disabling choices according to available resources was explicitly requested for return-fire options during an attack, not as a general rule for every trading post.
+
 ## Added incidents
+
+> **Attribution: user requests.**
 
 The initial request did not describe incidents in detail. Later additions included:
 
@@ -132,6 +152,8 @@ Illnesses must last several days: neither medicine nor two days of rest immediat
 
 ## Sensitive point: “Native riders” changed to “Indians”
 
+> **Attribution: explicit user request.**
+
 The exact requested change was:
 
 > “Native riders” → “The Indians”
@@ -142,23 +164,34 @@ This is a sensitive editorial choice because “the Indians” generalizes disti
 
 ## Sensitive point: the attack remains defensive
 
-A later request specified that an attack by Indians should become a mini-game different from hunting, with travelers potentially wounded or killed and a dedicated outcome report.
+> **Attribution: mixed origin.**
 
-The defensive nature of the encounter was not stated word for word. It was selected during design and later refined by additional requests:
+### What the user requested
 
-- The player moves the wagon instead of aiming at riders.
-- The player avoids projectiles.
-- The player protects the party until the attack ends.
-- The consequences are injuries or deaths.
-- Before the mini-game, the player may nevertheless order abstract return fire: none, light, sustained, or maximum.
-- Return fire consumes bullets and shortens the attack; maximum return fire requires at least three survivors.
-- The choice and any limitation are preserved in the journal.
+- Add an attack by Indians as a mini-game different from hunting.
+- Let its outcome include injured or dead travelers and show a dedicated report screen.
+- Make the attack more dangerous, then prevent its difficulty from increasing excessively near the end of the journey.
+- Provide four return-fire levels: none, light, sustained, and maximum.
+- Make return fire consume bullets and shorten the attack according to the selected level.
+- Disable options when bullets are insufficient, display available ammunition, and require at least three survivors for maximum return fire.
+- Record the return-fire choice and any limitation in the journal.
+- Keep the `&` shortcut to trigger the incident during testing.
+- Identify the defensive nature of the mini-game as a sensitive point in this history.
 
-This is therefore an important implementation decision. Even with return fire, Indigenous characters do not become targets in the hunting mini-game: the playable sequence remains centered on evasion and protecting the wagon party. The event nevertheless retains the sensitive representation of “Indians” as aggressors.
+### What the LLM decided
 
-The `&` shortcut used to trigger this attack for testing was also explicitly requested and intentionally remains available.
+- Represent the attack as a timed survival sequence.
+- Have the player move the wagon laterally instead of aiming at the riders.
+- Represent danger through projectiles that must be avoided.
+- Center the action on protecting the wagon party until the attackers withdraw.
+- Avoid making riders direct targets and represent the requested return fire as an abstract decision made before the sequence.
+
+It was therefore the LLM—not the user—that chose wagon movement, projectile avoidance, and the absence of direct aiming at riders. Later requests for return fire extended that design without transferring authorship of it to the user. The event nevertheless retains the sensitive representation of “Indians” as aggressors.
+
 
 ## Health, illness, and death
+
+> **Attribution: user requests.**
 
 The requests imposed several editorial rules:
 
@@ -175,11 +208,15 @@ The requests imposed several editorial rules:
 - Make illness and injury more likely to kill an already severely weakened traveler.
 - Keep dysentery, fever, injuries, and attack wounds long enough that a short halt cannot erase them.
 - Let wounds heal during every day of rest, including successive halts, while illnesses continue to weaken the patient.
-- Never announce recovery before all consequences of the day have been resolved, preventing a traveler from being declared recovered and then dead on the same date.
+- Never display recovery followed by death from the same illness on the same date.
 
 The last rule does not guarantee success: the entire party can still die progressively during the journey.
 
+> **LLM decision:** technically resolving all daily consequences before publishing a recovery in the journal.
+
 ## Time, weather, and events
+
+> **Attribution: user requests, except where noted.**
 
 The original logic was expanded substantially:
 
@@ -195,33 +232,42 @@ The original logic was expanded substantially:
 - August no longer produces implausibly cold weather.
 - Weather follows a seasonal distribution.
 - The journal associates distance traveled with the weather encountered.
-- Weather depends on the date, the previous three days, and local geography.
+- Weather depends on the date, previous days’ weather, and local geography.
 - Abrupt transitions, especially between snow and extreme heat, are forbidden.
 - Desert basins never generate snow.
 - Terrain, slope, and actual trail quality modify speed and incident risk.
 - Conditions for each section of trail are displayed over the landscape and recorded in the journal.
-- A prepared playthrough should remain consistent with the historical journey’s four-to-six-month duration.
+- A prepared playthrough should remain consistent with the historical duration of the journey, which was to be verified.
 - A new complete pass must review the overall logic, event selection, and any remaining inconsistencies.
 - The final pace-related food coefficients were explicitly requested: cautious ×0.95, normal ×1, and grueling ×1.10.
 
+> **LLM decisions:** concretely using the previous three days as the memory window for the requested influence of past weather; translating the historical-realism requirement into a target of roughly four to six months for a prepared wagon party.
+
 ## Rivers
+
+> **Attribution: user requests, except where noted.**
 
 River crossings received a complete system:
 
 - Random depth.
 - Variation after waiting.
 - Seasonal influence.
-- Influence from rain, heat, and snowmelt.
-- A choice between ferrying, waiting, and floating the wagon.
-- Risk of losing food, bullets, blankets, spare parts, and medicine.
+- Influence from season and weather.
+- For a mean level of 2 m, variation capable of reaching roughly a full meter rather than being limited to about 30 cm.
+- Rebalancing the ferry, waiting, and floating options already present in the first version.
+- Risk of losing equipment and oxen, with losses proportional to the load.
 - When floating the wagon, an exponentially increasing chance of losing cargo as water depth rises.
-- A genuinely failed floating attempt can leave the wagon party on the original bank.
+- Repeated increases in difficulty so that floating the wagon does not succeed almost every time.
 - Traveler and ox-team fatigue affects the party’s ability to control the wagon in the current.
 - Risk of losing oxen.
 - An illustrated report after every crossing.
 - A different illustration for each river, method, and outcome.
 
+> **LLM decisions:** initially offering ferrying, waiting, and floating as the three ways to implement the requested classic gameplay; representing season and weather through a hydrological estimate that includes rain, heat, and snowmelt; returning the wagon party to the original bank after some failures; and distributing equipment losses among food, bullets, blankets, spare parts, and medicine.
+
 ## Resources and failure conditions
+
+> **Attribution: user requests, except where noted.**
 
 The help page and game logic were expanded so that every resource has a purpose and can contribute to failure:
 
@@ -231,18 +277,20 @@ The help page and game logic were expanded so that every resource has a purpose 
 - Blankets provide protection from cold.
 - The wagon must start completely empty before shopping, leaving the player to build the loadout.
 - The number of blankets must materially determine how many travelers remain protected from cold and frostbite.
-- Spare parts prevent long and costly repairs.
-- Medicine treats both travelers and oxen.
+- Spare parts and medicine must have a concrete use and be capable of running short at the wrong time.
 - Money is used at forts, ferries, and encounters.
 - Oxen affect speed and can be injured, stolen, or lost in a river.
 - A slaughtered ox can become food.
 - Losing the final ox ends the journey.
 - When food is insufficient, the player may slaughter an ox as long as more than one remains, including before resting or after hunting.
 - Ox-team speed follows the requested thresholds: two oxen impose a severe slowdown, six provide the reference pace, and eight are enough to reach the maximum benefit.
-- Wagon capacity limits every gain.
 - No message may report a loss of “0 kg.”
 
+> **LLM decisions:** using spare parts to avoid certain long repairs; allowing medicine to treat oxen as well; and applying the wagon’s overall capacity to all resource gains, beyond the specific limits requested by the user.
+
 ## Journal and reports
+
+> **Attribution: user requests.**
 
 The requests included:
 
@@ -260,18 +308,24 @@ The requests included:
 
 ## Final score
 
+> **Attribution: user requests, except where noted.**
+
 The score was replaced with a Civilization I-inspired system containing twenty ranks, ranging from:
 
 - “Vanished without a trace”
 - to “Father or Mother of Oregon.”
 
-A failed expedition can no longer receive a rank reserved for a successful arrival, even if the player retained substantial money or supplies.
+Every rank must have its own comment so the player can understand where the result stands, from a pitiful failure to the elite of the trail.
+
+> **LLM decision:** technically separating ranks available after defeat from ranks reserved for arrival, preventing a lost expedition from receiving a victory title because of its remaining resources.
 
 Every party member who dies along the way must also incur an explicit final-score penalty.
 
 Occupation also scales the score: succeeding on the farmer’s small budget is worth more, while the banker’s financial advantage sharply reduces the result.
 
 ## Language and terminology
+
+> **Attribution: user requests.**
 
 Later requests also included:
 
@@ -285,6 +339,8 @@ Later requests also included:
 - Shortening the homepage link to “Infos” and “About.”
 
 ## Help, saving, and publishing requested by the user
+
+> **Attribution: user requests.**
 
 Finally, the scope added:
 
@@ -300,20 +356,31 @@ Finally, the scope added:
 
 ## Experiment documentation requested by the user
 
+> **Attribution: user requests.**
+
 The final requests concern documentation of the project itself:
 
 - Preserve a file summarizing all requests and their scale compared with the initial prompt.
 - Provide the document in French and English, with a discreet homepage link to the version matching the selected language.
-- State the purpose of the experiment explicitly: begin with a very general prompt, leave the design and implementation of a complete game to the AI, reuse no existing code or assets, and identify the system used—Codex, SOL 5.6 model, “medium” reasoning.
+- State the purpose of the experiment explicitly: test what an AI produces when asked to code a complete game, and identify the system used—Codex, SOL 5.6 model, “medium” reasoning.
 - Bring both documents up to date, present them in the same visual identity as the game, and give them a new illustration consistent with its art direction.
 
 ## Decisions and work added by the AI
 
+> **Attribution: LLM decisions.**
+
 The following elements were decided or specified by the AI. They answered broader requests but were not individually prescribed by the user:
 
-- Choosing an attack mini-game centered on evasion, with the requested return fire remaining an abstract tactical choice rather than aimed shooting at characters.
+- Choosing lateral wagon movement, projectiles to avoid, and a survival timer for the attack mini-game; return fire, requested later by the user, was integrated as an abstract choice rather than aimed shooting at the riders.
 - Choosing the specific art direction inspired by WPA posters and screen-printed gouache.
-- Choosing the exact numerical values for probabilities, consumption, damage, capacities, and score thresholds.
+- Choosing numerical values required for the game when the user supplied none. Conversely, the incident probabilities, prices, consumption coefficients, ox-speed thresholds, durations, and return-fire rules explicitly supplied in the conversation remain user requests.
+- The game’s internal state structure, unspecified formulas, collision detection, and sequencing of event windows.
+- Limiting the weather memory to the previous three days, when the user had only requested that previous days be taken into account.
+- A four-to-six-month target used to translate the historical-realism request into game duration.
+- The precise division of the 3,200 km route into regions, slope coefficients, trail conditions, and climate profiles in response to the geographic requirement.
+- Initially choosing ferrying, waiting, and floating as three playable crossing methods, which were subsequently rebalanced according to user requests.
+- Assigning precise uses to resources when only their general usefulness had been requested, including spare parts for faster repairs and medicine usable on oxen.
+- General application of wagon capacity to purchases and resource gains.
 - Technically separating ranks available after defeat from ranks reserved for reaching Oregon.
 - Image compression.
 - A favicon and social sharing image.
@@ -324,4 +391,4 @@ The following elements were decided or specified by the AI. They answered broade
 
 ## Conclusion
 
-The initial request defined the platform, game genre, and visual ambition. The user’s later requests determined much of the survival rules, mobile interface, historical vocabulary, incidents, weather, economy, reports, and translation. The AI then selected the implementation details, balancing values, part of the staging, and the technical optimizations listed separately above.
+The initial request defined the platform, game genre, and visual ambition. The user’s later requests determined much of the survival rules, mobile interface, historical vocabulary, incidents, weather, economy, reports, and translation. The LLM selected the playable forms that were not specified—most notably wagon evasion during the attack—along with implementation details, balancing values not supplied by the user, part of the staging, and the technical optimizations listed separately above.

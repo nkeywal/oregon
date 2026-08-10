@@ -66,6 +66,9 @@ if(/localStorage|sessionStorage/.test(game))throw new Error("Game progression mu
 if(/points? de santé|health points?|% de santé|% health/i.test(`${html}\n${game}\n${i18n}`))throw new Error("Internal health values leaked into player-facing copy.");
 if(!/environ 200 exigences/.test(historyFrMd)||!/approximately 200 additional requirements/.test(historyEnMd))throw new Error("Bilingual request totals are not up to date.");
 if(!/600 \$ pour le fermier/.test(historyFrMd)||!/\$600 for the farmer/.test(historyEnMd))throw new Error("Bilingual project histories do not contain the current starting funds.");
+if(!/Ce que le LLM a décidé/.test(historyFrMd)||!/What the LLM decided/.test(historyEnMd))throw new Error("The mixed authorship of the attack mini-game is not documented bilingually.");
+if(!/LLM[^\n]+choisi de faire déplacer le chariot/.test(historyFrMd)||!/LLM[^\n]+chose wagon movement/.test(historyEnMd))throw new Error("The defensive attack controls must be explicitly attributed to the LLM.");
+if(!/ne figurait pas comme contrainte explicite/.test(historyFrMd)||!/was not phrased as an explicit user constraint/.test(historyEnMd))throw new Error("The project purpose overstates the user's original constraints.");
 if(!historyFr.includes('data-source="HISTORIQUE-DEMANDES.md"')||!historyEn.includes('data-source="REQUEST-HISTORY.md"'))throw new Error("History pages are not linked to their respective source documents.");
 
 console.log(`Verified ${required.length} local files, ${idCount} unique HTML ids across ${Object.keys(pages).length} pages, and all JavaScript bundles.`);

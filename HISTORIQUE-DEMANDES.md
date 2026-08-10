@@ -4,33 +4,25 @@
 
 L’objectif formulé explicitement par l’utilisateur était de tester ce que produit une IA lorsqu’on lui demande de coder un jeu complet. Pour cette expérience, l’IA indiquée par l’utilisateur était Codex avec le modèle SOL 5.6 et un niveau de raisonnement « medium ».
 
-La demande initiale étant très générale, de nombreux choix de conception et d’implémentation ont, dans les faits, été laissés au LLM. Le code et les illustrations ont été produits pour le projet, mais l’expression « sans reprendre de code ni d’assets existants » ne figurait pas comme contrainte explicite de l’utilisateur : elle ne doit donc pas lui être attribuée.
+La demande initiale étant très générale, de nombreux choix de conception et d’implémentation ont, dans les faits, été laissés au LLM.
 
 ## Quantification du périmètre
 
-La demande initiale contenait cinq grandes exigences :
+La demande initiale peut se résumer ainsi : faire un Oregon Trail-like, en HTML pur, avec une vraie direction artistique originale et un vrai travail sur les images.
 
-1. Refaire Oregon Trail en HTML.
-2. Fonctionnement entièrement côté client.
-3. Reprendre le gameplay classique.
-4. Produire de meilleures illustrations avec une direction artistique homogène.
-5. Utiliser plusieurs agents pour le code et les images.
+### Retour d’expérience
 
-Depuis, plus de 100 messages substantiels de spécification ont prolongé cette consigne, sans compter les simples messages opérationnels comme « j’ai fait ssh-add », « GitHub Pages est configuré » ou « continue ». Une première version de ce bilan avait été établie après 45 messages ; le travail de réglage, de narration et de contrôle qualité s’est ensuite poursuivi pendant plus de 55 demandes supplémentaires.
+> **Attribution : retour d’expérience formulé par l’utilisateur.**
 
-Avec un découpage où chaque comportement vérifiable explicitement demandé compte comme une demande, on obtient désormais environ 200 exigences supplémentaires. Ce total exclut les mécanismes, valeurs et choix de mise en scène inventés par le LLM :
-
-| Domaine ajouté après la demande initiale | Nombre approximatif |
-|---|---:|
-| Images, interface et mobile | 35 |
-| Gameplay, économie et équilibrage | 72 |
-| Incidents, maladies et santé | 30 |
-| Terminologie, journal et traduction | 35 |
-| Aide, publication et préproduction | 20 |
-| Documentation de l’expérience | 8 |
-| **Total** | **≈ 200** |
-
-Ainsi, plus de 97 % des exigences détaillées ont été formulées après la demande initiale. Le projet final est sensiblement plus large qu’un simple Oregon Trail classique illustré.
+- Le LLM a choisi une direction artistique inspirée des affiches WPA et de la gouache sérigraphiée, puis l’a appliquée à l’ensemble du jeu.
+- On part d’une demande très générale : « implémenter un Oregon Trail-like, avec une vraie direction artistique, en pur HTML ».
+- Le LLM implémente un jeu complet, choisit lui-même ce style gouache et reprend certains mécanismes du jeu d’origine, notamment le choix entre différentes professions et le parcours historique d’Independence jusqu’à l’Oregon. En revanche, il n’y a pas de réel équilibrage initial.
+- Les demandes de génération de dessins fonctionnent bien : le style reste cohérent d’une image à l’autre et la direction artistique est correctement conservée.
+- Les demandes générales du type « équilibre le jeu » échouent. Le LLM implémente un simulateur stochastique, lance des essais et ajuste certains paramètres, mais le jeu reste malgré tout trivial.
+- Le framework général des incidents est incorrect, mais le LLM ne s’en rend pas compte. Il ajoute progressivement des rustines sans remettre en cause le mécanisme de départ. Pour avancer, il faut lui demander explicitement d’expliquer le fonctionnement du système, puis lui proposer un autre mécanisme. Les paramètres eux-mêmes doivent ensuite être affinés à la main, à partir de parties jouées manuellement.
+- Fait intéressant : lorsqu’on demande au LLM d’ajouter des attaques d’Indiens, il conçoit volontairement un mini-jeu défensif afin de ne pas présenter les Indiens comme les agresseurs et emploie le terme « Native » plutôt qu’« Indien ». Il effectue toutefois les changements demandés lorsqu’on lui demande explicitement de le faire.
+- Globalement, le LLM n’introduit aucun bug de code simple. Il subsiste malgré tout des incohérences de logique, par exemple faire mourir un personnage puis le faire guérir ensuite. Le LLM ne les détecte pas lui-même pendant les phases du type « /goal vérifie et résous les problèmes avant passage en production ». Il reste aussi des bugs de présentation, comme des nombres mal arrondis tels que `23.000001`.
+- Le travail sur les mécanismes et sur la difficulté du jeu reste donc à faire. Lorsqu’on le laisse concevoir seul, le LLM tend à implémenter des mécanismes trop simples. On peut améliorer le résultat en le guidant davantage en amont pour qu’il propose des mécanismes plus élaborés, plutôt que de le laisser implémenter une première version puis de la corriger ensuite.
 
 ### Comment lire ce document
 
@@ -40,7 +32,7 @@ Le document distingue désormais trois origines :
 - **Décision du LLM** : conception, mise en scène ou détail technique choisi par le modèle sans instruction correspondante.
 - **Origine mixte** : objectif demandé par l’utilisateur, mais forme jouable ou solution concrète choisie par le LLM. Les deux contributions sont alors séparées.
 
-Seuls les éléments classés « demande utilisateur » entrent dans l’estimation d’environ 200 exigences. Une validation, une correction de bug ou une décision du LLM n’est pas transformée rétroactivement en demande de l’utilisateur.
+Une validation, une correction de bug ou une décision du LLM n’est pas transformée rétroactivement en demande de l’utilisateur.
 
 Une règle particulière a guidé cette vérification : lorsqu’une mécanique d’abord inventée par le LLM a ensuite été corrigée, équilibrée ou documentée par l’utilisateur, la mécanique initiale reste attribuée au LLM ; seules les corrections ultérieures sont attribuées à l’utilisateur.
 

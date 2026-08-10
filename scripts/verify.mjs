@@ -64,11 +64,12 @@ if(/\.png\b/i.test(runtimeSource))throw new Error("Runtime source still referenc
 if(/\.weather\.(?:rain|snow)\s*\{[^}]*background[^;}]*?(?:gradient|url\()/i.test(css))throw new Error("CSS weather particles must not cover dedicated rain or cold artwork.");
 if(/localStorage|sessionStorage/.test(game))throw new Error("Game progression must not be persisted in browser storage.");
 if(/points? de santé|health points?|% de santé|% health/i.test(`${html}\n${game}\n${i18n}`))throw new Error("Internal health values leaked into player-facing copy.");
-if(!/environ 200 exigences/.test(historyFrMd)||!/approximately 200 additional requirements/.test(historyEnMd))throw new Error("Bilingual request totals are not up to date.");
+if(!/faire un Oregon Trail-like, en HTML pur, avec une vraie direction artistique originale et un vrai travail sur les images/.test(historyFrMd)||!/make an Oregon Trail-like game in pure HTML, with a genuine original art direction and substantial work on its imagery/.test(historyEnMd))throw new Error("The initial request is not summarized consistently in both histories.");
+if(!/Retour d’expérience/.test(historyFrMd)||!/### Assessment/.test(historyEnMd)||!/gouache sérigraphiée/.test(historyFrMd)||!/screen-printed gouache/.test(historyEnMd))throw new Error("The user-provided assessment is incomplete or not bilingual.");
 if(!/600 \$ pour le fermier/.test(historyFrMd)||!/\$600 for the farmer/.test(historyEnMd))throw new Error("Bilingual project histories do not contain the current starting funds.");
 if(!/Ce que le LLM a décidé/.test(historyFrMd)||!/What the LLM decided/.test(historyEnMd))throw new Error("The mixed authorship of the attack mini-game is not documented bilingually.");
 if(!/LLM[^\n]+choisi de faire déplacer le chariot/.test(historyFrMd)||!/LLM[^\n]+chose wagon movement/.test(historyEnMd))throw new Error("The defensive attack controls must be explicitly attributed to the LLM.");
-if(!/ne figurait pas comme contrainte explicite/.test(historyFrMd)||!/was not phrased as an explicit user constraint/.test(historyEnMd))throw new Error("The project purpose overstates the user's original constraints.");
+if(/sans reprendre de code ni d’assets existants/.test(historyFrMd)||/without reusing existing code or assets/.test(historyEnMd))throw new Error("A removed qualification about existing code or assets remains in the project history.");
 if(!historyFr.includes('data-source="HISTORIQUE-DEMANDES.md"')||!historyEn.includes('data-source="REQUEST-HISTORY.md"'))throw new Error("History pages are not linked to their respective source documents.");
 
 console.log(`Verified ${required.length} local files, ${idCount} unique HTML ids across ${Object.keys(pages).length} pages, and all JavaScript bundles.`);

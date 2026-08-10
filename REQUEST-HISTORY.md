@@ -4,33 +4,25 @@
 
 The objective explicitly stated by the user was to test what an AI produces when asked to code a complete game. For this experiment, the system identified by the user was Codex with the SOL 5.6 model and the “medium” reasoning level.
 
-Because the initial request was very broad, many design and implementation choices were in practice left to the LLM. The code and illustrations were produced for the project, but “without reusing existing code or assets” was not phrased as an explicit user constraint and must therefore not be attributed to the user.
+Because the initial request was very broad, many design and implementation choices were in practice left to the LLM.
 
 ## Scope quantification
 
-The initial request contained five broad requirements:
+The initial request can be summarized as follows: make an Oregon Trail-like game in pure HTML, with a genuine original art direction and substantial work on its imagery.
 
-1. Rebuild Oregon Trail in HTML.
-2. Run entirely on the client side.
-3. Reproduce the classic gameplay.
-4. Produce better illustrations with a consistent art direction.
-5. Use multiple agents for the code and images.
+### Assessment
 
-Since then, more than 100 substantial specification messages have extended that prompt, excluding purely operational messages such as “I ran ssh-add,” “GitHub Pages is configured,” or “continue.” A first version of this report was prepared after 45 messages; tuning, narrative work, and quality control then continued through more than 55 additional requests.
+> **Attribution: assessment provided by the user.**
 
-Using a breakdown in which each explicitly requested, independently verifiable behavior counts as one request, this now amounts to approximately 200 additional requirements. This total excludes mechanics, values, and staging choices invented by the LLM:
-
-| Area added after the initial request | Approximate number |
-|---|---:|
-| Images, interface, and mobile | 35 |
-| Gameplay, economy, and balancing | 72 |
-| Incidents, illnesses, and health | 30 |
-| Terminology, journal, and translation | 35 |
-| Help, publishing, and launch preparation | 20 |
-| Experiment documentation | 8 |
-| **Total** | **≈ 200** |
-
-More than 97% of the detailed requirements were therefore specified after the initial request. The finished project is substantially broader than a simply illustrated version of the classic Oregon Trail.
+- The LLM chose an art direction inspired by WPA posters and screen-printed gouache, then applied it across the game.
+- The project starts from a very broad request: “implement an Oregon Trail-like game, with a genuine art direction, in pure HTML.”
+- The LLM implements a complete game, chooses the gouache style itself, and reuses some mechanisms from the original game, including the choice between different occupations and the historical journey from Independence to Oregon. However, there is no meaningful initial balancing.
+- Image-generation requests work well: the style remains consistent from one image to the next and the art direction is preserved correctly.
+- Broad requests such as “balance the game” fail. The LLM implements a stochastic simulator, runs trials, and adjusts some parameters, but the game nevertheless remains trivial.
+- The overall incident framework is incorrect, but the LLM does not recognize this. It gradually adds patches without reconsidering the original mechanism. Progress requires explicitly asking it to explain how the system works and then proposing a different mechanism. The parameters themselves must then be tuned by hand from manual playthroughs.
+- An interesting point: when asked to add Indian attacks, the LLM deliberately designs a defensive mini-game so as not to present the Indians as aggressors, and uses the term “Native” rather than “Indian.” It nevertheless makes the requested changes when explicitly asked to do so.
+- Overall, the LLM introduces no simple coding bugs. There are nevertheless logical inconsistencies, such as killing a character and then healing that character afterward. The LLM does not detect these by itself during phases such as “/goal check and solve the problems before production.” Presentation bugs also remain, such as incorrectly rounded numbers like `23.000001`.
+- Work on the game’s mechanics and difficulty therefore remains to be done. When left to design on its own, the LLM tends to implement mechanisms that are too simple. The result can be improved by guiding it more thoroughly beforehand so that it proposes richer mechanisms, rather than letting it implement a first version and correcting it afterward.
 
 ### How to read this document
 
@@ -40,7 +32,7 @@ The document now distinguishes three sources:
 - **LLM decision**: a design, staging, or technical detail selected by the model without a corresponding instruction.
 - **Mixed origin**: an objective requested by the user whose playable form or concrete solution was selected by the LLM. The two contributions are then listed separately.
 
-Only items classified as “user request” are included in the estimate of approximately 200 requirements. A validation, bug fix, or LLM decision is not retroactively turned into a user request.
+A validation, bug fix, or LLM decision is not retroactively turned into a user request.
 
 One rule guided this review in particular: when a mechanic first invented by the LLM was later corrected, balanced, or documented by the user, the original mechanic remains attributed to the LLM; only the later corrections are attributed to the user.
 

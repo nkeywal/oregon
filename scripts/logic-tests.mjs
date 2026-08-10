@@ -402,6 +402,32 @@ test("resting at a fort is safe from every incident",()=>{
   assert.equal(result.rolls,0);assert.equal(result.days,2);assert.equal(result.event,null);
 });
 
+test("fort shelter removes every weather and blanket penalty from rest",()=>{
+  const result=scenario(`const run=(weather,blankets)=>{game=baseGame(["Lou"],"fermier",3);Object.assign(game.cart,{vivres:20,boeufs:2,vetements:blankets});game.party[0].health=35;game.weather=weather;weatherForSeason=()=>weather;dailyIncidentOccurs=()=>false;const before=game.party[0].health;const outcome=performRest(2,true);return {gain:game.party[0].health-before,text:game.journal[0].text.fr,days:outcome.days}};({mild:run(WEATHER[0],1),snow:run(WEATHER[4],0)})`);
+  assert.equal(result.mild.gain,result.snow.gain);assert.equal(result.snow.days,2);
+  assert.doesNotMatch(result.snow.text,/couverture|froid|neige|météo/i);
+});
+
+test("rest cannot apply hunger before offering an available ox",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{vivres:0,boeufs:2});let offered=0,required=0;offerOxForFood=(after,value)=>{offered++;required=value;return true};checkJourneyFailure=()=>false;updateUI=()=>{};returnToTrailTop=()=>{};rest();({offered,required,days:game.days,journal:game.journal.length,health:game.party[0].health})`);
+  assert.equal(result.offered,1);assert.equal(result.required,15);assert.equal(result.days,0);assert.equal(result.journal,0);assert.equal(result.health,100);
+});
+
+test("fort rest also offers an ox before any hungry day",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{vivres:0,boeufs:2});let offered=0,required=0;offerOxForFood=(after,value)=>{offered++;required=value;return true};const mark=LANDMARKS.find(item=>item.kind==="fort");restAtFort(mark);({offered,required,days:game.days,journal:game.journal.length,health:game.party[0].health})`);
+  assert.equal(result.offered,1);assert.equal(result.required,15);assert.equal(result.days,0);assert.equal(result.journal,0);assert.equal(result.health,100);
+});
+
+test("direct rest processing defers rather than recording hunger when an ox can be slaughtered",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{vivres:0,boeufs:2});const outcome=performRest(1);({outcome,days:game.days,journal:game.journal.length,health:game.party[0].health})`);
+  assert.equal(result.outcome.days,0);assert.equal(result.outcome.needsFood,7.5);assert.equal(result.days,0);assert.equal(result.journal,0);assert.equal(result.health,100);
+});
+
+test("time-consuming camp and river choices declare their food needs before advancing",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{boeufs:4,vivres:0});let actions;eventModal=(title,text,details,value)=>actions=value;dysenteryEvent(game.party[0]);const illness=actions.map(action=>action.foodDays??0);riverEvent(LANDMARKS.find(mark=>mark.kind==="river"));const river=actions.map(action=>action.foodDays??0);({illness,river})`);
+  assert.deepEqual([...result.illness],[0,2,0]);assert.deepEqual([...result.river],[1,1,3]);
+});
+
 test("fort rest feedback displays the group condition directly",()=>{
   const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.party.forEach(traveler=>traveler.health=42);const feedback=fortRestFeedback();({fr:feedback.fr,en:feedback.en})`);
   assert.match(result.fr,/État du groupe : Très faible/);assert.doesNotMatch(result.fr,/journal/i);assert.doesNotMatch(result.en,/journal/i);
@@ -798,6 +824,12 @@ test("traveler fatigue materially raises river-crossing failure risk",()=>{
 test("deep water can truly fail while shallow water remains relatively safe",()=>{
   const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{boeufs:6,pieces:2});({shallow:floatCrossingFailureChance(.8,0),middle:floatCrossingFailureChance(1.8,0),deep:floatCrossingFailureChance(2.5,0)})`);
   assert.ok(result.shallow<.03);assert.ok(result.middle>.38&&result.middle<.48);assert.ok(result.deep>.8);
+});
+
+test("each failed crossing reduces only that river's next failure chance by ten percent",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);Object.assign(game.cart,{boeufs:6,pieces:2});const mark=LANDMARKS.find(m=>m.kind==="river"),other=LANDMARKS.filter(m=>m.kind==="river")[1],base=riverRetryFailureChance(1.8,0,mark);recordRiverFailure(mark);const second=riverRetryFailureChance(1.8,0,mark),otherChance=riverRetryFailureChance(1.8,0,other);recordRiverFailure(mark);const third=riverRetryFailureChance(1.8,0,mark),count=riverFailureCount(mark);clearRiverFailures(mark);({base,second,third,otherChance,count,cleared:riverFailureCount(mark)})`);
+  assert.ok(Math.abs(result.second/result.base-.9)<1e-12);assert.ok(Math.abs(result.third/result.base-.81)<1e-12);
+  assert.equal(result.otherChance,result.base);assert.equal(result.count,2);assert.equal(result.cleared,0);
 });
 
 test("a dangerous river crossing can take the last ox and still queue its report",()=>{

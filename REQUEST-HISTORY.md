@@ -208,6 +208,7 @@ The requests imposed several editorial rules:
 - Make illness and injury more likely to kill an already severely weakened traveler.
 - Keep dysentery, fever, injuries, and attack wounds long enough that a short halt cannot erase them.
 - Let wounds heal during every day of rest, including successive halts, while illnesses continue to weaken the patient.
+- Remove every weather- or blanket-related recovery penalty at a fort: shelter neutralizes both exposures during rest.
 - Never display recovery followed by death from the same illness on the same date.
 
 The last rule does not guarantee success: the entire party can still die progressively during the journey.
@@ -258,6 +259,7 @@ River crossings received a complete system:
 - Risk of losing equipment and oxen, with losses proportional to the load.
 - When floating the wagon, an exponentially increasing chance of losing cargo as water depth rises.
 - Repeated increases in difficulty so that floating the wagon does not succeed almost every time.
+- After a failure, reduce the chance of another failure at the same river exponentially: ×0.9 on the second attempt, then ×0.9², ×0.9³, and so on.
 - Traveler and ox-team fatigue affects the party’s ability to control the wagon in the current.
 - Risk of losing oxen.
 - An illustrated report after every crossing.
@@ -283,6 +285,7 @@ The help page and game logic were expanded so that every resource has a purpose 
 - A slaughtered ox can become food.
 - Losing the final ox ends the journey.
 - When food is insufficient, the player may slaughter an ox as long as more than one remains, including before resting or after hunting.
+- No rest day may apply starvation before offering this slaughter when several oxen remain available.
 - Ox-team speed follows the requested thresholds: two oxen impose a severe slowdown, six provide the reference pace, and eight are enough to reach the maximum benefit.
 - No message may report a loss of “0 kg.”
 

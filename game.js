@@ -130,7 +130,7 @@ function baseGame(names, profession, month) {
     version:1, profession, money, initialMoney:money, cart:{...cart},
     party:names.map(name => ({name,health:100,state:"En forme",alive:true,sickDays:0,treated:false,woundDays:0,woundKind:null,needsRemedy:false,deathCause:null,pendingRecoveryCondition:null,pendingWoundRecoveryKind:null})),
     day:1, month:Number(month), year:1848, km:0, days:0, pace:"soutenu", rations:"normales",
-    weather:{...WEATHER[0]}, weatherHistory:["Doux"], landmarkIndex:0, oxStrain:0, lastEvent:null, lastRestDay:null, restStreak:0, huntPressure:{}, fortPurchases:{}, fortAssortments:{}, journal:[], finished:false, score:0,
+    weather:{...WEATHER[0]}, weatherHistory:["Doux"], landmarkIndex:0, oxStrain:0, lastEvent:null, lastRestDay:null, restStreak:0, huntPressure:{}, riverFailures:{}, fortPurchases:{}, fortAssortments:{}, journal:[], finished:false, score:0,
     pendingDeath:null, deathEventOpen:false, pendingRiverOutcome:null, pendingHuntDay:null
   };
 }
@@ -200,6 +200,7 @@ function remedyLabel(availableLabel,required=1) {
   return bilingual(`${required} remèdes nécessaires · ${game.cart.medicaments} disponible`,`${required} doses needed · ${game.cart.medicaments} available`);
 }
 function dailyFoodPerPerson() { return {copieuses:2,normales:1.5,maigres:1}[game.rations]; }
+function foodNeededForDays(days,perPerson=dailyFoodPerPerson()){return perPerson*alive().length*days}
 
 function oxenJournalStatus(language=currentLanguage){
   const count=game.cart.boeufs;
@@ -445,6 +446,8 @@ function restRecovery(traveler,streak=1,atFort=false){
   const maximum=10*(atFort?1.25:1);
   return Math.round(maximum*fatigueFactor*streakFactor*2)/2;
 }
+
+function restWeatherPenalty(weather,hasBlanket,atFort=false){return atFort?0:weatherExposurePenalty(weather,hasBlanket)}
 
 function healthLabel(value) {
   if(value>74)return ["Bonne santé","good"];
@@ -878,21 +881,21 @@ function eventPool(weather=game.weather){
       const lossText=loss>0?`${loss} kg de vivres ${loss===1?"est perdu":"sont perdus"}.`:"Les réserves de vivres étaient déjà vides : rien n’a pu être perdu.";
       const lossTextEn=loss>0?`${loss} kg of food ${loss===1?"is":"are"} lost.`:"The food stores were already empty: nothing could be lost.";
       eventModal(bilingual("Mauvaise piste","Rough trail"),bilingual(`Le chariot s’est renversé dans une ornière. ${lossText}`,`The wagon overturned in a rut. ${lossTextEn}`),bilingual("Une journée sera nécessaire pour tout remettre en ordre.","One day will be needed to put everything back in order."),[
-        {label:"Réparer et repartir",action:()=>{consumeDelay(1);addJournal(loss>0?bilingual(`Une chute de chariot nous a coûté ${loss} kg de vivres. Il reste ${Math.round(game.cart.vivres)} kg de vivres dans le chariot.`,`A wagon fall cost us ${loss} kg of food. ${Math.round(game.cart.vivres)} kg of food remain in the wagon.`):bilingual("Le chariot s’est renversé, sans perte de vivres.","The wagon overturned without losing any food."))}}
+        {label:"Réparer et repartir",foodDays:1,action:()=>{consumeDelay(1);addJournal(loss>0?bilingual(`Une chute de chariot nous a coûté ${loss} kg de vivres. Il reste ${Math.round(game.cart.vivres)} kg de vivres dans le chariot.`,`A wagon fall cost us ${loss} kg of food. ${Math.round(game.cart.vivres)} kg of food remain in the wagon.`):bilingual("Le chariot s’est renversé, sans perte de vivres.","The wagon overturned without losing any food."))}}
       ],"incident-wagon.webp");
     });
   const axleEvent=taggedEvent("axle",()=>{
       if(game.cart.pieces>0){
         const days=game.profession==="charpentier"?1:2;game.cart.pieces--;
         eventModal("Essieu brisé","Un choc sec — l’essieu du chariot vient de céder.",bilingual(`Vous utilisez une pièce de rechange et perdez ${days===1?"une journée":"deux jours"}.`,`You use a spare part and lose ${days===1?"one day":"two days"}.`),[
-          {label:"Effectuer la réparation",action:()=>{consumeDelay(days);addJournal(bilingual(`L’essieu a été remplacé avec une pièce de rechange en ${days} jour${days>1?"s":""}.`,`The axle was replaced with a spare part in ${days} day${days===1?"":"s"}.`))}}
+          {label:"Effectuer la réparation",foodDays:days,action:()=>{consumeDelay(days);addJournal(bilingual(`L’essieu a été remplacé avec une pièce de rechange en ${days} jour${days>1?"s":""}.`,`The axle was replaced with a spare part in ${days} day${days===1?"":"s"}.`))}}
         ],"incident-axle.webp");
       }else{
         const discardedFood=proportionalLossAmount(game.cart.vivres,.1,.25);
         const discardedBlankets=proportionalLossAmount(game.cart.vetements,.2,.5);
         eventModal("Essieu brisé","Votre essieu est rompu et vous n’avez aucune pièce.","Une famille de passage propose une pièce pour 45 $.",[
-          {label:"Acheter la pièce (45 $)",disabled:game.money<45,action:()=>{game.money-=45;consumeDelay(2);addJournal(bilingual("Une pièce achetée en urgence a permis de remplacer l’essieu en deux jours.","An emergency spare part purchase allowed us to replace the axle in two days."))}},
-          {label:"Alléger et improviser",action:()=>{
+          {label:"Acheter la pièce (45 $)",disabled:game.money<45,foodDays:2,action:()=>{game.money-=45;consumeDelay(2);addJournal(bilingual("Une pièce achetée en urgence a permis de remplacer l’essieu en deux jours.","An emergency spare part purchase allowed us to replace the axle in two days."))}},
+          {label:"Alléger et improviser",foodDays:4,action:()=>{
             consumeDelay(4);const actualFood=Math.min(game.cart.vivres,discardedFood);game.cart.vivres-=actualFood;game.cart.vetements-=discardedBlankets;
             alive().forEach(p=>p.health=clamp(p.health-7,0,100));
             const losses=[];if(actualFood)losses.push(`${actualFood} kg de vivres`);if(discardedBlankets)losses.push("une couverture");
@@ -920,7 +923,7 @@ function eventPool(weather=game.weather){
   if(weather.name==="Pluvieux")events.push(taggedEvent("rain",()=>{
     const days=rand(2,4);
     eventModal("Pluies diluviennes","La boue avale les roues. Impossible d’avancer.",bilingual(`${days} jours de retard, mais le convoi reste à l’abri.`,`${days} days lost, but the wagon party remains sheltered.`),[
-      {label:"Attendre l’éclaircie",action:()=>{consumeDelay(days);addJournal(bilingual(`${days} jours perdus dans les pluies diluviennes.`,`${days} days lost in torrential rain.`))}}
+      {label:"Attendre l’éclaircie",foodDays:days,action:()=>{consumeDelay(days);addJournal(bilingual(`${days} jours perdus dans les pluies diluviennes.`,`${days} days lost in torrential rain.`))}}
     ],"incident-rain.webp");
   }));
   if(game.cart.vetements>0&&(weather.temp<=5||weather.name==="Pluvieux"))events.push(taggedEvent("blankets",blanketLossEvent));
@@ -983,13 +986,15 @@ function restEventJournalLabel(eventId,language=currentLanguage){
 
 function performRest(days=2,atFort=false){
   const streak=game.lastRestDay===game.days?(game.restStreak??0)+1:1;
+  const requiredFood=foodNeededForDays(days);
+  if(game.cart.vivres<requiredFood&&game.cart.boeufs>1)return {days:0,streak,event:null,needsFood:requiredFood};
   let rested=0,foodConsumed=0,selected=null,blanketRecoveryStrained=false;
   for(let day=0;day<days;day++){
     const restWeather=game.weather,food=consumeDelay(1,dailyFoodPerPerson(),true,true,atFort);foodConsumed+=food.consumed;rested++;
     const restingTravelers=alive(),blankets=Math.min(game.cart.vetements,restingTravelers.length);
     restingTravelers.forEach((traveler,index)=>{
       const hasBlanket=atFort||blankets>=restingTravelers.length||((index+game.days)%restingTravelers.length)<blankets;
-      const exposurePenalty=atFort?0:weatherExposurePenalty(restWeather,hasBlanket);
+      const exposurePenalty=restWeatherPenalty(restWeather,hasBlanket,atFort);
       if(exposurePenalty>0)blanketRecoveryStrained=true;
       traveler.health=clamp(traveler.health+restRecovery(traveler,streak,atFort)/Math.max(1,days)-exposurePenalty,0,100);
       if(traveler.health>0&&traveler.deathCause)traveler.deathCause=null;
@@ -1027,7 +1032,7 @@ function oxInjuryEvent(){
   const meat=rand(35,55),loadableMeat=Math.min(meat,SHOP.vivres.max-game.cart.vivres),lastOx=game.cart.boeufs===1;
   const slaughterLabel=loadableMeat?bilingual(`L’abattre et charger ${loadableMeat} kg`,`Slaughter it and load ${loadableMeat} kg`):bilingual("L’abattre sans pouvoir charger la viande","Slaughter it with no room for the meat");
   eventModal("Un bœuf blessé","Une pierre a fait chuter l’un des bœufs. Sa patte enflée ne supporte plus le joug.",lastOx?"C’est votre dernier bœuf. L’abattre laisserait le chariot sans attelage.":"Vous pouvez tenter de le soigner ou transformer l’animal en provisions.",[
-    {label:remedyLabel("Le soigner et attendre 2 jours"),disabled:game.cart.medicaments<1,action:()=>{
+    {label:remedyLabel("Le soigner et attendre 2 jours"),disabled:game.cart.medicaments<1,foodDays:2,action:()=>{
       game.cart.medicaments--;consumeDelay(2);game.oxStrain=clamp(game.oxStrain-4,0,10);addJournal(bilingual("Un remède et deux jours de repos ont remis un bœuf sur pied.","Medicine and two days of rest got an ox back on its feet."));
     }},
     {label:slaughterLabel,action:()=>{
@@ -1044,7 +1049,7 @@ function injuryEvent(p=pick(eventEligibleTravelers())){
   const damage=rand(18,30);p.health=clamp(p.health-damage,0,100);p.state="Blessé";p.sickDays=10;
   eventModal("Blessure sur la piste",bilingual(`${p.name} a fait une mauvaise chute près du chariot.`,`${p.name} took a bad fall near the wagon.`),bilingual(`Sa blessure l’a fortement affaibli. Un remède et des bandages accéléreraient sa guérison.`,`The injury has left ${p.name} badly weakened. Medicine and bandages would speed recovery.`),[
     {label:remedyLabel("Utiliser un remède"),disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+16,1,100);p.sickDays=4;p.state="Convalescent";addJournal(bilingual(`${p.name} a été soigné après sa chute.`,`${p.name} was treated after the fall.`))}},
-    {label:"Poser une attelle",action:()=>{consumeDelay(1);p.sickDays=8;addJournal(bilingual(`${p.name} voyage avec une attelle improvisée.`,`${p.name} travels with an improvised splint.`))}}
+    {label:"Poser une attelle",foodDays:1,action:()=>{consumeDelay(1);p.sickDays=8;addJournal(bilingual(`${p.name} voyage avec une attelle improvisée.`,`${p.name} travels with an improvised splint.`))}}
   ],"incident-injury.webp");
 }
 
@@ -1053,7 +1058,7 @@ function dysenteryEvent(p=pick(eventEligibleTravelers())){
   const damage=rand(24,36);p.health=clamp(p.health-damage,0,100);p.state="Dysenterie";p.sickDays=19;p.treated=false;
   eventModal("Dysenterie",bilingual(`${p.name} est pris de violentes douleurs et se déshydrate rapidement.`,`${p.name} suffers violent pain and is rapidly becoming dehydrated.`),bilingual(`Son état s’est sérieusement dégradé. Du repos, de l’eau bouillie et un remède peuvent éviter le pire.`,`${p.name}’s condition has seriously deteriorated. Rest, boiled water, and medicine may prevent the worst.`),[
     {label:remedyLabel("Donner un remède"),disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+18,1,100);p.sickDays=13;p.treated=true;addJournal(bilingual(`${p.name} a reçu un remède contre la dysenterie, mais restera malade plusieurs jours.`,`${p.name} received medicine for dysentery but will remain ill for several days.`))}},
-    {label:"Faire halte 2 jours",action:()=>{consumeDelay(2);if(p.health>0)p.health=clamp(p.health+2,1,100);p.sickDays=Math.max(p.sickDays,15);addJournal(bilingual(`Le convoi s’est arrêté pour soigner la dysenterie de ${p.name}. Deux jours ne suffisent pas à la faire disparaître.`,`The wagon party stopped to treat ${p.name}’s dysentery. Two days are not enough for it to pass.`))}},
+    {label:"Faire halte 2 jours",foodDays:2,action:()=>{consumeDelay(2);if(p.health>0)p.health=clamp(p.health+2,1,100);p.sickDays=Math.max(p.sickDays,15);addJournal(bilingual(`Le convoi s’est arrêté pour soigner la dysenterie de ${p.name}. Deux jours ne suffisent pas à la faire disparaître.`,`The wagon party stopped to treat ${p.name}’s dysentery. Two days are not enough for it to pass.`))}},
     {label:"Continuer",action:()=>{p.health=clamp(p.health-8,0,100);addJournal(bilingual(`${p.name} reste gravement atteint de dysenterie.`,`${p.name} remains seriously ill with dysentery.`))}}
   ],"incident-dysentery.webp");
 }
@@ -1083,7 +1088,7 @@ function climateInjuryEvent(p=pick(eventEligibleTravelers()),coldWeather=null){
   const details=cold?"Il faut réchauffer progressivement les zones atteintes.":"Les piqûres se sont infectées et doivent être nettoyées.";
   eventModal(title,text,bilingual(`${details} ${p.name} en ressort affaibli.`,`${languageText(details,"en")} ${p.name} is left weakened.`),[
     {label:remedyLabel("Utiliser un remède"),disabled:game.cart.medicaments<1,action:()=>{game.cart.medicaments--;p.health=clamp(p.health+(cold?17:12),1,100);p.sickDays=4;p.state="Convalescent";addJournal(bilingual(`${p.name} a été soigné pour ${cold?"des engelures":"des piqûres d’insectes"}.`,`${p.name} was treated for ${cold?"frostbite":"insect bites"}.`))}},
-    {label:cold?"Réchauffer et attendre":"Nettoyer et repartir",action:()=>{if(cold)consumeDelay(1);p.sickDays=cold?8:5;addJournal(bilingual(`${p.name} récupère lentement après ${cold?"ses engelures":"ses piqûres"}.`,`${p.name} is recovering slowly from ${cold?"frostbite":"the bites"}.`))}}
+    {label:cold?"Réchauffer et attendre":"Nettoyer et repartir",foodDays:cold?1:0,action:()=>{if(cold)consumeDelay(1);p.sickDays=cold?8:5;addJournal(bilingual(`${p.name} récupère lentement après ${cold?"ses engelures":"ses piqûres"}.`,`${p.name} is recovering slowly from ${cold?"frostbite":"the bites"}.`))}}
   ],cold?"incident-frostbite.webp":"incident-bites.webp");
 }
 
@@ -1093,7 +1098,7 @@ function contagiousDiseaseEvent(candidates=eventEligibleTravelers()){
   const count=patients.length,namesFr=joinList(patients.map(p=>p.name),"fr"),namesEn=joinList(patients.map(p=>p.name),"en");
   eventModal("Maladie contagieuse",bilingual(`${count} voyageur${count>1?"s":""} présente${count>1?"nt":""} les mêmes symptômes : ${namesFr}.`,`${count} traveler${count===1?"":"s"} ${count===1?"shows":"show"} the same symptoms: ${namesEn}.`),bilingual(`La maladie risque d’épuiser rapidement le groupe. Vous avez ${itemQuantityFor("medicaments",game.cart.medicaments,"fr")}.`,`The disease may quickly exhaust the party. You have ${itemQuantityFor("medicaments",game.cart.medicaments,"en")}.`),[
     {label:remedyLabel(bilingual(`Distribuer ${count} remède${count>1?"s":""}`,`Give ${count} dose${count===1?"":"s"}`),count),disabled:game.cart.medicaments<count,action:()=>{game.cart.medicaments-=count;patients.forEach(p=>{p.health=clamp(p.health+14,1,100);p.sickDays=11;p.treated=true});addJournal(bilingual(`${namesFr} ${count>1?"ont":"a"} reçu un remède, mais la maladie suivra encore son cours.`,`${namesEn} ${count===1?"has":"have"} received medicine, but the illness will still run its course.`))}},
-    {label:"Isoler les malades 2 jours",action:()=>{consumeDelay(2);patients.forEach(p=>p.sickDays=Math.max(p.sickDays,13));addJournal(bilingual(`${namesFr} ${count>1?"ont été isolés":"a été isolé"} pendant deux jours pour protéger le convoi.`,`${namesEn} ${count===1?"was":"were"} isolated for two days to protect the wagon party.`))}},
+    {label:"Isoler les malades 2 jours",foodDays:2,action:()=>{consumeDelay(2);patients.forEach(p=>p.sickDays=Math.max(p.sickDays,13));addJournal(bilingual(`${namesFr} ${count>1?"ont été isolés":"a été isolé"} pendant deux jours pour protéger le convoi.`,`${namesEn} ${count===1?"was":"were"} isolated for two days to protect the wagon party.`))}},
     {label:"Continuer la route",action:()=>{patients.forEach(p=>p.health=clamp(p.health-5,0,100));addJournal(bilingual(`${namesFr} ${count>1?"poursuivent":"poursuit"} la route malgré la maladie contagieuse.`,`${namesEn} ${count===1?"continues":"continue"} on the trail despite the contagious disease.`))}}
   ],"incident-contagious.webp");
 }
@@ -1201,9 +1206,9 @@ function riverEvent(mark,art=stageAsset(mark),depth=null,observation=""){
   const condition=riverFatigueDescription(),observationFr=observation?`${languageText(observation,"fr")} `:"",observationEn=observation?`${languageText(observation,"en")} `:"";
   const details=bilingual(`${observationFr}${condition.fr} Comment ferez-vous traverser le chariot ?`,`${observationEn}${condition.en} How will you get the wagon across?`);
   eventModal(bilingual(mark.name,landmarkName(mark)),bilingual(`Le courant est rapide et la profondeur mesurée atteint environ ${shown} mètre${measured>=2?"s":""}.`,`The current is swift and the measured depth is about ${shownEn} meter${measured===1?"":"s"}.`),details,[
-    {label:bilingual(`Prendre le bac (${cost} $)`,`Take the ferry ($${cost})`),disabled:game.money<cost,action:()=>{game.money-=cost;const food=consumeDelay(1);addJournal(bilingual(`Traversée de ${mark.name} en bac, sans incident, avec une profondeur de ${shown} m.`,`We crossed ${landmarkName(mark)} by ferry without incident at a depth of ${shownEn} m.`));queueRiverOutcome(mark,"ferry",{method:bilingual("Bac","Ferry"),days:1,food:food.consumed,weather:crossingWeather,text:"Le bac a transporté le chariot et tout le groupe jusqu’à l’autre rive.",result:bilingual(`Traversée sans perte · Profondeur : ${shown} m · Coût : ${cost} $`,`Crossing without loss · Depth: ${shownEn} m · Cost: $${cost}`)})}},
-    {label:"Calfater et flotter",action:()=>riverRisk(mark,measured,crossingWeather)},
-    {label:"Attendre 3 jours et remesurer",action:()=>{
+    {label:bilingual(`Prendre le bac (${cost} $)`,`Take the ferry ($${cost})`),disabled:game.money<cost,foodDays:1,action:()=>{game.money-=cost;clearRiverFailures(mark);const food=consumeDelay(1);addJournal(bilingual(`Traversée de ${mark.name} en bac, sans incident, avec une profondeur de ${shown} m.`,`We crossed ${landmarkName(mark)} by ferry without incident at a depth of ${shownEn} m.`));queueRiverOutcome(mark,"ferry",{method:bilingual("Bac","Ferry"),days:1,food:food.consumed,weather:crossingWeather,text:"Le bac a transporté le chariot et tout le groupe jusqu’à l’autre rive.",result:bilingual(`Traversée sans perte · Profondeur : ${shown} m · Coût : ${cost} $`,`Crossing without loss · Depth: ${shownEn} m · Cost: $${cost}`)})}},
+    {label:"Calfater et flotter",foodDays:1,action:()=>riverRisk(mark,measured,crossingWeather)},
+    {label:"Attendre 3 jours et remesurer",foodDays:3,action:()=>{
       consumeDelay(3);game.oxStrain=clamp(game.oxStrain-2,0,10);
       const next=riverDepth(mark,measured),nextShown=formatDepth(next);
       const displayedChange=Math.round(next*10)-Math.round(measured*10);
@@ -1262,8 +1267,16 @@ function floatCrossingFailureChance(depth,fatigue=riverFatigueRisk(),oxen=game.c
   return clamp(waterRisk+fatigue*.42+Math.max(0,4-oxen)*.07+(hasParts?0:.08),0,.95);
 }
 
+function riverFailureCount(mark){return game.riverFailures?.[mark.visual]??0}
+function riverRetryFailureChance(depth,fatigue,mark,oxen=game.cart.boeufs,hasParts=game.cart.pieces>0){
+  return floatCrossingFailureChance(depth,fatigue,oxen,hasParts)*Math.pow(.9,riverFailureCount(mark));
+}
+function recordRiverFailure(mark){game.riverFailures??={};game.riverFailures[mark.visual]=riverFailureCount(mark)+1}
+function clearRiverFailures(mark){if(game.riverFailures)delete game.riverFailures[mark.visual]}
+
 function riverRisk(mark,depth,crossingWeather=weatherVisual()){
-  const fatigue=riverFatigueRisk(),crossingFailed=Math.random()<floatCrossingFailureChance(depth,fatigue);
+  const fatigue=riverFatigueRisk(),crossingFailed=Math.random()<riverRetryFailureChance(depth,fatigue,mark);
+  if(crossingFailed)recordRiverFailure(mark);else clearRiverFailures(mark);
   const travelFood=consumeDelay(1);
   game.oxStrain=clamp(game.oxStrain+1,0,10);
   const cargoCandidates=[
@@ -1308,7 +1321,7 @@ function reopenFort(mark){
 }
 
 function restAtFort(mark){
-  const required=alive().length*dailyFoodPerPerson()*2;
+  const required=foodNeededForDays(2);
   if(game.cart.vivres<required){
     setTimeout(()=>offerOxForFood(()=>{performRest(2,true);reopenFort(mark)},required,()=>reopenFort(mark)),0);
     return;
@@ -1363,7 +1376,7 @@ function fortEvent(mark,art=fortArrivalAsset(mark),recordArrival=true){
   ];
   const actions=[
     ...merchandise.map(item=>fortPurchaseAction(mark,item)),
-    {label:"Se reposer 2 jours",keepOpen:true,disabled:()=>game.cart.vivres<alive().length*dailyFoodPerPerson()*2&&game.cart.boeufs<=1,action:()=>restAtFort(mark),feedback:fortRestFeedback},
+    {label:"Se reposer 2 jours",keepOpen:true,disabled:()=>game.cart.vivres<foodNeededForDays(2)&&game.cart.boeufs<=1,action:()=>restAtFort(mark),feedback:fortRestFeedback},
     {label:"Inventaire",keepOpen:true,withInventory:false,action:showInventory},
     {label:"Repartir",primary:true,action:()=>addJournal(bilingual(`Départ de ${mark.name} : le convoi reprend la piste.`,`Departed ${landmarkName(mark)}: the wagon party returns to the trail.`))}
   ];
@@ -1384,20 +1397,27 @@ function eventModal(title,text,details,actions,art="trail"){
     const b=document.createElement("button");b.type="button";b.className=`btn ${a.primary||i===defaultPrimary?"primary":"secondary"}`;b.textContent=languageText(a.label);b.disabled=actionDisabled(a);
     b.addEventListener("click",()=>{
       if(actionDisabled(a))return;
-      journalMergeTarget=incidentEntry;
-      try{a.action()}finally{journalMergeTarget=null;if(incidentEntry){delete incidentEntry.captureOutcomes;delete incidentEntry.outcomeFragments}}
-      updateDeaths();
-      if(showPendingDeathEvent()){updateUI();return;}
-      if(game.finished||checkJourneyFailure()){d.close();return;}
-      updateUI();
-      if(a.keepOpen){
-        activeEventModal.withInventory=a.withInventory??true;activeEventModal.feedback=a.feedback??null;refreshEventModalLanguage();
-        return;
+      const executeAction=()=>{
+        journalMergeTarget=incidentEntry;
+        try{a.action()}finally{journalMergeTarget=null;if(incidentEntry){delete incidentEntry.captureOutcomes;delete incidentEntry.outcomeFragments}}
+        updateDeaths();
+        if(showPendingDeathEvent()){updateUI();return;}
+        if(game.finished||checkJourneyFailure()){d.close();return;}
+        updateUI();
+        if(a.keepOpen&&d.open){
+          activeEventModal.withInventory=a.withInventory??true;activeEventModal.feedback=a.feedback??null;refreshEventModalLanguage();
+          return;
+        }
+        d.close();
+        if(a.afterClose){setTimeout(a.afterClose,0);return;}
+        if(returnCallback&&!a.deferReturn){setTimeout(returnCallback,0);return;}
+        setTrailScene();returnToTrailTop();
+      };
+      const requiredFood=a.foodDays?foodNeededForDays(a.foodDays):0;
+      if(requiredFood>game.cart.vivres&&game.cart.boeufs>1){
+        d.close();setTimeout(()=>offerOxForFood(executeAction,requiredFood,executeAction),0);return;
       }
-      d.close();
-      if(a.afterClose){setTimeout(a.afterClose,0);return;}
-      if(returnCallback&&!a.deferReturn){setTimeout(returnCallback,0);return;}
-      setTrailScene();returnToTrailTop();
+      executeAction();
     });
     buttons.push({action:a,button:b});box.appendChild(b);
   });
@@ -1420,7 +1440,7 @@ function refreshEventModalLanguage(){
 
 function rest(){
   if(checkJourneyFailure())return;
-  const required=alive().length*dailyFoodPerPerson()*2;
+  const required=foodNeededForDays(2);
   if(game.cart.vivres<required){
     if(!offerOxForFood(()=>rest(),required,()=>{updateUI();returnToTrailTop()}))toast("Pas assez de vivres pour camper deux jours.");
     return;

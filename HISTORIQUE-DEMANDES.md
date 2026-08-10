@@ -208,6 +208,7 @@ Les demandes ont imposé plusieurs règles éditoriales :
 - Rendre les maladies et blessures plus susceptibles d’emporter un voyageur déjà très affaibli.
 - Faire durer la dysenterie, la fièvre, les blessures et les plaies d’attaque suffisamment longtemps pour qu’une courte halte ne les efface pas.
 - Laisser les blessures cicatriser pendant chaque journée de repos, même lors de haltes successives, tandis que les maladies continuent à affaiblir le malade.
+- Supprimer au fort tout malus de récupération lié à la météo ou au manque de couvertures : l’abri neutralise ces deux expositions pendant le repos.
 - Ne jamais afficher une guérison suivie d’un décès de la même maladie à la même date.
 
 Ce dernier point ne rend pas la partie gagnable automatiquement : tout le groupe peut mourir progressivement au cours du voyage.
@@ -258,6 +259,7 @@ Les franchissements ont reçu un système complet :
 - Risque de perte de matériel et de bœufs, avec des pertes proportionnelles au chargement.
 - Pour la traversée à flot, probabilité de perdre du matériel augmentant exponentiellement avec la hauteur de l’eau.
 - Augmentation répétée de la difficulté, la traversée à flot ne devant pas réussir presque systématiquement.
+- Après un échec, réduction du risque d’un nouvel échec au même fleuve selon une suite exponentielle : ×0,9 à la deuxième tentative, puis ×0,9², ×0,9³, etc.
 - Influence de la fatigue des voyageurs et de l’attelage sur le contrôle du chariot dans le courant.
 - Risque de perte de bœufs.
 - Bilan illustré après chaque traversée.
@@ -283,6 +285,7 @@ La page d’aide et la logique ont été étendues pour que chaque ressource ait
 - Un bœuf abattu peut devenir de la nourriture.
 - Sans dernier bœuf, le voyage s’arrête.
 - Lorsqu’il n’y a plus assez à manger, le joueur peut abattre un bœuf tant qu’il en reste plus d’un, y compris avant un repos ou après une chasse.
+- Aucune journée de repos ne doit appliquer la faim avant d’avoir proposé cet abattage lorsque plusieurs bœufs sont encore disponibles.
 - La vitesse de l’attelage suit les paliers demandés : deux bœufs ralentissent fortement, six donnent l’allure de référence et huit suffisent pour atteindre le bénéfice maximal.
 - Aucun message ne doit annoncer une perte de « 0 kg ».
 

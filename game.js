@@ -749,6 +749,8 @@ function showPendingDeathEvent(){
 
 function eventEligibleTravelers(){return alive().filter(p=>p.sickDays<=0&&(p.woundDays??0)<=0&&!p.needsRemedy)}
 function taggedEvent(id,run){run.eventId=id;return run}
+const EVENT_SELECTION_WEIGHTS={attack:.95};
+function eventSelectionWeight(event){return EVENT_SELECTION_WEIGHTS[event.eventId]??1}
 
 function eventPool(){
   if(game.finished||!alive().length)return [];
@@ -819,7 +821,7 @@ function eventPool(){
 function selectEvent(events){
   if(!events.length)return null;
   const withoutRepeat=events.filter(event=>event.eventId!==game.lastEvent);
-  return pick(withoutRepeat.length?withoutRepeat:events);
+  return weightedPick((withoutRepeat.length?withoutRepeat:events).map(event=>({value:event,weight:eventSelectionWeight(event)})));
 }
 
 function randomEvent(){

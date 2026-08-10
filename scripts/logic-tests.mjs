@@ -451,6 +451,11 @@ test("the same random event cannot occur twice in succession",()=>{
   assert.equal(scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);eventModal=()=>{};let previous=null,valid=true;for(let i=0;i<200;i++){randomEvent();if(game.lastEvent===previous)valid=false;previous=game.lastEvent}valid`),true);
 });
 
+test("attacks have a slightly lower selection weight than other incidents",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);const pool=eventPool();({attack:eventSelectionWeight(pool.find(event=>event.eventId==="attack")),theft:eventSelectionWeight(pool.find(event=>event.eventId==="theft")),encounter:eventSelectionWeight(pool.find(event=>event.eventId==="encounter"))})`);
+  assert.equal(result.attack,.95);assert.equal(result.theft,1);assert.equal(result.encounter,1);
+});
+
 test("medical incidents always retain a non-medicine alternative",()=>{
   const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.medicaments=0;eventModal=(title,text,details,actions)=>{game.actions=actions};feverEvent(game.party[0]);({label:game.actions[0].label,medicineDisabled:game.actions[0].disabled,alternativeDisabled:!!game.actions[1].disabled})`);
   assert.equal(result.label,"Aucun remède disponible");assert.equal(result.medicineDisabled,true);assert.equal(result.alternativeDisabled,false);

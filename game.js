@@ -168,7 +168,7 @@ let journalMergeTarget = null;
 let queuedEventReturn = null;
 
 function baseGame(names, profession, month) {
-  const money = {fermier:600,charpentier:900,banquier:1500}[profession];
+  const money = {fermier:500,charpentier:800,banquier:1100}[profession];
   return {
     version:1, profession, money, initialMoney:money, cart:{...cart},
     party:names.map(name => ({name,health:100,state:"En forme",alive:true,sickDays:0,treated:false,woundDays:0,woundKind:null,needsRemedy:false,deathCause:null,pendingRecoveryCondition:null,pendingWoundRecoveryKind:null})),

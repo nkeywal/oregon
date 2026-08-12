@@ -26,7 +26,7 @@ test("initial state includes event cooldown",()=>{
 
 test("the initial wagon is empty and leaves the full budget to the player",()=>{
   const result=scenario(`const budget=profession=>baseGame(["A","B","C","D","E"],profession,3).money;game=baseGame(["A","B","C","D","E"],"fermier",3);({cart:game.cart,empty:Object.values(game.cart).every(quantity=>quantity===0),farmer:budget("fermier"),carpenter:budget("charpentier"),banker:budget("banquier")})`);
-  assert.equal(result.empty,true);assert.equal(result.farmer,600);assert.equal(result.carpenter,900);assert.equal(result.banker,1500);
+  assert.equal(result.empty,true);assert.equal(result.farmer,500);assert.equal(result.carpenter,800);assert.equal(result.banker,1100);
 });
 
 test("Independence uses the requested purchase units and prices",()=>{

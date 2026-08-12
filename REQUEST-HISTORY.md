@@ -21,7 +21,7 @@ The initial request can be summarized as follows: make an Oregon Trail-like game
 - Image-generation requests work well: the style remains consistent from one image to the next and the art direction is preserved correctly.
 - Broad requests such as “balance the game” fail. The LLM implements a stochastic simulator, runs trials, and adjusts some parameters, but the game nevertheless remains trivial.
 - The overall incident framework is incorrect, but the LLM does not recognize this. It gradually adds patches without reconsidering the original mechanism. Progress requires explicitly asking it to explain how the system works and then proposing a different mechanism. The parameters themselves must then be tuned by hand from manual playthroughs.
-- An interesting point: when asked to add Indian attacks, the LLM deliberately designs a defensive mini-game so as not to present the Indians as aggressors, and uses the term “Native” rather than “Indian.” It nevertheless makes the requested changes when explicitly asked to do so.
+- The LLM did not include Indians in its version, even though they were present in historical reality (as guides, traders, and not necessarily aggressors) and in the Oregon Trail game. When asked to add Indian attacks, the LLM deliberately designs a defensive mini-game in which no one is killed.
 - Overall, the LLM introduces no simple coding bugs. There are nevertheless logical inconsistencies, such as killing a character and then healing that character afterward. The LLM does not detect these by itself during phases such as “/goal check and solve the problems before production.” Presentation bugs also remain, such as incorrectly rounded numbers like `23.000001`.
 - Work on the game’s mechanics and difficulty therefore remains to be done. When left to design on its own, the LLM tends to implement mechanisms that are too simple. The result can be improved by guiding it more thoroughly beforehand so that it proposes richer mechanisms, rather than letting it implement a first version and correcting it afterward.
 
@@ -134,9 +134,9 @@ The requests included:
 - A price increase after repeated purchases of the same good at a fort, except for food, whose local price remains fixed.
 - Grouping every purchase made at the same fort on the same day into a single journal entry.
 - Forty concrete and sometimes advanced trail tips during encounters, selected without repetition during a playthrough and recorded in the journal.
-- Final starting funds of $600 for the farmer, $900 for the carpenter, and $1,500 for the banker.
+- Final starting funds of $500 for the farmer, $800 for the carpenter, and $1,100 for the banker.
 
-The general tripling of bullet prices and the first starting budgets were later superseded by explicit departure prices—including $25 per ox, $4 per 10 kg of food, and $1 per 10 bullets at Independence—and then by the farmer’s final $600 budget. These were successive user requests, not values chosen by the LLM.
+The general tripling of bullet prices and the first starting budgets were later superseded by explicit departure prices—including $25 per ox, $4 per 10 kg of food, and $1 per 10 bullets at Independence—and then by the farmer’s final $500 budget. These were successive user requests, not values chosen by the LLM.
 
 > **LLM decision:** generally disabling purchases that are unaffordable or exceed wagon capacity. Disabling choices according to available resources was explicitly requested for return-fire options during an attack, not as a general rule for every trading post.
 
@@ -166,18 +166,6 @@ The initial request did not describe incidents in detail. Later additions includ
 Every incident also had to be recorded in the journal and have its own illustration.
 During a contagious disease outbreak, the names of every affected traveler must be shown.
 Illnesses must last several days: neither medicine nor two days of rest immediately cures dysentery.
-
-## Sensitive point: “Native riders” changed to “Indians”
-
-> **Attribution: explicit user request.**
-
-The exact requested change was:
-
-> “Native riders” → “The Indians”
-
-This vocabulary did not come from the initial request: it was explicitly imposed later.
-
-This is a sensitive editorial choice because “the Indians” generalizes distinct peoples and presents them here in an antagonistic role. The origin of this decision should remain documented if the game is presented publicly or evaluated from a historical perspective.
 
 ## Sensitive point: the attack remains defensive
 
@@ -354,8 +342,6 @@ Occupation also scales the score: succeeding on the farmer’s small budget is w
 
 Later requests also included:
 
-- “Compagnon·ne” → “Compagnon.”
-- “Voyageur·se” → “Voyageur.”
 - Correct plural handling, including the singular form after zero in French.
 - Readable, localized rounding for every calculated quantity, without stray decimals leaking from internal calculations.
 - Removal of the explanatory pace text.

@@ -21,7 +21,7 @@ La demande initiale peut se résumer ainsi : faire un Oregon Trail-like, en HTML
 - Les demandes de génération de dessins fonctionnent bien : le style reste cohérent d’une image à l’autre et la direction artistique est correctement conservée.
 - Les demandes générales du type « équilibre le jeu » échouent. Le LLM implémente un simulateur stochastique, lance des essais et ajuste certains paramètres, mais le jeu reste malgré tout trivial.
 - Le framework général des incidents est incorrect, mais le LLM ne s’en rend pas compte. Il ajoute progressivement des rustines sans remettre en cause le mécanisme de départ. Pour avancer, il faut lui demander explicitement d’expliquer le fonctionnement du système, puis lui proposer un autre mécanisme. Les paramètres eux-mêmes doivent ensuite être affinés à la main, à partir de parties jouées manuellement.
-- Fait intéressant : lorsqu’on demande au LLM d’ajouter des attaques d’Indiens, il conçoit volontairement un mini-jeu défensif afin de ne pas présenter les Indiens comme les agresseurs et emploie le terme « Native » plutôt qu’« Indien ». Il effectue toutefois les changements demandés lorsqu’on lui demande explicitement de le faire.
+- Le LLM n'a pas inclus d'Indiens dans sa version, alors qu'ils étaient bien présents dans la réalité historique (comme guides, commerçants et pas forcément agresseurs) et dans le jeu Oregon Trail. Lorsqu’on demande au LLM d’ajouter des attaques d’Indiens, il conçoit volontairement un mini-jeu défensif où on ne tue personne.
 - Globalement, le LLM n’introduit aucun bug de code simple. Il subsiste malgré tout des incohérences de logique, par exemple faire mourir un personnage puis le faire guérir ensuite. Le LLM ne les détecte pas lui-même pendant les phases du type « /goal vérifie et résous les problèmes avant passage en production ». Il reste aussi des bugs de présentation, comme des nombres mal arrondis tels que `23.000001`.
 - Le travail sur les mécanismes et sur la difficulté du jeu reste donc à faire. Lorsqu’on le laisse concevoir seul, le LLM tend à implémenter des mécanismes trop simples. On peut améliorer le résultat en le guidant davantage en amont pour qu’il propose des mécanismes plus élaborés, plutôt que de le laisser implémenter une première version puis de la corriger ensuite.
 
@@ -134,9 +134,9 @@ Il a été demandé :
 - Une hausse après les achats répétés d’une même marchandise dans un fort, à l’exception des vivres dont le tarif local reste fixe.
 - Le regroupement de tous les achats effectués dans un même fort le même jour en une seule entrée du journal.
 - Quarante conseils de piste concrets et parfois pointus lors des rencontres, choisis sans répétition pendant une partie et recopiés dans le journal.
-- Des bourses de départ finalement fixées à 600 $ pour le fermier, 900 $ pour le charpentier et 1 500 $ pour le banquier.
+- Des bourses de départ finalement fixées à 500 $ pour le fermier, 800 $ pour le charpentier et 1 100 $ pour le banquier.
 
-Le triplement général des balles et les premières bourses ont ensuite été remplacés par des prix de départ explicites — notamment 25 $ par bœuf, 4 $ pour 10 kg de vivres et 1 $ pour 10 balles à Independence — puis par la bourse finale de 600 $ pour le fermier. Il s’agit de demandes utilisateur successives, pas de valeurs choisies par le LLM.
+Le triplement général des balles et les premières bourses ont ensuite été remplacés par des prix de départ explicites — notamment 25 $ par bœuf, 4 $ pour 10 kg de vivres et 1 $ pour 10 balles à Independence — puis par la bourse finale de 500 $ pour le fermier. Il s’agit de demandes utilisateur successives, pas de valeurs choisies par le LLM.
 
 > **Décision du LLM :** désactiver de manière générale les achats impossibles ou dépassant la capacité du chariot. La désactivation selon les ressources disponibles avait été demandée explicitement pour les choix de riposte pendant une attaque, pas comme règle générale de tous les comptoirs.
 
@@ -166,18 +166,6 @@ La demande initiale ne détaillait pas les incidents. Les ajouts ultérieurs com
 Chaque incident devait aussi être inscrit dans le journal et disposer de son illustration propre.
 Lors d’une maladie contagieuse, les noms de tous les voyageurs atteints doivent être indiqués.
 Les maladies doivent durer plusieurs jours : ni un remède ni deux jours de repos ne guérissent immédiatement une dysenterie.
-
-## Point sensible : « autochtones » devenu « Indiens »
-
-> **Attribution : demande utilisateur explicite.**
-
-Le changement exact demandé a été :
-
-> « Des cavaliers autochtones » → « Les indiens »
-
-Ce vocabulaire ne vient donc pas de la demande initiale : il a été imposé explicitement plus tard.
-
-C’est un choix éditorial sensible, car « les Indiens » généralise des peuples distincts et les présente ici dans un rôle antagoniste. Il faudrait conserver la trace de cette décision si le jeu est présenté publiquement ou évalué sous l’angle historique.
 
 ## Point sensible : l’attaque reste un jeu défensif
 
@@ -354,8 +342,6 @@ Le métier module aussi la valeur du score : réussir avec la faible bourse du f
 
 Les demandes ultérieures comprennent également :
 
-- « Compagnon·ne » → « Compagnon ».
-- « Voyageur·se » → « Voyageur ».
 - Gestion correcte des pluriels, y compris le singulier après zéro.
 - Arrondi lisible et localisé de toutes les quantités calculées, sans décimales parasites issues des calculs internes.
 - Suppression du texte explicatif associé au rythme.

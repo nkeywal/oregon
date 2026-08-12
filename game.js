@@ -648,10 +648,11 @@ function renderShop() {
 
 function changeCart(key,dir){
   const item=SHOP[key], next=clamp(cart[key]+dir*item.step,0,item.max);
+  if(next===cart[key])return false;
   const trial={...cart,[key]:next};
   const spent=Object.entries(trial).reduce((sum,[k,q])=>sum+q/SHOP[k].step*SHOP[k].price,0);
-  if(spent>game.initialMoney){toast("Vous n’avez pas assez d’argent.");return;}
-  cart=trial;renderShop();
+  if(spent>game.initialMoney){toast("Vous n’avez pas assez d’argent.");return false;}
+  cart=trial;renderShop();return true;
 }
 
 function leaveTown(){
@@ -1823,11 +1824,13 @@ function huntBackground(){
   return {cold:"hunt-cold.webp",hot:"hunt-hot.webp",rain:"hunt-rain.webp",mild:"hunt.webp"}[key];
 }
 
+function huntLootLimit(){return 90}
+
 function startHunt(){
   if(game.cart.munitions<=0){toast("Vous n’avez plus de munitions.");return;}
   if(game.cart.vivres>=SHOP.vivres.max){toast("Le chariot ne peut pas charger davantage de vivres.");return;}
   const siteKey=huntSiteKey(),wildlife=huntWildlife(routeSegmentAt(),game.weather,siteKey);
-  hunt={time:14,loot:0,limit:Math.min(90,SHOP.vivres.max-game.cart.vivres),shots:0,kills:{},siteKey,background:huntBackground(),cross:{x:380,y:210},animals:[],species:wildlife.pool,last:performance.now(),running:true};
+  hunt={time:14,loot:0,limit:huntLootLimit(),shots:0,kills:{},siteKey,background:huntBackground(),cross:{x:380,y:210},animals:[],species:wildlife.pool,last:performance.now(),running:true};
   for(let i=0;i<wildlife.count;i++)spawnAnimal(i*145,wildlife.guaranteedSmallGame[i]);
   const canvas=$("#canvas-chasse");canvas.style.backgroundImage=`url('assets/${hunt.background}')`;
   $("#dialogue-chasse .eyebrow").textContent=languageText(regionVisual().title);
@@ -1850,12 +1853,14 @@ function resolveHuntDay(loot){
 
 function spawnAnimal(offset=0,speciesOverride=null){
   const species=speciesOverride??pick(hunt.species),cfg=HUNT_SPECIES[species],direction=Math.random()<.25?-1:1;
-  hunt.animals.push({species,size:cfg.size,vx:rand(...cfg.speed)*direction,y:rand(...cfg.y),x:direction>0?-60-offset:820+offset,phase:Math.random()*6});
+  hunt.animals.push({species,size:cfg.size,vx:rand(...cfg.speed)*direction,y:rand(...cfg.y),x:direction>0?-60-offset:820+offset,phase:Math.random()*6,hits:0});
 }
 
 function resetAnimal(a){
   const replacement=[];spawnAnimal(rand(40,180));replacement.push(hunt.animals.pop());Object.assign(a,replacement[0]);
 }
+
+function huntShouldEnd(){return hunt.time<=0||game.cart.munitions<=0||hunt.loot>=hunt.limit}
 
 function huntLoop(now){
   if(!hunt?.running)return;const dt=Math.min(.04,(now-hunt.last)/1000);hunt.last=now;hunt.time-=dt;
@@ -1863,7 +1868,7 @@ function huntLoop(now){
   hunt.animals.forEach(a=>{a.x+=a.vx*dt;a.phase+=dt*5;if(a.species==="bird")a.y+=Math.sin(a.phase)*.7;if((a.vx>0&&a.x>c.width+60)||(a.vx<0&&a.x<-60))resetAnimal(a);drawAnimal(ctx,a)});
   ctx.strokeStyle="#f7e4b2";ctx.lineWidth=2;ctx.beginPath();ctx.arc(hunt.cross.x,hunt.cross.y,11,0,Math.PI*2);ctx.moveTo(hunt.cross.x-17,hunt.cross.y);ctx.lineTo(hunt.cross.x+17,hunt.cross.y);ctx.moveTo(hunt.cross.x,hunt.cross.y-17);ctx.lineTo(hunt.cross.x,hunt.cross.y+17);ctx.stroke();
   $("#chasse-temps").textContent=Math.max(0,Math.ceil(hunt.time));
-  if(hunt.time<=0||game.cart.munitions<=0||hunt.loot>=hunt.limit){endHunt();return;}requestAnimationFrame(huntLoop);
+  if(huntShouldEnd()){endHunt();return;}requestAnimationFrame(huntLoop);
 }
 
 function drawAnimal(ctx,a){
@@ -1886,10 +1891,15 @@ function aimHuntAt(event){
 
 function shotKillsSpecies(species,roll=Math.random()){return roll<(HUNT_SPECIES[species]?.kill??0)}
 
+function accurateShotKillsAnimal(animal,roll=Math.random()){
+  animal.hits=(animal.hits??0)+1;
+  return animal.hits>=5||shotKillsSpecies(animal.species,roll);
+}
+
 function shoot(touchAssist=false){
   if(!hunt?.running||game.cart.munitions<=0)return;hunt.shots++;game.cart.munitions--;
   const hit=hunt.animals.find(a=>Math.hypot(a.x-hunt.cross.x,a.y-hunt.cross.y)<a.size*HUNT_SPECIES[a.species].hit+(touchAssist?14:0));
-  if(hit&&shotKillsSpecies(hit.species)){const species=hit.species,range=HUNT_SPECIES[species].loot,gain=Math.min(hunt.limit-hunt.loot,rand(...range));hunt.loot+=gain;hunt.kills[species]=(hunt.kills[species]??0)+1;resetAnimal(hit)}
+  if(hit&&accurateShotKillsAnimal(hit)){const species=hit.species,range=HUNT_SPECIES[species].loot,gain=Math.min(hunt.limit-hunt.loot,rand(...range));hunt.loot+=gain;hunt.kills[species]=(hunt.kills[species]??0)+1;resetAnimal(hit)}
   $("#chasse-balles").textContent=game.cart.munitions;$("#chasse-butin").textContent=hunt.loot;
   if(hunt.loot>=hunt.limit)endHunt();
 }
@@ -2009,7 +2019,15 @@ function bindEvents(){
   $("#guide-boutique").addEventListener("click",()=>openGuide("ecran-boutique"));
   $("#retour-aide").addEventListener("click",()=>showScreen(helpReturnScreen));
   $("#form-groupe").addEventListener("submit",e=>{e.preventDefault();const fd=new FormData(e.currentTarget);const names=[0,1,2,3,4].map(i=>String(fd.get(`nom${i}`)).trim());if(names.some(name=>!name)){toast("Donnez un nom à chaque voyageur.");return;}cart=Object.fromEntries(Object.entries(SHOP).map(([k,v])=>[k,v.start]));game=baseGame(names,fd.get("profession"),fd.get("mois"));renderShop();showScreen("ecran-boutique")});
-  $("#liste-boutique").addEventListener("click",e=>{const b=e.target.closest("[data-shop]");if(b)changeCart(b.dataset.shop,Number(b.dataset.dir))});
+  const shopList=$("#liste-boutique");let shopRepeatDelay=null,shopRepeatInterval=null;
+  const stopShopRepeat=()=>{clearTimeout(shopRepeatDelay);clearInterval(shopRepeatInterval);shopRepeatDelay=null;shopRepeatInterval=null};
+  shopList.addEventListener("pointerdown",e=>{
+    const button=e.target.closest("[data-shop]");if(!button||button.disabled||!e.isPrimary||e.button!==0)return;
+    e.preventDefault();stopShopRepeat();const key=button.dataset.shop,dir=Number(button.dataset.dir);if(!changeCart(key,dir))return;
+    shopRepeatDelay=setTimeout(()=>{shopRepeatInterval=setInterval(()=>{if(!changeCart(key,dir))stopShopRepeat()},75)},350);
+  });
+  shopList.addEventListener("click",e=>{const button=e.target.closest("[data-shop]");if(button&&e.detail===0)changeCart(button.dataset.shop,Number(button.dataset.dir))});
+  document.addEventListener("pointerup",stopShopRepeat);document.addEventListener("pointercancel",stopShopRepeat);window.addEventListener("blur",stopShopRepeat);
   $("#retour-groupe").addEventListener("click",()=>showScreen("ecran-groupe"));$("#partir").addEventListener("click",leaveTown);
   $("#rythme").addEventListener("change",e=>game.pace=e.target.value);$("#rations").addEventListener("change",e=>game.rations=e.target.value);
   $("#avancer").addEventListener("click",()=>travel());$("#repos").addEventListener("click",rest);$("#chasser").addEventListener("click",startHunt);$("#carte-btn").addEventListener("click",showMap);$("#inventaire-btn").addEventListener("click",showInventory);$("#journal-plus").addEventListener("click",showJournal);$("#aide").addEventListener("click",showHelp);

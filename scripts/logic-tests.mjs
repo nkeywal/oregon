@@ -29,6 +29,11 @@ test("the initial wagon is empty and leaves the full budget to the player",()=>{
   assert.equal(result.empty,true);assert.equal(result.farmer,500);assert.equal(result.carpenter,800);assert.equal(result.banker,1100);
 });
 
+test("cart changes report when a press can no longer increment",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);renderShop=()=>{};toast=()=>{};cart={...cart,vivres:SHOP.vivres.max};({atMaximum:changeCart("vivres",1),removed:changeCart("vivres",-1),quantity:cart.vivres})`);
+  assert.equal(result.atMaximum,false);assert.equal(result.removed,true);assert.equal(result.quantity,790);
+});
+
 test("Independence uses the requested purchase units and prices",()=>{
   const result=scenario(`({oxen:{step:SHOP.boeufs.step,price:SHOP.boeufs.price},food:{step:SHOP.vivres.step,price:SHOP.vivres.price},ammo:{step:SHOP.munitions.step,price:SHOP.munitions.price}})`);
   assert.deepEqual({...result.oxen},{step:2,price:50});assert.deepEqual({...result.food},{step:10,price:4});assert.deepEqual({...result.ammo},{step:20,price:2});
@@ -246,6 +251,20 @@ test("each accurate hunting shot uses the requested species kill chance",()=>{
   const result=scenario(`({chances:Object.fromEntries(Object.entries(HUNT_SPECIES).map(([species,config])=>[species,config.kill])),rabbit:shotKillsSpecies("rabbit",.999),bird:shotKillsSpecies("bird",.999),bisonBelow:shotKillsSpecies("bison",.199),bisonAt:shotKillsSpecies("bison",.2),deerBelow:shotKillsSpecies("deer",.399),deerAt:shotKillsSpecies("deer",.4)})`);
   assert.deepEqual({...result.chances},{bison:.2,deer:.4,rabbit:1,bird:1});assert.equal(result.rabbit,true);assert.equal(result.bird,true);
   assert.equal(result.bisonBelow,true);assert.equal(result.bisonAt,false);assert.equal(result.deerBelow,true);assert.equal(result.deerAt,false);
+});
+
+test("five accurate shots always kill the same animal independently of probability",()=>{
+  const result=scenario(`const animal={species:"bison",hits:0};const outcomes=Array.from({length:5},()=>accurateShotKillsAnimal(animal,.999));({outcomes,hits:animal.hits})`);
+  assert.deepEqual([...result.outcomes],[false,false,false,false,true]);assert.equal(result.hits,5);
+});
+
+test("a hunt always uses the full ninety-kilogram session limit",()=>{
+  assert.equal(scenario(`huntLootLimit()`),90);
+});
+
+test("hunting does not end early when the wagon has little free food capacity",()=>{
+  const result=scenario(`game=baseGame(["A","B","C","D","E"],"fermier",3);game.cart.vivres=790;game.cart.munitions=20;hunt={running:true,time:11,loot:28,limit:huntLootLimit()};({ends:huntShouldEnd(),limit:hunt.limit,free:SHOP.vivres.max-game.cart.vivres})`);
+  assert.equal(result.free,10);assert.equal(result.limit,90);assert.equal(result.ends,false);
 });
 
 test("French game abundance descriptions avoid the awkward 'gibier dispersé'",()=>{
